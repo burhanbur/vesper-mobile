@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../categories/models/category.dart';
 import '../models/transaction.dart';
 
 class AddTransactionModal extends StatefulWidget {
@@ -158,6 +159,46 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               ? 'Transaksi tersimpan lokal ke SQLite (antre sinkronisasi saat online)'
               : 'Transaksi berhasil disimpan!',
         ),
+      ),
+    );
+  }
+
+  void _showQuickAddCategoryDialog(BuildContext context, AppState state, bool isIncome) {
+    final textController = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(isIncome ? 'Tambah Kategori Pemasukan' : 'Tambah Kategori Pengeluaran'),
+        content: TextField(
+          controller: textController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Nama kategori baru...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = textController.text.trim();
+              if (name.isNotEmpty) {
+                state.addCategory(
+                  name: name,
+                  type: isIncome ? CategoryType.income : CategoryType.expense,
+                  icon: isIncome ? Icons.account_balance_wallet_rounded : Icons.shopping_bag_rounded,
+                  color: isIncome ? AppColors.income : AppColors.expense,
+                );
+                setState(() => _selectedCategory = name);
+                Navigator.of(dialogCtx).pop();
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
       ),
     );
   }
@@ -496,26 +537,48 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: currentCategories.map((cat) {
-                  final isSelected = _selectedCategory == cat;
-                  return ChoiceChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    selectedColor: AppColors.primary,
-                    labelStyle: TextStyle(
+                children: [
+                  ...currentCategories.map((cat) {
+                    final isSelected = _selectedCategory == cat;
+                    final categoryObj = state.getCategoryByName(cat);
+                    return ChoiceChip(
+                      avatar: categoryObj != null
+                          ? Icon(
+                              categoryObj.icon,
+                              size: 15,
+                              color: isSelected ? Colors.white : categoryObj.color,
+                            )
+                          : null,
+                      label: Text(cat),
+                      selected: isSelected,
+                      selectedColor: AppColors.primary,
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                      ),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() {
+                            _selectedCategory = cat;
+                          });
+                        }
+                      },
+                    );
+                  }),
+                  ActionChip(
+                    avatar: const Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                    label: const Text('Tambah Kategori'),
+                    labelStyle: const TextStyle(
                       fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? Colors.white : AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
                     ),
-                    onSelected: (val) {
-                      if (val) {
-                        setState(() {
-                          _selectedCategory = cat;
-                        });
-                      }
-                    },
-                  );
-                }).toList(),
+                    side: const BorderSide(color: AppColors.border),
+                    backgroundColor: AppColors.surfaceVariant,
+                    onPressed: () => _showQuickAddCategoryDialog(context, state, isIncome),
+                  ),
+                ],
               ),
             ],
 

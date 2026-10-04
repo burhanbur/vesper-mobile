@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../accounts/pages/accounts_page.dart';
+import '../../categories/pages/categories_page.dart';
 import '../../household/pages/household_page.dart';
 import '../../investments/pages/investments_page.dart';
 import '../../notifications/widgets/notifications_sheet.dart';
@@ -314,6 +315,18 @@ class SettingsPage extends StatelessWidget {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(builder: (context) => const AccountsPage()),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.category_rounded, color: AppColors.primary),
+                      title: const Text('Kelola Kategori Transaksi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: Text('${state.categories.length} kategori pemasukan & pengeluaran', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (context) => const CategoriesPage()),
                         );
                       },
                     ),

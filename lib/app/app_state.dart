@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/accounts/models/account.dart';
+import '../features/categories/models/category.dart';
 import '../features/household/models/group_category.dart';
 import '../features/household/models/household.dart';
 import '../features/investments/models/investment.dart';
@@ -240,6 +241,118 @@ class AppState extends ChangeNotifier {
   );
 
   Household get household => activeHousehold;
+
+  // ==================== CATEGORIES (PRD 4.4 & Architecture) ====================
+  final List<Category> _categories = List.from(Category.initialCategories);
+
+  List<Category> get categories => List.unmodifiable(_categories);
+
+  List<Category> get expenseCategories =>
+      _categories.where((c) => c.type == CategoryType.expense).toList();
+
+  List<Category> get incomeCategories =>
+      _categories.where((c) => c.type == CategoryType.income).toList();
+
+  Category? getCategoryByName(String name) {
+    try {
+      return _categories.firstWhere((c) => c.name.toLowerCase() == name.toLowerCase());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void addCategory({
+    required String name,
+    required CategoryType type,
+    required IconData icon,
+    required Color color,
+  }) {
+    final trimmedName = name.trim();
+    final newCat = Category(
+      id: 'cat-custom-${DateTime.now().millisecondsSinceEpoch}',
+      name: trimmedName,
+      type: type,
+      icon: icon,
+      color: color,
+      userId: _currentUserId,
+      isDefault: false,
+      sequenceOrder: _categories.length + 1,
+    );
+    _categories.add(newCat);
+
+    final targetMap = type == CategoryType.expense ? _ownerExpenseCategories : _ownerIncomeCategories;
+    final list = targetMap.putIfAbsent(_currentUserId, () => []);
+    if (!list.contains(trimmedName)) {
+      list.add(trimmedName);
+    }
+
+    _enqueueSync(
+      entityType: 'category',
+      entityId: newCat.id,
+      operation: 'CREATE',
+      description: 'Tambah kategori ${type == CategoryType.expense ? "pengeluaran" : "pemasukan"} "$name"',
+    );
+    notifyListeners();
+  }
+
+  void updateCategory({
+    required String id,
+    String? name,
+    IconData? icon,
+    Color? color,
+  }) {
+    final index = _categories.indexWhere((c) => c.id == id);
+    if (index != -1) {
+      final old = _categories[index];
+      final newName = name?.trim();
+      _categories[index] = old.copyWith(
+        name: newName,
+        icon: icon,
+        color: color,
+      );
+
+      if (newName != null && newName != old.name) {
+        final targetMap = old.type == CategoryType.expense ? _ownerExpenseCategories : _ownerIncomeCategories;
+        final list = targetMap[_currentUserId];
+        final listIdx = list?.indexOf(old.name) ?? -1;
+        if (list != null && listIdx != -1) {
+          list[listIdx] = newName;
+        }
+      }
+
+      _enqueueSync(
+        entityType: 'category',
+        entityId: id,
+        operation: 'UPDATE',
+        description: 'Perbarui kategori "${_categories[index].name}"',
+      );
+      notifyListeners();
+    }
+  }
+
+  bool deleteCategory(String id) {
+    final index = _categories.indexWhere((c) => c.id == id);
+    if (index != -1) {
+      final cat = _categories[index];
+      if (cat.isDefault) {
+        // Protected system default category
+        return false;
+      }
+      _categories.removeAt(index);
+      final targetMap = cat.type == CategoryType.expense ? _ownerExpenseCategories : _ownerIncomeCategories;
+      targetMap[_currentUserId]?.remove(cat.name);
+
+      _enqueueSync(
+        entityType: 'category',
+        entityId: id,
+        operation: 'DELETE',
+        description: 'Hapus kategori "${cat.name}"',
+      );
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
 
   // ACCOUNTS (Supports Nested Accounts / Pockets per PRD 4.3)
   List<Account> _accounts = [
@@ -866,6 +979,27 @@ class AppState extends ChangeNotifier {
   final List<SyncQueueItem> _syncQueue = [];
   List<SyncQueueItem> get syncQueue => List.unmodifiable(_syncQueue);
   int get pendingSyncCount => _syncQueue.where((item) => !item.isSynced).length;
+
+  void _enqueueSync({
+    required String entityType,
+    required String entityId,
+    required String operation,
+    required String description,
+  }) {
+    _syncQueue.insert(
+      0,
+      SyncQueueItem(
+        id: 'sync-${DateTime.now().millisecondsSinceEpoch}',
+        entityType: entityType,
+        entityId: entityId,
+        operation: operation,
+        description: description,
+        timestamp: DateTime.now(),
+        clientVersion: 1,
+        isSynced: !_isOfflineMode,
+      ),
+    );
+  }
 
   final List<SyncConflictItem> _conflicts = [
     SyncConflictItem(

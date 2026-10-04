@@ -12,29 +12,11 @@ class AccountCard extends StatelessWidget {
   const AccountCard({super.key, required this.account, this.onTap});
 
   IconData _getAccountIcon() {
-    switch (account.type) {
-      case AccountType.bank:
-        return Icons.account_balance_rounded;
-      case AccountType.cash:
-        return Icons.payments_outlined;
-      case AccountType.wallet:
-        return Icons.phone_android_rounded;
-      case AccountType.investment:
-        return Icons.trending_up_rounded;
-    }
+    return AccountTypeDefinition.getDefinition(account.type).icon;
   }
 
   Color _getAccountColor() {
-    switch (account.type) {
-      case AccountType.bank:
-        return AppColors.primary;
-      case AccountType.cash:
-        return AppColors.accentDark;
-      case AccountType.wallet:
-        return AppColors.transfer;
-      case AccountType.investment:
-        return AppColors.investment;
-    }
+    return AccountTypeDefinition.getDefinition(account.type).color;
   }
 
   @override

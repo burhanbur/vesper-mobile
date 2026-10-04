@@ -20,29 +20,11 @@ class _AccountsPageState extends State<AccountsPage> {
   final Set<String> _expandedParents = {'acc-jago'}; // Default expanded
 
   IconData _getAccountIcon(AccountType type) {
-    switch (type) {
-      case AccountType.bank:
-        return Icons.account_balance_rounded;
-      case AccountType.cash:
-        return Icons.payments_outlined;
-      case AccountType.wallet:
-        return Icons.phone_android_rounded;
-      case AccountType.investment:
-        return Icons.trending_up_rounded;
-    }
+    return AccountTypeDefinition.getDefinition(type).icon;
   }
 
   Color _getAccountColor(AccountType type) {
-    switch (type) {
-      case AccountType.bank:
-        return AppColors.primary;
-      case AccountType.cash:
-        return AppColors.accentDark;
-      case AccountType.wallet:
-        return AppColors.transfer;
-      case AccountType.investment:
-        return AppColors.investment;
-    }
+    return AccountTypeDefinition.getDefinition(type).color;
   }
 
   void _showAddAccountModal(BuildContext context) {
@@ -123,53 +105,24 @@ class _AccountsPageState extends State<AccountsPage> {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Bank'),
-                      selected: selectedType == AccountType.bank,
+                  runSpacing: 8,
+                  children: AccountTypeDefinition.allDefinitions.map((def) {
+                    final isSelected = selectedType == def.type;
+                    return ChoiceChip(
+                      avatar: Icon(def.icon, size: 16, color: isSelected ? Colors.white : def.color),
+                      label: Text(def.label),
+                      selected: isSelected,
                       selectedColor: AppColors.primary,
                       labelStyle: TextStyle(
-                        color: selectedType == AccountType.bank
-                            ? Colors.white
-                            : AppColors.textPrimary,
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                       onSelected: (val) {
-                        if (val) setModalState(() => selectedType = AccountType.bank);
+                        if (val) setModalState(() => selectedType = def.type);
                       },
-                    ),
-                    ChoiceChip(
-                      label: const Text('E-Wallet'),
-                      selected: selectedType == AccountType.wallet,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: selectedType == AccountType.wallet
-                            ? Colors.white
-                            : AppColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onSelected: (val) {
-                        if (val) setModalState(() => selectedType = AccountType.wallet);
-                      },
-                    ),
-                    ChoiceChip(
-                      label: const Text('Kas Tunai'),
-                      selected: selectedType == AccountType.cash,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: selectedType == AccountType.cash
-                            ? Colors.white
-                            : AppColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      onSelected: (val) {
-                        if (val) setModalState(() => selectedType = AccountType.cash);
-                      },
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -349,7 +302,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       accountNumber: numberController.text.trim().isEmpty
                           ? 'Rek. Baru'
                           : numberController.text.trim(),
-                      institution: selectedType == AccountType.bank ? 'Bank' : 'Dompet',
+                      institution: AccountTypeDefinition.getDefinition(selectedType).categoryGroup,
                       isShared: isShared,
                       householdId: isShared ? selectedHouseholdId : null,
                       parentAccountId: selectedParentId,
