@@ -4,7 +4,26 @@
         {
             "name": "vesper_mobile",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define-from-file=env/development.json"
+            ]
+        },
+        {
+            "name": "vesper_mobile (Android emulator)",
+            "request": "launch",
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define-from-file=env/development.json"
+            ]
+        },
+        {
+            "name": "vesper_mobile (Web)",
+            "request": "launch",
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define-from-file=env/web.json"
+            ]
         },
         {
             "name": "vesper_mobile (profile mode)",

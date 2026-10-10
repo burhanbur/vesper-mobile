@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../accounts/widgets/account_picker_sheet.dart';
 import '../models/investment.dart';
 
 class InvestmentTradeModal {
@@ -18,7 +19,9 @@ class InvestmentTradeModal {
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Row(
             children: [
               Icon(Icons.wifi_off_rounded, color: AppColors.warning),
@@ -60,11 +63,13 @@ class InvestmentTradeModal {
       builder: (ctx) => StatefulBuilder(
         builder: (modalCtx, setModalState) {
           final qty = double.tryParse(qtyController.text) ?? 0.0;
-          final price = double.tryParse(
+          final price =
+              double.tryParse(
                 priceController.text.replaceAll(RegExp(r'[^0-9.]'), ''),
               ) ??
               0.0;
-          final fee = int.tryParse(
+          final fee =
+              int.tryParse(
                 feeController.text.replaceAll(RegExp(r'[^0-9]'), ''),
               ) ??
               0;
@@ -133,7 +138,11 @@ class InvestmentTradeModal {
                             fontWeight: FontWeight.w700,
                           ),
                           onSelected: (val) {
-                            if (val) setModalState(() => selectedType = InvestmentTradeType.buy);
+                            if (val) {
+                              setModalState(
+                                () => selectedType = InvestmentTradeType.buy,
+                              );
+                            }
                           },
                         ),
                       ),
@@ -151,7 +160,11 @@ class InvestmentTradeModal {
                             fontWeight: FontWeight.w700,
                           ),
                           onSelected: (val) {
-                            if (val) setModalState(() => selectedType = InvestmentTradeType.sell);
+                            if (val) {
+                              setModalState(
+                                () => selectedType = InvestmentTradeType.sell,
+                              );
+                            }
                           },
                         ),
                       ),
@@ -159,7 +172,8 @@ class InvestmentTradeModal {
                       Expanded(
                         child: ChoiceChip(
                           label: const Center(child: Text('DIVIDEN')),
-                          selected: selectedType == InvestmentTradeType.dividend,
+                          selected:
+                              selectedType == InvestmentTradeType.dividend,
                           selectedColor: AppColors.income,
                           labelStyle: TextStyle(
                             color: selectedType == InvestmentTradeType.dividend
@@ -169,7 +183,12 @@ class InvestmentTradeModal {
                             fontWeight: FontWeight.w700,
                           ),
                           onSelected: (val) {
-                            if (val) setModalState(() => selectedType = InvestmentTradeType.dividend);
+                            if (val) {
+                              setModalState(
+                                () =>
+                                    selectedType = InvestmentTradeType.dividend,
+                              );
+                            }
                           },
                         ),
                       ),
@@ -210,7 +229,9 @@ class InvestmentTradeModal {
                           if (val != null) {
                             setModalState(() {
                               selectedAsset = val;
-                              priceController.text = val.currentPrice.toInt().toString();
+                              priceController.text = val.currentPrice
+                                  .toInt()
+                                  .toString();
                             });
                           }
                         },
@@ -238,7 +259,10 @@ class InvestmentTradeModal {
                             const SizedBox(height: 6),
                             TextField(
                               controller: qtyController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               decoration: const InputDecoration(
                                 hintText: 'Contoh: 10',
                               ),
@@ -278,40 +302,26 @@ class InvestmentTradeModal {
                   const SizedBox(height: 14),
 
                   // Linked Cash Account (PRD 5.8)
-                  Text(
-                    selectedType == InvestmentTradeType.buy
+                  AccountSelectorTile(
+                    label: selectedType == InvestmentTradeType.buy
                         ? 'Akun Kas Sumber Dana (Uang Keluar)'
                         : 'Akun Kas Tujuan Dana (Uang Masuk)',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String?>(
-                        value: selectedCashAccountId,
-                        isExpanded: true,
-                        items: state.selectableAccounts
-                            .map(
-                              (a) => DropdownMenuItem(
-                                value: a.id,
-                                child: Text('${a.name} (${CurrencyFormatter.formatCompact(a.balance)})'),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          setModalState(() => selectedCashAccountId = val);
-                        },
-                      ),
-                    ),
+                    account: selectedCashAccountId != null
+                        ? state.getAccountById(selectedCashAccountId!)
+                        : null,
+                    onTap: () async {
+                      final picked = await AccountPickerSheet.show(
+                        context,
+                        title: selectedType == InvestmentTradeType.buy
+                            ? 'Pilih Sumber Dana Kas'
+                            : 'Pilih Rekening Tujuan Kas',
+                        selectedAccountId: selectedCashAccountId,
+                        accounts: state.selectableAccounts,
+                      );
+                      if (picked != null) {
+                        setModalState(() => selectedCashAccountId = picked.id);
+                      }
+                    },
                   ),
 
                   const SizedBox(height: 14),
@@ -329,7 +339,9 @@ class InvestmentTradeModal {
                   TextField(
                     controller: feeController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(hintText: 'Contoh: 10000'),
+                    decoration: const InputDecoration(
+                      hintText: 'Contoh: 10000',
+                    ),
                     onChanged: (_) => setModalState(() {}),
                   ),
 
@@ -347,7 +359,10 @@ class InvestmentTradeModal {
                       children: [
                         const Text(
                           'Total Estimasi Nilai:',
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                         Text(
                           CurrencyFormatter.formatRupiah(totalEst),
@@ -374,7 +389,9 @@ class InvestmentTradeModal {
                         pricePerUnit: price,
                         fee: fee,
                         cashAccountId: selectedCashAccountId,
-                        note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                        note: noteController.text.trim().isEmpty
+                            ? null
+                            : noteController.text.trim(),
                       );
 
                       Navigator.of(ctx).pop();
@@ -388,7 +405,9 @@ class InvestmentTradeModal {
                         ),
                       );
                     },
-                    child: Text('Simpan Transaksi ${selectedType.name.toUpperCase()}'),
+                    child: Text(
+                      'Simpan Transaksi ${selectedType.name.toUpperCase()}',
+                    ),
                   ),
                 ],
               ),

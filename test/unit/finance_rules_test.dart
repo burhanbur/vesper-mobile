@@ -12,27 +12,33 @@ void main() {
       appState = AppState();
     });
 
-    test('Parent account balance excludes double counting in total liquid cash', () {
-      // Bank Jago is a parent with children pockets and has isIncludeTotal = false
-      final jagoParent = appState.getAccountById('acc-jago');
-      expect(jagoParent, isNotNull);
-      expect(jagoParent!.isIncludeTotal, isFalse);
+    test(
+      'Parent account balance excludes double counting in total liquid cash',
+      () {
+        // Bank Jago is a parent with children pockets and has isIncludeTotal = false
+        final jagoParent = appState.getAccountById('acc-jago');
+        expect(jagoParent, isNotNull);
+        expect(jagoParent!.isIncludeTotal, isFalse);
 
-      final jagoChildren = appState.getChildrenForAccount('acc-jago');
-      expect(jagoChildren.length, 3);
+        final jagoChildren = appState.getChildrenForAccount('acc-jago');
+        expect(jagoChildren.length, 3);
 
-      final totalChildrenBalance = jagoChildren.fold(0, (sum, c) => sum + c.balance);
-      expect(jagoParent.balance, totalChildrenBalance);
+        final totalChildrenBalance = jagoChildren.fold(
+          0,
+          (sum, c) => sum + c.balance,
+        );
+        expect(jagoParent.balance, totalChildrenBalance);
 
-      // Verify total liquid cash sums only isIncludeTotal accounts
-      int expectedCash = 0;
-      for (final acc in appState.accounts) {
-        if (acc.isIncludeTotal && acc.type != AccountType.investment) {
-          expectedCash += acc.balance;
+        // Verify total liquid cash sums only isIncludeTotal accounts
+        int expectedCash = 0;
+        for (final acc in appState.accounts) {
+          if (acc.isIncludeTotal && acc.type != AccountType.investment) {
+            expectedCash += acc.balance;
+          }
         }
-      }
-      expect(appState.totalLiquidCash, expectedCash);
-    });
+        expect(appState.totalLiquidCash, expectedCash);
+      },
+    );
 
     test('Transfer does not count as income or expense', () {
       final initialIncome = appState.monthIncome;
@@ -51,20 +57,31 @@ void main() {
       expect(appState.monthExpense, initialExpense);
     });
 
-    test('Shared account uses categories belonging to account owner per PRD 4.4', () {
-      // acc-bca is owned by u-1 (Burhan Mafazi)
-      final bcaCategories = appState.getCategoriesForAccount('acc-bca', isIncome: false);
-      expect(bcaCategories.contains('Makanan & Minuman'), isTrue);
+    test(
+      'Shared account uses categories belonging to account owner per PRD 4.4',
+      () {
+        // acc-bca is owned by u-1 (Burhan Mafazi)
+        final bcaCategories = appState.getCategoriesForAccount(
+          'acc-bca',
+          isIncome: false,
+        );
+        expect(bcaCategories.contains('Makanan & Minuman'), isTrue);
 
-      // acc-mandiri is owned by u-2 (Sarah Mafazi)
-      final mandiriCategories = appState.getCategoriesForAccount('acc-mandiri', isIncome: false);
-      expect(mandiriCategories.contains('Dapur & Bahan Masak'), isTrue);
-      expect(mandiriCategories.contains('Skincare & Perawatan'), isTrue);
-    });
+        // acc-mandiri is owned by u-2 (Sarah Mafazi)
+        final mandiriCategories = appState.getCategoriesForAccount(
+          'acc-mandiri',
+          isIncome: false,
+        );
+        expect(mandiriCategories.contains('Dapur & Bahan Masak'), isTrue);
+        expect(mandiriCategories.contains('Skincare & Perawatan'), isTrue);
+      },
+    );
 
     test('Investment buy decreases cash balance and increases holding position per PRD 5.8', () {
       final initialCash = appState.getAccountById('acc-bca')!.balance;
-      final btcAsset = appState.investments.firstWhere((inv) => inv.id == 'inv-btc');
+      final btcAsset = appState.investments.firstWhere(
+        (inv) => inv.id == 'inv-btc',
+      );
       final initialQty = btcAsset.quantity;
 
       appState.recordInvestmentTrade(
@@ -79,7 +96,9 @@ void main() {
       final updatedBca = appState.getAccountById('acc-bca')!;
       expect(updatedBca.balance, initialCash - (5000000 + 10000));
 
-      final updatedBtc = appState.investments.firstWhere((inv) => inv.id == 'inv-btc');
+      final updatedBtc = appState.investments.firstWhere(
+        (inv) => inv.id == 'inv-btc',
+      );
       expect(updatedBtc.quantity, closeTo(initialQty + 0.005, 0.0001));
     });
 
@@ -91,7 +110,10 @@ void main() {
 
       expect(appState.conflictCount, 0);
       expect(appState.syncQueue.length, initialQueueLength + 1);
-      expect(appState.syncQueue.first.description.contains('Pakai data lokal'), isTrue);
+      expect(
+        appState.syncQueue.first.description.contains('Pakai data lokal'),
+        isTrue,
+      );
     });
   });
 }

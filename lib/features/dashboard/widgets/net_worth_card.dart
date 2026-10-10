@@ -12,6 +12,40 @@ class NetWorthCard extends StatelessWidget {
     final state = AppStateScope.of(context);
     final isHidden = state.isBalanceHidden;
 
+    final growth = state.monthGrowthPercentage;
+    final isPositive = growth > 0.0001;
+    final isNegative = growth < -0.0001;
+
+    final Color badgeColor;
+    final Color badgeBg;
+    final Color badgeBorder;
+    final IconData badgeIcon;
+    final String badgeText;
+    final Color sparklineColor;
+
+    if (isPositive) {
+      badgeColor = AppColors.accent;
+      badgeBg = AppColors.accent.withValues(alpha: 0.18);
+      badgeBorder = AppColors.accent.withValues(alpha: 0.32);
+      badgeIcon = Icons.arrow_upward_rounded;
+      badgeText = '+${growth.toStringAsFixed(1)}% bulan ini';
+      sparklineColor = AppColors.accent;
+    } else if (isNegative) {
+      badgeColor = const Color(0xFFFF8A80);
+      badgeBg = AppColors.expense.withValues(alpha: 0.2);
+      badgeBorder = const Color(0xFFFF8A80).withValues(alpha: 0.32);
+      badgeIcon = Icons.arrow_downward_rounded;
+      badgeText = '${growth.toStringAsFixed(1)}% bulan ini';
+      sparklineColor = const Color(0xFFFF8A80);
+    } else {
+      badgeColor = AppColors.sageMuted;
+      badgeBg = Colors.white.withValues(alpha: 0.08);
+      badgeBorder = Colors.white.withValues(alpha: 0.14);
+      badgeIcon = Icons.remove_rounded;
+      badgeText = '0.0% bulan ini';
+      sparklineColor = AppColors.sageMuted.withValues(alpha: 0.5);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Container(
@@ -95,32 +129,30 @@ class NetWorthCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      // Growth Badge (+4.2% bulan ini - contoh-1.png)
+                      // Growth Badge (dinamis berdasarkan persentase bulan ini)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 9,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.2),
+                          color: badgeBg,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.3),
-                          ),
+                          border: Border.all(color: badgeBorder),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.arrow_upward_rounded,
+                              badgeIcon,
                               size: 12,
-                              color: AppColors.accent,
+                              color: badgeColor,
                             ),
-                            SizedBox(width: 3),
+                            const SizedBox(width: 3),
                             Text(
-                              '+4.2% bulan ini',
+                              badgeText,
                               style: TextStyle(
-                                color: AppColors.accent,
+                                color: badgeColor,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -153,7 +185,10 @@ class NetWorthCard extends StatelessWidget {
                         width: 72,
                         height: 28,
                         child: CustomPaint(
-                          painter: _SparklinePainter(),
+                          painter: _SparklinePainter(
+                            points: state.monthNetWorthTrend,
+                            lineColor: sparklineColor,
+                          ),
                         ),
                       ),
                     ],
@@ -298,29 +333,62 @@ class NetWorthCard extends StatelessWidget {
 }
 
 class _SparklinePainter extends CustomPainter {
+  final List<double> points;
+  final Color lineColor;
+
+  const _SparklinePainter({
+    required this.points,
+    required this.lineColor,
+  });
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
     final paint = Paint()
-      ..color = AppColors.accent
+      ..color = lineColor
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final minVal = points.reduce((a, b) => a < b ? a : b);
+    final maxVal = points.reduce((a, b) => a > b ? a : b);
+
+    // If perfectly flat or single point, draw subtle horizontal line through center
+    if (minVal == maxVal || points.length == 1) {
+      canvas.drawLine(
+        Offset(0, size.height * 0.5),
+        Offset(size.width, size.height * 0.5),
+        paint,
+      );
+      return;
+    }
 
     final path = Path();
-    path.moveTo(0, size.height * 0.7);
-    path.cubicTo(
-      size.width * 0.3,
-      size.height * 0.8,
-      size.width * 0.5,
-      size.height * 0.3,
-      size.width * 0.75,
-      size.height * 0.5,
-    );
-    path.lineTo(size.width, size.height * 0.15);
+    const padding = 3.0;
+    final usableHeight = size.height - (padding * 2);
+
+    for (var i = 0; i < points.length; i++) {
+      final x = (i / (points.length - 1)) * size.width;
+      final normalized = (points[i] - minVal) / (maxVal - minVal);
+      final y = padding + usableHeight - (normalized * usableHeight);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        final prevX = ((i - 1) / (points.length - 1)) * size.width;
+        final prevNorm = (points[i - 1] - minVal) / (maxVal - minVal);
+        final prevY = padding + usableHeight - (prevNorm * usableHeight);
+        final midX = (prevX + x) / 2;
+        path.cubicTo(midX, prevY, midX, y, x, y);
+      }
+    }
 
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor || oldDelegate.points != points;
 }

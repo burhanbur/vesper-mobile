@@ -97,7 +97,7 @@ class Household {
     required this.name,
     this.type = GroupType.family,
     this.description,
-    this.inviteCode = 'VSP-8821',
+    this.inviteCode = '',
     required this.members,
     required this.sharedBalance,
   });

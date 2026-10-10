@@ -56,9 +56,9 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
     final isHidden = state.isBalanceHidden;
     final isOffline = state.isOfflineMode;
 
-    // Fixed physical asset approximations from design reference (Properti & Kendaraan)
-    const int propertyValue = 250000000;
-    const int vehicleValue = 20000000;
+    // Physical asset valuation has no backend contract yet; never fabricate it.
+    const int propertyValue = 0;
+    const int vehicleValue = 0;
     final int cashValue = state.totalLiquidCash;
     final int grandTotalAssets = cashValue + totalInvValue + propertyValue + vehicleValue;
 
@@ -185,7 +185,7 @@ class _InvestmentsPageState extends State<InvestmentsPage> {
                               Icon(Icons.arrow_upward_rounded, size: 12, color: AppColors.income),
                               SizedBox(width: 3),
                               Text(
-                                '+ 6,2% bulan ini',
+                                'Saldo tersimpan',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,

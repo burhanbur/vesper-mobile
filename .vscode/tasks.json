@@ -1,0 +1,34 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Validate account picker",
+			"type": "shell",
+			"command": "C:\\flutter\\bin\\flutter.bat",
+			"args": [
+				"analyze"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Check grouped picker",
+			"type": "shell",
+			"command": "C:\\flutter\\bin\\flutter.bat analyze; if ($LASTEXITCODE -eq 0) { C:\\flutter\\bin\\flutter.bat test }",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Analyze fixed picker errors",
+			"type": "shell",
+			"command": "C:\\flutter\\bin\\flutter.bat analyze",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

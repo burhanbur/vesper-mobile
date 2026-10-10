@@ -47,7 +47,7 @@ class _BudgetPageState extends State<BudgetPage> {
     final amountController = TextEditingController();
     String selectedCategory = 'Makanan & Minuman';
     final state = AppStateScope.of(context);
-    final availableCategories = state.getCategoriesForAccount('acc-bca', isIncome: false);
+    final availableCategories = state.expenseCategories.map((c) => c.name).toList();
 
     showModalBottomSheet<void>(
       context: context,

@@ -15,7 +15,7 @@ class VesperApp extends StatefulWidget {
 
   const VesperApp({
     super.key,
-    this.initialAuthenticated = true,
+    this.initialAuthenticated = false,
     this.initialShowSplash = false,
     this.initialShowOnboarding = false,
     this.initialFlow,
@@ -48,6 +48,7 @@ class _VesperAppState extends State<VesperApp> {
       isAuthenticated: widget.initialAuthenticated,
       initialFlow: startingFlow,
     );
+    if (startingFlow != AppFlowStep.splash) _appState.bootstrap();
   }
 
   @override
@@ -73,11 +74,7 @@ class _VesperAppState extends State<VesperApp> {
                 currentScreen = SplashPage(
                   key: const ValueKey('splash_page'),
                   onFinish: () {
-                    if (_appState.isAuthenticated) {
-                      _appState.setFlowStep(AppFlowStep.main);
-                    } else {
-                      _appState.setFlowStep(AppFlowStep.onboarding);
-                    }
+                    _appState.bootstrap();
                   },
                 );
                 break;

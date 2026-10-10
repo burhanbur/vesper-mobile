@@ -46,7 +46,7 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
     super.dispose();
   }
 
-  void _handleCreate(AppState state) {
+  Future<void> _handleCreate(AppState state) async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,12 +58,17 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
       return;
     }
 
-    state.createHousehold(
-      name: name,
-      type: _selectedType,
-      description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
-    );
-
+    try {
+      await state.createHousehold(
+        name: name,
+        type: _selectedType,
+        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -86,7 +91,12 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
       return;
     }
 
-    final success = state.joinHouseholdWithCode(code);
+    bool success;
+    try { success = state.joinHouseholdWithCode(code); }
+    catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      return;
+    }
     if (success) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(

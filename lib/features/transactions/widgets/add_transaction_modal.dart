@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../accounts/widgets/account_picker_sheet.dart';
 import '../../categories/models/category.dart';
 import '../models/transaction.dart';
 
@@ -101,7 +102,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         amount: amount,
         accountId: accountId,
         toAccountId: _selectedToAccountId ?? state.selectableAccounts.last.id,
-        categoryName: _isDebtPayable ? 'Catat Utang (Kewajiban)' : 'Catat Piutang',
+        categoryName: _isDebtPayable
+            ? 'Catat Utang (Kewajiban)'
+            : 'Catat Piutang',
         note: _noteController.text.trim().isNotEmpty
             ? _noteController.text.trim()
             : (_isDebtPayable ? 'Pinjaman / Utang' : 'Piutang ke pihak lain'),
@@ -110,7 +113,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         isReceivable: !_isDebtPayable,
       );
     } else if (_selectedType == TransactionType.transfer) {
-      final toAccountId = _selectedToAccountId ??
+      final toAccountId =
+          _selectedToAccountId ??
           (state.selectableAccounts.length > 1
               ? state.selectableAccounts[1].id
               : state.selectableAccounts.first.id);
@@ -163,12 +167,20 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     );
   }
 
-  void _showQuickAddCategoryDialog(BuildContext context, AppState state, bool isIncome) {
+  void _showQuickAddCategoryDialog(
+    BuildContext context,
+    AppState state,
+    bool isIncome,
+  ) {
     final textController = TextEditingController();
     showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text(isIncome ? 'Tambah Kategori Pemasukan' : 'Tambah Kategori Pengeluaran'),
+        title: Text(
+          isIncome
+              ? 'Tambah Kategori Pemasukan'
+              : 'Tambah Kategori Pengeluaran',
+        ),
         content: TextField(
           controller: textController,
           autofocus: true,
@@ -189,7 +201,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                 state.addCategory(
                   name: name,
                   type: isIncome ? CategoryType.income : CategoryType.expense,
-                  icon: isIncome ? Icons.account_balance_wallet_rounded : Icons.shopping_bag_rounded,
+                  icon: isIncome
+                      ? Icons.account_balance_wallet_rounded
+                      : Icons.shopping_bag_rounded,
                   color: isIncome ? AppColors.income : AppColors.expense,
                 );
                 setState(() => _selectedCategory = name);
@@ -208,9 +222,14 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     final state = AppStateScope.of(context);
     final selectableAccounts = state.selectableAccounts;
 
-    _selectedAccountId ??= selectableAccounts.isNotEmpty ? selectableAccounts.first.id : null;
-    if (_selectedType == TransactionType.transfer && _selectedToAccountId == null) {
-      _selectedToAccountId = selectableAccounts.length > 1 ? selectableAccounts[1].id : null;
+    _selectedAccountId ??= selectableAccounts.isNotEmpty
+        ? selectableAccounts.first.id
+        : null;
+    if (_selectedType == TransactionType.transfer &&
+        _selectedToAccountId == null) {
+      _selectedToAccountId = selectableAccounts.length > 1
+          ? selectableAccounts[1].id
+          : null;
     }
 
     // PRD 4.4 Rule: Categories switch according to selected account's owner!
@@ -220,12 +239,14 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       isIncome: isIncome,
     );
 
-    if (!currentCategories.contains(_selectedCategory) && currentCategories.isNotEmpty) {
+    if (!currentCategories.contains(_selectedCategory) &&
+        currentCategories.isNotEmpty) {
       _selectedCategory = currentCategories.first;
     }
 
     final selectedAcc = state.getAccountById(_selectedAccountId ?? '');
-    final isOtherMemberAccount = selectedAcc != null && selectedAcc.ownerUserId != state.currentUserId;
+    final isOtherMemberAccount =
+        selectedAcc != null && selectedAcc.ownerUserId != state.currentUserId;
 
     return Container(
       decoration: const BoxDecoration(
@@ -269,7 +290,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -314,7 +338,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             if (_selectedType == TransactionType.transfer) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.accentLight.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
@@ -324,10 +351,16 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.handshake_outlined, size: 16, color: AppColors.accentDark),
+                        const Icon(
+                          Icons.handshake_outlined,
+                          size: 16,
+                          color: AppColors.accentDark,
+                        ),
                         const SizedBox(width: 8),
                         Text(
-                          _isDebtShortcut ? 'Mode Catat Utang / Piutang' : 'Shortcut Utang / Piutang',
+                          _isDebtShortcut
+                              ? 'Mode Catat Utang / Piutang'
+                              : 'Shortcut Utang / Piutang',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -350,13 +383,17 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                   children: [
                     Expanded(
                       child: ChoiceChip(
-                        label: const Center(child: Text('Gw Ngutang (Kewajiban)')),
+                        label: const Center(
+                          child: Text('Gw Ngutang (Kewajiban)'),
+                        ),
                         selected: _isDebtPayable,
                         selectedColor: AppColors.warning,
                         labelStyle: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: _isDebtPayable ? Colors.white : AppColors.textPrimary,
+                          color: _isDebtPayable
+                              ? Colors.white
+                              : AppColors.textPrimary,
                         ),
                         onSelected: (val) {
                           if (val) setState(() => _isDebtPayable = true);
@@ -366,13 +403,17 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: ChoiceChip(
-                        label: const Center(child: Text('Gw Ngutangin (Piutang)')),
+                        label: const Center(
+                          child: Text('Gw Ngutangin (Piutang)'),
+                        ),
                         selected: !_isDebtPayable,
                         selectedColor: AppColors.income,
                         labelStyle: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: !_isDebtPayable ? Colors.white : AppColors.textPrimary,
+                          color: !_isDebtPayable
+                              ? Colors.white
+                              : AppColors.textPrimary,
                         ),
                         onSelected: (val) {
                           if (val) setState(() => _isDebtPayable = false);
@@ -417,93 +458,56 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             const SizedBox(height: 16),
 
             // Akun Selector (Supporting pockets)
-            Text(
-              _selectedType == TransactionType.transfer ? 'Dari Akun Asal' : 'Pilih Akun',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedAccountId,
-                  isExpanded: true,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                  items: selectableAccounts.map((acc) {
-                    final isPocket = acc.parentAccountId != null;
-                    return DropdownMenuItem<String>(
-                      value: acc.id,
-                      child: Text(
-                        '${isPocket ? "  ↳ " : ""}${acc.name} (${CurrencyFormatter.formatCompact(acc.balance)})',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: isPocket ? FontWeight.w600 : FontWeight.w500,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedAccountId = val;
-                    });
-                  },
-                ),
-              ),
+            AccountSelectorTile(
+              label: _selectedType == TransactionType.transfer
+                  ? 'Dari Akun Asal'
+                  : 'Pilih Akun',
+              account: selectedAcc,
+              onTap: () async {
+                final picked = await AccountPickerSheet.show(
+                  context,
+                  title: _selectedType == TransactionType.transfer
+                      ? 'Pilih Akun Asal'
+                      : 'Pilih Akun',
+                  selectedAccountId: _selectedAccountId,
+                  accounts: selectableAccounts,
+                );
+                if (mounted && picked != null) {
+                  setState(() {
+                    _selectedAccountId = picked.id;
+                  });
+                }
+              },
             ),
 
             // If Transfer: Ke Akun Tujuan
             if (_selectedType == TransactionType.transfer) ...[
               const SizedBox(height: 14),
-              const Text(
-                'Ke Akun Tujuan',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedToAccountId,
-                    isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                    items: selectableAccounts.map((acc) {
-                      final isPocket = acc.parentAccountId != null;
-                      return DropdownMenuItem<String>(
-                        value: acc.id,
-                        child: Text(
-                          '${isPocket ? "  ↳ " : ""}${acc.name} (${CurrencyFormatter.formatCompact(acc.balance)})',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isPocket ? FontWeight.w600 : FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
+              Builder(
+                builder: (context) {
+                  final selectedToAcc = state.getAccountById(
+                    _selectedToAccountId ?? '',
+                  );
+                  return AccountSelectorTile(
+                    label: 'Ke Akun Tujuan',
+                    account: selectedToAcc,
+                    onTap: () async {
+                      final picked = await AccountPickerSheet.show(
+                        context,
+                        title: 'Pilih Akun Tujuan',
+                        selectedAccountId: _selectedToAccountId,
+                        accounts: selectableAccounts
+                            .where((a) => a.id != _selectedAccountId)
+                            .toList(),
                       );
-                    }).toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedToAccountId = val;
-                      });
+                      if (mounted && picked != null) {
+                        setState(() {
+                          _selectedToAccountId = picked.id;
+                        });
+                      }
                     },
-                  ),
-                ),
+                  );
+                },
               ),
             ],
 
@@ -546,7 +550,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                           ? Icon(
                               categoryObj.icon,
                               size: 15,
-                              color: isSelected ? Colors.white : categoryObj.color,
+                              color: isSelected
+                                  ? Colors.white
+                                  : categoryObj.color,
                             )
                           : null,
                       label: Text(cat),
@@ -554,8 +560,12 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                       selectedColor: AppColors.primary,
                       labelStyle: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textPrimary,
                       ),
                       onSelected: (val) {
                         if (val) {
@@ -567,7 +577,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     );
                   }),
                   ActionChip(
-                    avatar: const Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                    avatar: const Icon(
+                      Icons.add_rounded,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
                     label: const Text('Tambah Kategori'),
                     labelStyle: const TextStyle(
                       fontSize: 12,
@@ -576,7 +590,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     ),
                     side: const BorderSide(color: AppColors.border),
                     backgroundColor: AppColors.surfaceVariant,
-                    onPressed: () => _showQuickAddCategoryDialog(context, state, isIncome),
+                    onPressed: () =>
+                        _showQuickAddCategoryDialog(context, state, isIncome),
                   ),
                 ],
               ),
@@ -615,7 +630,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceVariant,
                             borderRadius: BorderRadius.circular(16),
@@ -661,7 +679,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               controller: _noteController,
               decoration: const InputDecoration(
                 hintText: 'Contoh: Nasi Padang, Belanja Mingguan',
-                prefixIcon: Icon(Icons.edit_note_rounded, color: AppColors.textMuted),
+                prefixIcon: Icon(
+                  Icons.edit_note_rounded,
+                  color: AppColors.textMuted,
+                ),
               ),
             ),
             const SizedBox(height: 24),

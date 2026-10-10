@@ -36,8 +36,11 @@ class _AccountsPageState extends State<AccountsPage> {
     String? selectedParentId;
 
     final state = AppStateScope.of(context);
+    String? selectedAccountTypeId =
+        state.accountTypes.firstOrNull?['id'] as String?;
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
-    String selectedHouseholdId = validHouseholdIds.contains(state.activeHouseholdId)
+    String selectedHouseholdId =
+        validHouseholdIds.contains(state.activeHouseholdId)
         ? state.activeHouseholdId
         : (state.households.isNotEmpty ? state.households.first.id : 'hh-1');
     final parentCandidates = state.accounts
@@ -106,20 +109,32 @@ class _AccountsPageState extends State<AccountsPage> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: AccountTypeDefinition.allDefinitions.map((def) {
-                    final isSelected = selectedType == def.type;
+                  children: state.accountTypes.map((def) {
+                    final isSelected = selectedAccountTypeId == def['id'];
                     return ChoiceChip(
-                      avatar: Icon(def.icon, size: 16, color: isSelected ? Colors.white : def.color),
-                      label: Text(def.label),
+                      avatar: const Icon(
+                        Icons.account_balance_wallet_rounded,
+                        size: 16,
+                      ),
+                      label: Text(def['name'] as String),
                       selected: isSelected,
                       selectedColor: AppColors.primary,
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                       onSelected: (val) {
-                        if (val) setModalState(() => selectedType = def.type);
+                        if (val) {
+                          setModalState(() {
+                            selectedAccountTypeId = def['id'] as String;
+                            selectedType = def['category'] == 'INVESTMENT'
+                                ? AccountType.investment
+                                : AccountType.cash;
+                          });
+                        }
                       },
                     );
                   }).toList(),
@@ -179,7 +194,8 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
                 const SizedBox(height: 16),
                 // Nested Pocket Option
-                if (selectedType == AccountType.bank && parentCandidates.isNotEmpty) ...[
+                if (selectedType == AccountType.bank &&
+                    parentCandidates.isNotEmpty) ...[
                   const Text(
                     'Jadikan Kantong (Child Pocket)?',
                     style: TextStyle(
@@ -208,7 +224,9 @@ class _AccountsPageState extends State<AccountsPage> {
                           ...parentCandidates.map(
                             (p) => DropdownMenuItem<String?>(
                               value: p.id,
-                              child: Text('Di bawah ${p.name} (${p.institution})'),
+                              child: Text(
+                                'Di bawah ${p.name} (${p.institution})',
+                              ),
                             ),
                           ),
                         ],
@@ -256,26 +274,36 @@ class _AccountsPageState extends State<AccountsPage> {
                       child: DropdownButton<String>(
                         value: validHouseholdIds.contains(selectedHouseholdId)
                             ? selectedHouseholdId
-                            : (state.households.isNotEmpty ? state.households.first.id : null),
+                            : (state.households.isNotEmpty
+                                  ? state.households.first.id
+                                  : null),
                         isExpanded: true,
-                        items: state.households.map(
-                          (h) => DropdownMenuItem<String>(
-                            value: h.id,
-                            child: Row(
-                              children: [
-                                Text(h.type.emoji, style: const TextStyle(fontSize: 16)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    h.name,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
+                        items: state.households
+                            .map(
+                              (h) => DropdownMenuItem<String>(
+                                value: h.id,
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      h.type.emoji,
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        h.name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ).toList(),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) {
                             setModalState(() => selectedHouseholdId = val);
@@ -289,24 +317,38 @@ class _AccountsPageState extends State<AccountsPage> {
                 ElevatedButton(
                   onPressed: () {
                     final name = nameController.text.trim();
-                    final balance = int.tryParse(
-                          balanceController.text.replaceAll(RegExp(r'[^0-9]'), ''),
+                    final balance =
+                        int.tryParse(
+                          balanceController.text.replaceAll(
+                            RegExp(r'[^0-9]'),
+                            '',
+                          ),
                         ) ??
                         0;
                     if (name.isEmpty) return;
 
-                    state.addAccount(
-                      name: name,
-                      type: selectedType,
-                      initialBalance: balance,
-                      accountNumber: numberController.text.trim().isEmpty
-                          ? 'Rek. Baru'
-                          : numberController.text.trim(),
-                      institution: AccountTypeDefinition.getDefinition(selectedType).categoryGroup,
-                      isShared: isShared,
-                      householdId: isShared ? selectedHouseholdId : null,
-                      parentAccountId: selectedParentId,
-                    );
+                    try {
+                      state.addAccount(
+                        name: name,
+                        accountTypeId: selectedAccountTypeId,
+                        type: selectedType,
+                        initialBalance: balance,
+                        accountNumber: numberController.text.trim().isEmpty
+                            ? 'Rek. Baru'
+                            : numberController.text.trim(),
+                        institution: AccountTypeDefinition.getDefinition(
+                          selectedType,
+                        ).categoryGroup,
+                        isShared: isShared,
+                        householdId: isShared ? selectedHouseholdId : null,
+                        parentAccountId: selectedParentId,
+                      );
+                    } catch (error) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(error.toString())));
+                      return;
+                    }
 
                     Navigator.of(ctx).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -331,11 +373,15 @@ class _AccountsPageState extends State<AccountsPage> {
     final state = AppStateScope.of(context);
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     bool modalIsShared = account.isShared;
-    String modalSelectedHouseholdId = (account.householdId != null && validHouseholdIds.contains(account.householdId))
+    String modalSelectedHouseholdId =
+        (account.householdId != null &&
+            validHouseholdIds.contains(account.householdId))
         ? account.householdId!
         : (validHouseholdIds.contains(state.activeHouseholdId)
-            ? state.activeHouseholdId
-            : (state.households.isNotEmpty ? state.households.first.id : 'hh-1'));
+              ? state.activeHouseholdId
+              : (state.households.isNotEmpty
+                    ? state.households.first.id
+                    : 'hh-1'));
 
     showModalBottomSheet<void>(
       context: context,
@@ -383,7 +429,11 @@ class _AccountsPageState extends State<AccountsPage> {
                           color: color.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(_getAccountIcon(account.type), color: color, size: 24),
+                        child: Icon(
+                          _getAccountIcon(account.type),
+                          color: color,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -401,7 +451,10 @@ class _AccountsPageState extends State<AccountsPage> {
                             ),
                             Text(
                               '${account.institution.isNotEmpty ? '${account.institution} • ' : ''}${account.accountNumber}',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
@@ -432,7 +485,11 @@ class _AccountsPageState extends State<AccountsPage> {
                             children: [
                               const Text(
                                 'Saldo Rekening',
-                                style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -449,7 +506,10 @@ class _AccountsPageState extends State<AccountsPage> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
@@ -472,11 +532,15 @@ class _AccountsPageState extends State<AccountsPage> {
 
                   // Sharing Settings Card
                   Material(
-                    color: modalIsShared ? const Color(0xFFF0FDF4) : Colors.white,
+                    color: modalIsShared
+                        ? const Color(0xFFF0FDF4)
+                        : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                       side: BorderSide(
-                        color: modalIsShared ? AppColors.accent.withValues(alpha: 0.5) : AppColors.border,
+                        color: modalIsShared
+                            ? AppColors.accent.withValues(alpha: 0.5)
+                            : AppColors.border,
                       ),
                     ),
                     child: Padding(
@@ -490,25 +554,38 @@ class _AccountsPageState extends State<AccountsPage> {
                             activeThumbColor: AppColors.primary,
                             title: const Text(
                               'Bagikan ke Ruang Grup Bersama',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             subtitle: Text(
                               modalIsShared
                                   ? 'Rekening ini dapat diakses & dilihat anggota grup terpilih.'
                                   : 'Rekening ini bersifat pribadi dan hanya terlihat oleh Anda.',
-                              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                              ),
                             ),
-                            onChanged: (val) => setModalState(() => modalIsShared = val),
+                            onChanged: (val) =>
+                                setModalState(() => modalIsShared = val),
                           ),
                           if (modalIsShared) ...[
                             const Divider(height: 20),
                             const Text(
                               'Pilih Grup yang Dapat Mengakses',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
@@ -516,31 +593,49 @@ class _AccountsPageState extends State<AccountsPage> {
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
-                                  value: validHouseholdIds.contains(modalSelectedHouseholdId)
+                                  value:
+                                      validHouseholdIds.contains(
+                                        modalSelectedHouseholdId,
+                                      )
                                       ? modalSelectedHouseholdId
-                                      : (state.households.isNotEmpty ? state.households.first.id : null),
+                                      : (state.households.isNotEmpty
+                                            ? state.households.first.id
+                                            : null),
                                   isExpanded: true,
-                                  items: state.households.map(
-                                    (h) => DropdownMenuItem<String>(
-                                      value: h.id,
-                                      child: Row(
-                                        children: [
-                                          Text(h.type.emoji, style: const TextStyle(fontSize: 16)),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              h.name,
-                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                  items: state.households
+                                      .map(
+                                        (h) => DropdownMenuItem<String>(
+                                          value: h.id,
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                h.type.emoji,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  h.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ).toList(),
+                                        ),
+                                      )
+                                      .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
-                                      setModalState(() => modalSelectedHouseholdId = val);
+                                      setModalState(
+                                        () => modalSelectedHouseholdId = val,
+                                      );
                                     }
                                   },
                                 ),
@@ -560,7 +655,9 @@ class _AccountsPageState extends State<AccountsPage> {
                       state.updateAccountSharing(
                         accountId: account.id,
                         isShared: modalIsShared,
-                        householdId: modalIsShared ? modalSelectedHouseholdId : null,
+                        householdId: modalIsShared
+                            ? modalSelectedHouseholdId
+                            : null,
                       );
 
                       Navigator.of(ctx).pop();
@@ -578,9 +675,14 @@ class _AccountsPageState extends State<AccountsPage> {
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
-                    child: const Text('Simpan Pengaturan Rekening', style: TextStyle(fontWeight: FontWeight.w700)),
+                    child: const Text(
+                      'Simpan Pengaturan Rekening',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ],
               ),
@@ -660,7 +762,9 @@ class _AccountsPageState extends State<AccountsPage> {
     final allAccounts = state.accounts;
 
     // Hitung total saldo pribadi vs total saldo grup
-    final personalAccounts = allAccounts.where((a) => !a.isShared && a.householdId == null).toList();
+    final personalAccounts = allAccounts
+        .where((a) => !a.isShared && a.householdId == null)
+        .toList();
     final totalPersonalBalance = personalAccounts
         .where((a) => a.isIncludeTotal)
         .fold(0, (sum, a) => sum + a.balance);
@@ -706,7 +810,10 @@ class _AccountsPageState extends State<AccountsPage> {
         title: const Text('Kelola Akun & Rekening'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: AppColors.primary,
+            ),
             onPressed: () => _showAddAccountModal(context),
           ),
         ],
@@ -750,7 +857,9 @@ class _AccountsPageState extends State<AccountsPage> {
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           icon: Icon(
-                            isHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            isHidden
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             size: 20,
                             color: AppColors.textSecondary,
                           ),
@@ -760,7 +869,9 @@ class _AccountsPageState extends State<AccountsPage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      isHidden ? 'Rp •••••••••' : CurrencyFormatter.formatRupiah(heroBalance),
+                      isHidden
+                          ? 'Rp •••••••••'
+                          : CurrencyFormatter.formatRupiah(heroBalance),
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -786,18 +897,36 @@ class _AccountsPageState extends State<AccountsPage> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Text('Pribadi: ', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              const Text(
+                                'Pribadi: ',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
                               Flexible(
                                 child: Text(
-                                  isHidden ? '••••••' : CurrencyFormatter.formatRupiah(totalPersonalBalance),
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                  isHidden
+                                      ? '••••••'
+                                      : CurrencyFormatter.formatRupiah(
+                                          totalPersonalBalance,
+                                        ),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Container(width: 1, height: 14, color: AppColors.border),
+                        Container(
+                          width: 1,
+                          height: 14,
+                          color: AppColors.border,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Row(
@@ -811,11 +940,25 @@ class _AccountsPageState extends State<AccountsPage> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Text('Grup: ', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                              const Text(
+                                'Grup: ',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
                               Flexible(
                                 child: Text(
-                                  isHidden ? '••••••' : CurrencyFormatter.formatRupiah(totalSharedBalance),
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                  isHidden
+                                      ? '••••••'
+                                      : CurrencyFormatter.formatRupiah(
+                                          totalSharedBalance,
+                                        ),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -840,7 +983,9 @@ class _AccountsPageState extends State<AccountsPage> {
                     _buildPillChip(
                       id: 'all',
                       label: 'Semua Rekening',
-                      count: allAccounts.where((a) => a.parentAccountId == null).length,
+                      count: allAccounts
+                          .where((a) => a.parentAccountId == null)
+                          .length,
                       icon: Icons.layers_outlined,
                     ),
                     const SizedBox(width: 8),
@@ -849,7 +994,9 @@ class _AccountsPageState extends State<AccountsPage> {
                     _buildPillChip(
                       id: 'personal',
                       label: 'Akun Pribadi',
-                      count: personalAccounts.where((a) => a.parentAccountId == null).length,
+                      count: personalAccounts
+                          .where((a) => a.parentAccountId == null)
+                          .length,
                       icon: Icons.person_outline_rounded,
                     ),
                     const SizedBox(width: 8),
@@ -865,7 +1012,10 @@ class _AccountsPageState extends State<AccountsPage> {
                       onTap: () => CreateOrJoinGroupSheet.show(context),
                       borderRadius: BorderRadius.circular(14),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceVariant,
                           borderRadius: BorderRadius.circular(14),
@@ -874,7 +1024,11 @@ class _AccountsPageState extends State<AccountsPage> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                            Icon(
+                              Icons.add_rounded,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Grup Baru',
@@ -903,8 +1057,8 @@ class _AccountsPageState extends State<AccountsPage> {
                       _activeFilter == 'all'
                           ? 'Daftar Akun & Kantong'
                           : _activeFilter == 'personal'
-                              ? 'Daftar Akun Pribadi'
-                              : 'Akun Terhubung: ${state.households.firstWhere((h) => h.id == _activeFilter, orElse: () => state.household).name}',
+                          ? 'Daftar Akun Pribadi'
+                          : 'Akun Terhubung: ${state.households.firstWhere((h) => h.id == _activeFilter, orElse: () => state.household).name}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -929,7 +1083,10 @@ class _AccountsPageState extends State<AccountsPage> {
               if (rootAccounts.isEmpty) ...[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 36,
+                    horizontal: 20,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -976,7 +1133,11 @@ class _AccountsPageState extends State<AccountsPage> {
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add_rounded, size: 16),
-                        label: Text(_activeFilter == 'personal' ? 'Tambah Akun Pribadi' : 'Tambah Rekening Grup'),
+                        label: Text(
+                          _activeFilter == 'personal'
+                              ? 'Tambah Akun Pribadi'
+                              : 'Tambah Rekening Grup',
+                        ),
                         onPressed: () => _showAddAccountModal(context),
                       ),
                     ],
@@ -987,7 +1148,8 @@ class _AccountsPageState extends State<AccountsPage> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: rootAccounts.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final account = rootAccounts[index];
                     final children = state.getChildrenForAccount(account.id);
@@ -1016,8 +1178,10 @@ class _AccountsPageState extends State<AccountsPage> {
                                       }
                                     });
                                   }
-                                : () => _showAccountDetailModal(context, account),
-                            onLongPress: () => _showAccountDetailModal(context, account),
+                                : () =>
+                                      _showAccountDetailModal(context, account),
+                            onLongPress: () =>
+                                _showAccountDetailModal(context, account),
                             borderRadius: BorderRadius.circular(20),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
@@ -1039,7 +1203,8 @@ class _AccountsPageState extends State<AccountsPage> {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
@@ -1078,7 +1243,9 @@ class _AccountsPageState extends State<AccountsPage> {
                                       Text(
                                         isHidden
                                             ? '••••••'
-                                            : CurrencyFormatter.formatRupiah(account.balance),
+                                            : CurrencyFormatter.formatRupiah(
+                                                account.balance,
+                                              ),
                                         style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w800,
@@ -1091,7 +1258,9 @@ class _AccountsPageState extends State<AccountsPage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              isExpanded ? 'Tutup' : 'Lihat Kantong',
+                                              isExpanded
+                                                  ? 'Tutup'
+                                                  : 'Lihat Kantong',
                                               style: const TextStyle(
                                                 fontSize: 10,
                                                 color: AppColors.accentDark,
@@ -1100,8 +1269,10 @@ class _AccountsPageState extends State<AccountsPage> {
                                             ),
                                             Icon(
                                               isExpanded
-                                                  ? Icons.keyboard_arrow_up_rounded
-                                                  : Icons.keyboard_arrow_down_rounded,
+                                                  ? Icons
+                                                        .keyboard_arrow_up_rounded
+                                                  : Icons
+                                                        .keyboard_arrow_down_rounded,
                                               size: 16,
                                               color: AppColors.accentDark,
                                             ),
@@ -1135,25 +1306,39 @@ class _AccountsPageState extends State<AccountsPage> {
 
                           // Nested Pockets (Kantong Anak per PRD 4.3)
                           if (hasChildren && isExpanded) ...[
-                            const Divider(height: 1, color: AppColors.divider, indent: 64),
+                            const Divider(
+                              height: 1,
+                              color: AppColors.divider,
+                              indent: 64,
+                            ),
                             Container(
                               decoration: const BoxDecoration(
                                 color: Color(0xFFFBFDFB),
-                                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+                                borderRadius: BorderRadius.vertical(
+                                  bottom: Radius.circular(20),
+                                ),
                               ),
                               child: ListView.separated(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: children.length,
                                 separatorBuilder: (context, idx) =>
-                                    const Divider(height: 1, indent: 64, color: AppColors.divider),
+                                    const Divider(
+                                      height: 1,
+                                      indent: 64,
+                                      color: AppColors.divider,
+                                    ),
                                 itemBuilder: (context, cIdx) {
                                   final child = children[cIdx];
                                   return InkWell(
-                                    onTap: () => _showAccountDetailModal(context, child),
+                                    onTap: () =>
+                                        _showAccountDetailModal(context, child),
                                     borderRadius: BorderRadius.circular(12),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
                                       child: Row(
                                         children: [
                                           const SizedBox(width: 14),
@@ -1168,14 +1353,16 @@ class _AccountsPageState extends State<AccountsPage> {
                                           const SizedBox(width: 16),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   child.name,
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w600,
-                                                    color: AppColors.textPrimary,
+                                                    color:
+                                                        AppColors.textPrimary,
                                                   ),
                                                 ),
                                                 Text(
@@ -1191,7 +1378,9 @@ class _AccountsPageState extends State<AccountsPage> {
                                           Text(
                                             isHidden
                                                 ? '••••••'
-                                                : CurrencyFormatter.formatRupiah(child.balance),
+                                                : CurrencyFormatter.formatRupiah(
+                                                    child.balance,
+                                                  ),
                                             style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w700,

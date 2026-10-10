@@ -120,8 +120,8 @@ class Account {
     this.isVisible = true,
     this.sequenceOrder = 0,
     this.currency = 'IDR',
-    this.ownerUserId = 'u-1',
-    this.ownerName = 'Burhan Mafazi',
+    this.ownerUserId = '',
+    this.ownerName = '',
   });
 
   bool get isParent => parentAccountId == null;
