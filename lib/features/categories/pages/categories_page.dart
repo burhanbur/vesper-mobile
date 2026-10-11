@@ -11,7 +11,8 @@ class CategoriesPage extends StatefulWidget {
   State<CategoriesPage> createState() => _CategoriesPageState();
 }
 
-class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProviderStateMixin {
+class _CategoriesPageState extends State<CategoriesPage>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -32,12 +33,17 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
   void _showAddEditCategoryModal({Category? existing}) {
     final state = AppStateScope.of(context);
     final nameController = TextEditingController(text: existing?.name ?? '');
-    CategoryType selectedType = existing?.type ?? (_tabController.index == 0 ? CategoryType.expense : CategoryType.income);
+    CategoryType selectedType =
+        existing?.type ??
+        (_tabController.index == 0
+            ? CategoryType.expense
+            : CategoryType.income);
     IconData selectedIcon = existing?.icon ?? Category.availableIcons.first;
     Color selectedColor = existing?.color ?? Category.availableColors.first;
 
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
@@ -74,15 +80,24 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
 
                     // Title
                     Text(
-                      existing != null ? 'Edit Kategori' : 'Tambah Kategori Baru',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                      existing != null
+                          ? 'Edit Kategori'
+                          : 'Tambah Kategori Baru',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       existing != null
                           ? 'Perbarui nama, ikon, atau warna kategori.'
                           : 'Buat kategori khusus untuk memudahkan klasifikasi mutasi keuangan.',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -98,14 +113,28 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                           children: [
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setModalState(() => selectedType = CategoryType.expense),
+                                onTap: () => setModalState(
+                                  () => selectedType = CategoryType.expense,
+                                ),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: selectedType == CategoryType.expense ? Colors.white : Colors.transparent,
+                                    color: selectedType == CategoryType.expense
+                                        ? Colors.white
+                                        : Colors.transparent,
                                     borderRadius: BorderRadius.circular(10),
-                                    boxShadow: selectedType == CategoryType.expense
-                                        ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
+                                    boxShadow:
+                                        selectedType == CategoryType.expense
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              blurRadius: 4,
+                                            ),
+                                          ]
                                         : null,
                                   ),
                                   child: Center(
@@ -114,7 +143,10 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: selectedType == CategoryType.expense ? AppColors.expense : AppColors.textSecondary,
+                                        color:
+                                            selectedType == CategoryType.expense
+                                            ? AppColors.expense
+                                            : AppColors.textSecondary,
                                       ),
                                     ),
                                   ),
@@ -123,14 +155,28 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                             ),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setModalState(() => selectedType = CategoryType.income),
+                                onTap: () => setModalState(
+                                  () => selectedType = CategoryType.income,
+                                ),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: selectedType == CategoryType.income ? Colors.white : Colors.transparent,
+                                    color: selectedType == CategoryType.income
+                                        ? Colors.white
+                                        : Colors.transparent,
                                     borderRadius: BorderRadius.circular(10),
-                                    boxShadow: selectedType == CategoryType.income
-                                        ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]
+                                    boxShadow:
+                                        selectedType == CategoryType.income
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              blurRadius: 4,
+                                            ),
+                                          ]
                                         : null,
                                   ),
                                   child: Center(
@@ -139,7 +185,10 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w700,
-                                        color: selectedType == CategoryType.income ? AppColors.income : AppColors.textSecondary,
+                                        color:
+                                            selectedType == CategoryType.income
+                                            ? AppColors.income
+                                            : AppColors.textSecondary,
                                       ),
                                     ),
                                   ),
@@ -158,7 +207,9 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                       decoration: BoxDecoration(
                         color: selectedColor.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: selectedColor.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: selectedColor.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -169,7 +220,11 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                               color: selectedColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Icon(selectedIcon, color: Colors.white, size: 22),
+                            child: Icon(
+                              selectedIcon,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -177,13 +232,25 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  nameController.text.trim().isEmpty ? 'Nama Kategori' : nameController.text.trim(),
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                  nameController.text.trim().isEmpty
+                                      ? 'Nama Kategori'
+                                      : nameController.text.trim(),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  selectedType == CategoryType.expense ? 'Tipe Pengeluaran' : 'Tipe Pemasukan',
-                                  style: TextStyle(fontSize: 11, color: selectedColor, fontWeight: FontWeight.w600),
+                                  selectedType == CategoryType.expense
+                                      ? 'Tipe Pengeluaran'
+                                      : 'Tipe Pemasukan',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: selectedColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -212,7 +279,13 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                     const SizedBox(height: 16),
 
                     // Color Picker
-                    const Text('Pilih Warna', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Pilih Warna',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
@@ -228,12 +301,26 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                             decoration: BoxDecoration(
                               color: c,
                               shape: BoxShape.circle,
-                              border: isSel ? Border.all(color: Colors.white, width: 3) : null,
+                              border: isSel
+                                  ? Border.all(color: Colors.white, width: 3)
+                                  : null,
                               boxShadow: isSel
-                                  ? [BoxShadow(color: c.withValues(alpha: 0.6), blurRadius: 8, spreadRadius: 1)]
+                                  ? [
+                                      BoxShadow(
+                                        color: c.withValues(alpha: 0.6),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
                                   : null,
                             ),
-                            child: isSel ? const Icon(Icons.check_rounded, color: Colors.white, size: 18) : null,
+                            child: isSel
+                                ? const Icon(
+                                    Icons.check_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  )
+                                : null,
                           ),
                         );
                       }).toList(),
@@ -241,31 +328,43 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                     const SizedBox(height: 16),
 
                     // Icon Picker
-                    const Text('Pilih Ikon', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Pilih Ikon',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     SizedBox(
                       height: 120,
                       child: GridView.builder(
                         itemCount: Category.availableIcons.length,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 6,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 6,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                            ),
                         itemBuilder: (context, i) {
                           final icon = Category.availableIcons[i];
                           final isSel = selectedIcon == icon;
                           return GestureDetector(
-                            onTap: () => setModalState(() => selectedIcon = icon),
+                            onTap: () =>
+                                setModalState(() => selectedIcon = icon),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: isSel ? selectedColor : AppColors.surfaceVariant,
+                                color: isSel
+                                    ? selectedColor
+                                    : AppColors.surfaceVariant,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 icon,
                                 size: 20,
-                                color: isSel ? Colors.white : AppColors.textPrimary,
+                                color: isSel
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
                               ),
                             ),
                           );
@@ -313,11 +412,18 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       child: Text(
-                        existing != null ? 'Simpan Perubahan' : 'Tambah Kategori',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        existing != null
+                            ? 'Simpan Perubahan'
+                            : 'Tambah Kategori',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -368,7 +474,13 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                 );
               }
             },
-            child: const Text('Hapus', style: TextStyle(color: AppColors.expense, fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Hapus',
+              style: TextStyle(
+                color: AppColors.expense,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -379,29 +491,38 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final expenseList = state.expenseCategories.where((c) {
-      return _searchQuery.isEmpty || c.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return _searchQuery.isEmpty ||
+          c.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
     final incomeList = state.incomeCategories.where((c) {
-      return _searchQuery.isEmpty || c.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return _searchQuery.isEmpty ||
+          c.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Kelola Kategori', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+        title: const Text(
+          'Kelola Kategori',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
         centerTitle: false,
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
             tooltip: 'Tambah Kategori',
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: AppColors.primary,
+              size: 26,
+            ),
             onPressed: () => _showAddEditCategoryModal(),
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
+          preferredSize: const Size.fromHeight(64),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
@@ -410,6 +531,10 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
             ),
             child: TabBar(
               controller: _tabController,
+              padding: const EdgeInsets.all(4),
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorPadding: EdgeInsets.zero,
+              splashBorderRadius: BorderRadius.circular(10),
               indicator: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
@@ -422,8 +547,14 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
               ),
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textSecondary,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
               dividerColor: Colors.transparent,
               tabs: [
                 Tab(text: 'Pengeluaran (${state.expenseCategories.length})'),
@@ -443,7 +574,11 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
               onChanged: (val) => setState(() => _searchQuery = val.trim()),
               decoration: InputDecoration(
                 hintText: 'Cari kategori...',
-                prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textMuted),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                  color: AppColors.textMuted,
+                ),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear_rounded, size: 18),
@@ -485,22 +620,39 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Kategori Baru', style: TextStyle(fontWeight: FontWeight.w700)),
+        label: const Text(
+          'Kategori Baru',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
     );
   }
 
-  Widget _buildCategoryList(List<Category> list, AppState state, {required bool isExpense}) {
+  Widget _buildCategoryList(
+    List<Category> list,
+    AppState state, {
+    required bool isExpense,
+  }) {
     if (list.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.category_outlined, size: 48, color: AppColors.textMuted.withValues(alpha: 0.5)),
+            Icon(
+              Icons.category_outlined,
+              size: 48,
+              color: AppColors.textMuted.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 12),
             Text(
-              _searchQuery.isNotEmpty ? 'Tidak ada kategori yang cocok' : 'Belum ada kategori',
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+              _searchQuery.isNotEmpty
+                  ? 'Tidak ada kategori yang cocok'
+                  : 'Belum ada kategori',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -552,11 +704,16 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: cat.isDefault
                                   ? AppColors.surfaceVariant
-                                  : AppColors.accentLight.withValues(alpha: 0.5),
+                                  : AppColors.accentLight.withValues(
+                                      alpha: 0.5,
+                                    ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -564,7 +721,9 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: cat.isDefault ? AppColors.textSecondary : AppColors.accentDark,
+                                color: cat.isDefault
+                                    ? AppColors.textSecondary
+                                    : AppColors.accentDark,
                               ),
                             ),
                           ),
@@ -578,16 +737,28 @@ class _CategoriesPageState extends State<CategoriesPage> with SingleTickerProvid
                 if (cat.isDefault)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.textMuted),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 18,
+                      color: AppColors.textMuted,
+                    ),
                   )
                 else ...[
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     tooltip: 'Edit Kategori',
                     onPressed: () => _showAddEditCategoryModal(existing: cat),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.expense),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: AppColors.expense,
+                    ),
                     tooltip: 'Hapus Kategori',
                     onPressed: () => _handleDeleteCategory(cat, state),
                   ),

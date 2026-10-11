@@ -127,6 +127,9 @@ class _LoginPageState extends State<LoginPage>
                 padding: const EdgeInsets.all(4),
                 child: TabBar(
                   controller: _tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorPadding: EdgeInsets.zero,
+                  splashBorderRadius: BorderRadius.circular(12),
                   indicator: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -151,7 +154,7 @@ class _LoginPageState extends State<LoginPage>
                   dividerColor: Colors.transparent,
                   tabs: const [
                     Tab(text: 'Masuk'),
-                    Tab(text: 'Daftar Baru'),
+                    Tab(text: 'Daftar'),
                   ],
                 ),
               ),
@@ -189,9 +192,6 @@ class _LoginPageState extends State<LoginPage>
                 ),
               ),
 
-              const SizedBox(height: 20),
-              // Offline-First & Security Guarantee Badge
-              _buildSecurityBadge(),
               const SizedBox(height: 16),
             ],
           ),
@@ -491,45 +491,6 @@ class _LoginPageState extends State<LoginPage>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSecurityBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.shield_outlined, color: AppColors.income, size: 20),
-          SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Arsitektur Offline-First & Enkripsi Lokal',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  'Data finansial tersimpan aman di SQLite perangkat Anda sebelum disinkronkan ke server.',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

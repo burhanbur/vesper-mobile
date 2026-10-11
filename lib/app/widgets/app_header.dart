@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../features/notifications/widgets/notifications_sheet.dart';
@@ -10,182 +11,270 @@ class AppHeader extends StatelessWidget {
 
   const AppHeader({super.key, this.onHouseholdTap});
 
+  String _getInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'BM';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return trimmed.substring(0, math.min(2, trimmed.length)).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    final initials = _getInitials(state.userName);
+    final greetingName = state.userName.isNotEmpty
+        ? state.userName.split(' ').first
+        : 'Burhan';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left: Avatar + Greeting + Household Selector (contoh-1.png)
-          Row(
-            children: [
-              // Avatar Circle
-              GestureDetector(
-                onTap: onHouseholdTap,
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'BM',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            // Left: Avatar + Greeting + Household Selector
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Avatar with Gradient & Subtle Ring
+                GestureDetector(
+                  onTap: onHouseholdTap,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.primaryLight,
+                          AppColors.primary,
+                        ],
+                      ),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.18),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
 
-              // Greeting & Household Dropdown
-              InkWell(
-                onTap: onHouseholdTap,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Halo, Burhan',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                          fontWeight: FontWeight.w500,
-                        ),
+                // Greeting & Household Dropdown
+                Flexible(
+                  child: InkWell(
+                    onTap: onHouseholdTap,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
                       ),
-                      Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            state.household.name,
+                            'Halo, $greetingName',
                             style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 16,
-                            color: AppColors.textSecondary,
+                          const SizedBox(height: 1),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  state.household.name,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: AppColors.textSecondary,
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          // Right: Online/Offline Badge + Notification Bell
-          Row(
-            children: [
-              // Offline / Online Indicator Badge
-              GestureDetector(
-                onTap: () {
-                  if (state.isOfflineMode) {
-                    OfflineModeSheet.show(context);
-                  } else {
-                    state.toggleOfflineMode();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        duration: Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: AppColors.warning,
-                        content: Text(
-                          'Mode Offline aktif: transaksi disimpan ke SQLite lokal.',
-                        ),
-                      ),
-                    );
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: state.isOfflineMode
-                        ? AppColors.warningLight
-                        : AppColors.accentLight,
+            // Right: Online/Offline Badge + Notification Bell
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Offline / Online Indicator Badge
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      if (state.isOfflineMode) {
+                        OfflineModeSheet.show(context);
+                      } else {
+                        state.toggleOfflineMode();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: AppColors.warning,
+                            content: Text(
+                              'Mode Offline aktif: transaksi disimpan ke SQLite lokal.',
+                            ),
+                          ),
+                        );
+                      }
+                    },
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: state.isOfflineMode
-                          ? AppColors.warning.withValues(alpha: 0.3)
-                          : AppColors.accent.withValues(alpha: 0.3),
+                    child: Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: state.isOfflineMode
+                            ? AppColors.warningLight
+                            : AppColors.accentLight.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: state.isOfflineMode
+                              ? AppColors.warning.withValues(alpha: 0.35)
+                              : AppColors.accent.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: state.isOfflineMode
+                                  ? AppColors.warning
+                                  : AppColors.accentDark,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (state.isOfflineMode
+                                          ? AppColors.warning
+                                          : AppColors.accentDark)
+                                      .withValues(alpha: 0.4),
+                                  blurRadius: 4,
+                                  spreadRadius: 0.5,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            state.isOfflineMode ? 'Offline' : 'Online',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: state.isOfflineMode
+                                  ? AppColors.warning
+                                  : AppColors.accentDark,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: state.isOfflineMode
-                              ? AppColors.warning
-                              : AppColors.accentDark,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        state.isOfflineMode ? 'Offline' : 'Online',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: state.isOfflineMode
-                              ? AppColors.warning
-                              : AppColors.accentDark,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-              ),
 
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
 
-              // Notification Bell (with unread badge)
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_outlined,
-                      color: AppColors.textPrimary,
-                      size: 24,
-                    ),
-                    onPressed: () => NotificationsSheet.show(context),
-                  ),
-                  if (state.unreadNotificationCount > 0)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.expense,
-                          shape: BoxShape.circle,
+                // Notification Bell (with unread badge)
+                Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    onTap: () => NotificationsSheet.show(context),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.border.withValues(alpha: 0.8),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(
+                            Icons.notifications_none_rounded,
+                            color: AppColors.textPrimary,
+                            size: 20,
+                          ),
+                          if (state.unreadNotificationCount > 0)
+                            Positioned(
+                              right: 9,
+                              top: 8,
+                              child: Container(
+                                width: 7,
+                                height: 7,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.expense,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

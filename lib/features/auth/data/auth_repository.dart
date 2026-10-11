@@ -41,8 +41,19 @@ class AuthUser {
 /// operate on the same session. Inject a client for isolated tests.
 class AuthRepository {
   final ApiClient client;
+  bool _rememberMe = false;
+  bool get rememberMe => _rememberMe;
 
   AuthRepository({ApiClient? client}) : client = client ?? ApiClient.shared;
+
+  Future<void> setRememberMe(bool value) async {
+    final session = client.session;
+    if (session == null) {
+      throw const ApiFailure('Silakan masuk kembali.', statusCode: 401);
+    }
+    await client.saveSession(session, persist: value);
+    _rememberMe = value;
+  }
 
   Future<AuthUser> authenticate({
     required String email,
@@ -60,7 +71,9 @@ class AuthRepository {
       persist: rememberMe,
     );
     try {
-      return AuthUser.fromJson(data['user']);
+      final user = AuthUser.fromJson(data['user']);
+      _rememberMe = rememberMe;
+      return user;
     } on ApiFailure {
       await client.clearSession();
       rethrow;
@@ -71,7 +84,10 @@ class AuthRepository {
   /// Null means no valid session. Other failures must not be treated as login
   /// success; callers can present retry/offline UI without fabricating identity.
   Future<AuthUser?> bootstrap() async {
-    if (client.session == null) await client.restore();
+    if (client.session == null) {
+      await client.restore();
+      _rememberMe = client.session != null;
+    }
     if (client.session == null) return null;
     final expiry = DateTime.parse(
       client.session!['refresh_expires_at'] as String,
@@ -105,6 +121,7 @@ class AuthRepository {
         await client.request('POST', '/auth/logout', retry: false);
       }
     } finally {
+      _rememberMe = false;
       await client.clearSession();
     }
   }

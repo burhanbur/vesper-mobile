@@ -44,8 +44,30 @@ class InvestmentTradeModal {
       return;
     }
 
+    final assets = state.investments;
+    if (preselectedAsset == null && assets.isEmpty) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Belum ada aset investasi'),
+          content: const Text(
+            'Belum ada portofolio dan instrumen investasi yang tersedia. '
+            'Pencatatan pembelian memerlukan aset yang sudah terhubung ke server. '
+            'Fitur pembuatan aset baru belum tersedia.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     InvestmentTradeType selectedType = initialTradeType;
-    InvestmentAsset selectedAsset = preselectedAsset ?? state.investments.first;
+    InvestmentAsset selectedAsset = preselectedAsset ?? assets.first;
     final qtyController = TextEditingController();
     final priceController = TextEditingController(
       text: selectedAsset.currentPrice.toInt().toString(),

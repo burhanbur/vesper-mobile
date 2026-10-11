@@ -101,97 +101,111 @@ class NetWorthCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Label & Eye toggle
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Total Kekayaan',
-                            style: TextStyle(
-                              color: AppColors.sageMuted,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: state.toggleHideBalance,
-                            child: Icon(
-                              isHidden
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: AppColors.sageMuted,
-                              size: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Growth Badge (dinamis berdasarkan persentase bulan ini)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: badgeBg,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: badgeBorder),
-                        ),
-                        child: Row(
+                  // Label & Eye toggle + Growth Badge on the right
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 12,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              badgeIcon,
-                              size: 12,
-                              color: badgeColor,
+                            const Flexible(
+                              child: Text(
+                                'Total Kekayaan',
+                                style: TextStyle(
+                                  color: AppColors.sageMuted,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 3),
-                            Text(
-                              badgeText,
-                              style: TextStyle(
-                                color: badgeColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: state.toggleHideBalance,
+                              child: Icon(
+                                isHidden
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: AppColors.sageMuted,
+                                size: 18,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        // Growth Badge (dinamis berdasarkan persentase bulan ini)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badgeBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: badgeBorder),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(badgeIcon, size: 12, color: badgeColor),
+                              const SizedBox(width: 3),
+                              Flexible(
+                                child: Text(
+                                  badgeText,
+                                  style: TextStyle(
+                                    color: badgeColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 10),
 
-                  // Total Amount in Rupiah + Sparkline wave
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        isHidden
-                            ? 'Rp •••••••••'
-                            : CurrencyFormatter.formatRupiah(state.totalNetWorth),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      // Mini Sparkline curve
-                      SizedBox(
-                        width: 72,
-                        height: 28,
-                        child: CustomPaint(
-                          painter: _SparklinePainter(
-                            points: state.monthNetWorthTrend,
-                            lineColor: sparklineColor,
+                  // Total Amount in Rupiah + Sparkline wave on the right
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 12,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          isHidden
+                              ? 'Rp •••••••••'
+                              : CurrencyFormatter.formatRupiah(
+                                  state.totalNetWorth,
+                                ),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
                           ),
                         ),
-                      ),
-                    ],
+                        // Mini Sparkline curve
+                        SizedBox(
+                          width: 80,
+                          height: 30,
+                          child: CustomPaint(
+                            painter: _SparklinePainter(
+                              points: state.monthNetWorthTrend,
+                              lineColor: sparklineColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 18),
 
@@ -336,10 +350,7 @@ class _SparklinePainter extends CustomPainter {
   final List<double> points;
   final Color lineColor;
 
-  const _SparklinePainter({
-    required this.points,
-    required this.lineColor,
-  });
+  const _SparklinePainter({required this.points, required this.lineColor});
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -6,16 +6,27 @@ enum TransactionType {
   investmentSell,
 }
 
-enum SyncStatus {
-  pending,
-  synced,
-  failed,
-}
+enum SyncStatus { pending, synced, failed }
 
 class TransactionItem {
   final String id;
   final TransactionType type;
   final int amount; // in integer Rupiah
+  // Signed server ledger value; amount remains a magnitude for existing reports.
+  final int? ledgerAmount;
+  bool get isIncoming => switch (type) {
+    TransactionType.income || TransactionType.investmentSell => true,
+    TransactionType.transfer => (ledgerAmount ?? -amount) > 0,
+    _ => false,
+  };
+  String get typeLabel => switch (type) {
+    TransactionType.income => 'Pemasukan',
+    TransactionType.expense => 'Pengeluaran',
+    TransactionType.transfer =>
+      isIncoming ? 'Transfer Masuk' : 'Transfer Keluar',
+    TransactionType.investmentBuy => 'Pembelian Investasi',
+    TransactionType.investmentSell => 'Penjualan Investasi',
+  };
   final String accountId;
   final String? toAccountId; // only for transfer
   final String categoryName;
@@ -34,6 +45,7 @@ class TransactionItem {
     required this.id,
     required this.type,
     required this.amount,
+    this.ledgerAmount,
     required this.accountId,
     this.toAccountId,
     required this.categoryName,
@@ -53,6 +65,7 @@ class TransactionItem {
     String? id,
     TransactionType? type,
     int? amount,
+    int? ledgerAmount,
     String? accountId,
     String? toAccountId,
     String? categoryName,
@@ -71,6 +84,7 @@ class TransactionItem {
       id: id ?? this.id,
       type: type ?? this.type,
       amount: amount ?? this.amount,
+      ledgerAmount: ledgerAmount ?? this.ledgerAmount,
       accountId: accountId ?? this.accountId,
       toAccountId: toAccountId ?? this.toAccountId,
       categoryName: categoryName ?? this.categoryName,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../accounts/widgets/account_picker_sheet.dart';
@@ -10,21 +11,31 @@ import '../models/transaction.dart';
 
 class AddTransactionModal extends StatefulWidget {
   final TransactionType initialType;
+  final String? initialAccountId;
+  final TransactionItem? transactionToEdit;
 
   const AddTransactionModal({
     super.key,
     this.initialType = TransactionType.expense,
+    this.initialAccountId,
+    this.transactionToEdit,
   });
 
   static Future<void> show(
     BuildContext context, {
     TransactionType initialType = TransactionType.expense,
+    String? initialAccountId,
+    TransactionItem? transactionToEdit,
   }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AddTransactionModal(initialType: initialType),
+      builder: (context) => AddTransactionModal(
+        initialType: initialType,
+        initialAccountId: initialAccountId,
+        transactionToEdit: transactionToEdit,
+      ),
     );
   }
 
@@ -42,6 +53,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   String _selectedCategory = 'Makanan & Minuman';
   DateTime _selectedDate = DateTime.now();
 
+  bool get _isEditing => widget.transactionToEdit != null;
+
   // Utang / Piutang Shortcut toggle per PRD 4.5
   bool _isDebtShortcut = false;
   bool _isDebtPayable = true; // true: Gw ngutang, false: Gw ngutangin
@@ -49,11 +62,23 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   @override
   void initState() {
     super.initState();
-    _selectedType = widget.initialType;
-    if (_selectedType == TransactionType.income) {
-      _selectedCategory = 'Gaji';
-    } else if (_selectedType == TransactionType.transfer) {
-      _selectedCategory = 'Transfer Antar Akun';
+    final toEdit = widget.transactionToEdit;
+    if (toEdit != null) {
+      _selectedType = toEdit.type;
+      _selectedAccountId = toEdit.accountId;
+      _selectedToAccountId = toEdit.toAccountId;
+      _selectedCategory = toEdit.categoryName;
+      _selectedDate = toEdit.date;
+      _noteController.text = toEdit.note ?? '';
+      _amountController.text = CurrencyFormatter.formatRupiah(toEdit.amount);
+    } else {
+      _selectedType = widget.initialType;
+      _selectedAccountId = widget.initialAccountId;
+      if (_selectedType == TransactionType.income) {
+        _selectedCategory = 'Gaji';
+      } else if (_selectedType == TransactionType.transfer) {
+        _selectedCategory = 'Transfer Antar Akun';
+      }
     }
   }
 
@@ -79,6 +104,25 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
   void _submit() {
     final state = AppStateScope.of(context);
+    final availableIds = state.selectableAccounts.map((a) => a.id).toSet();
+    if (!availableIds.contains(_selectedAccountId) ||
+        (_selectedType == TransactionType.transfer &&
+            !availableIds.contains(_selectedToAccountId))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih akun yang tersedia.')),
+      );
+      return;
+    }
+    try {
+      _saveTransaction();
+    } on ApiFailure catch (error) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  void _saveTransaction() {
+    final state = AppStateScope.of(context);
     final amount = CurrencyFormatter.parseRupiah(_amountController.text);
 
     if (amount <= 0) {
@@ -94,7 +138,17 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
     final accountId = _selectedAccountId ?? state.selectableAccounts.first.id;
 
-    if (_isDebtShortcut) {
+    if (_isEditing) {
+      state.updateTransaction(
+        id: widget.transactionToEdit!.id,
+        type: _selectedType,
+        amount: amount,
+        accountId: accountId,
+        categoryName: _selectedCategory,
+        note: _noteController.text.trim(),
+        date: _selectedDate,
+      );
+    } else if (_isDebtShortcut) {
       // Shortcut "Catat Utang / Piutang" per PRD 4.5:
       // "Gw ngutang" -> transfer(from=Kas/Dompet, to=Hutang / Kas Masuk)
       state.addTransaction(
@@ -159,9 +213,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.primary,
         content: Text(
-          state.isOfflineMode
-              ? 'Transaksi tersimpan lokal ke SQLite (antre sinkronisasi saat online)'
-              : 'Transaksi berhasil disimpan!',
+          _isEditing
+              ? 'Perubahan transaksi berhasil disimpan!'
+              : (state.isOfflineMode
+                    ? 'Transaksi tersimpan lokal ke SQLite (antre sinkronisasi saat online)'
+                    : 'Transaksi berhasil disimpan!'),
         ),
       ),
     );
@@ -227,15 +283,16 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         : null;
     if (_selectedType == TransactionType.transfer &&
         _selectedToAccountId == null) {
-      _selectedToAccountId = selectableAccounts.length > 1
-          ? selectableAccounts[1].id
-          : null;
+      _selectedToAccountId = selectableAccounts
+          .where((account) => account.id != _selectedAccountId)
+          .firstOrNull
+          ?.id;
     }
 
     // PRD 4.4 Rule: Categories switch according to selected account's owner!
     final isIncome = _selectedType == TransactionType.income;
     final currentCategories = state.getCategoriesForAccount(
-      _selectedAccountId ?? selectableAccounts.first.id,
+      _selectedAccountId ?? '',
       isIncome: isIncome,
     );
 
@@ -253,456 +310,512 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      margin: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: SingleChildScrollView(
+      child: SafeArea(
+        top: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Top drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Header & Close Button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Tambah Transaksi',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: AppColors.textSecondary,
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Segmented Type Selector (Pengeluaran, Pemasukan, Transfer)
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildTypeButton(
-                      type: TransactionType.expense,
-                      label: 'Pengeluaran',
-                      activeColor: AppColors.expense,
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildTypeButton(
-                      type: TransactionType.income,
-                      label: 'Pemasukan',
-                      activeColor: AppColors.income,
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildTypeButton(
-                      type: TransactionType.transfer,
-                      label: 'Transfer',
-                      activeColor: AppColors.transfer,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Shortcut Catat Utang / Piutang per PRD 4.5
-            if (_selectedType == TransactionType.transfer) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.accentLight.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.handshake_outlined,
-                          size: 16,
-                          color: AppColors.accentDark,
+                    // Top drag handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isDebtShortcut
-                              ? 'Mode Catat Utang / Piutang'
-                              : 'Shortcut Utang / Piutang',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accentDark,
+                      ),
+                    ),
+
+                    // Header & Close Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _isEditing ? 'Ubah Transaksi' : 'Tambah Transaksi',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
                       ],
                     ),
-                    Switch(
-                      value: _isDebtShortcut,
-                      activeThumbColor: AppColors.primary,
-                      onChanged: (val) => setState(() => _isDebtShortcut = val),
-                    ),
-                  ],
-                ),
-              ),
-              if (_isDebtShortcut) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Center(
-                          child: Text('Gw Ngutang (Kewajiban)'),
+                    const SizedBox(height: 12),
+
+                    // Segmented Type Selector (Pengeluaran, Pemasukan, Transfer)
+                    // If editing, we allow switching between expense and income, but not transfer
+                    if (!_isEditing)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        selected: _isDebtPayable,
-                        selectedColor: AppColors.warning,
-                        labelStyle: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _isDebtPayable
-                              ? Colors.white
-                              : AppColors.textPrimary,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildTypeButton(
+                                type: TransactionType.expense,
+                                label: 'Pengeluaran',
+                                activeColor: AppColors.expense,
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildTypeButton(
+                                type: TransactionType.income,
+                                label: 'Pemasukan',
+                                activeColor: AppColors.income,
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildTypeButton(
+                                type: TransactionType.transfer,
+                                label: 'Transfer',
+                                activeColor: AppColors.transfer,
+                              ),
+                            ),
+                          ],
                         ),
-                        onSelected: (val) {
-                          if (val) setState(() => _isDebtPayable = true);
-                        },
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildTypeButton(
+                                type: TransactionType.expense,
+                                label: 'Pengeluaran',
+                                activeColor: AppColors.expense,
+                              ),
+                            ),
+                            Expanded(
+                              child: _buildTypeButton(
+                                type: TransactionType.income,
+                                label: 'Pemasukan',
+                                activeColor: AppColors.income,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Center(
-                          child: Text('Gw Ngutangin (Piutang)'),
+
+                    // Shortcut Catat Utang / Piutang per PRD 4.5
+                    if (_selectedType == TransactionType.transfer) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                        selected: !_isDebtPayable,
-                        selectedColor: AppColors.income,
-                        labelStyle: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: !_isDebtPayable
-                              ? Colors.white
-                              : AppColors.textPrimary,
+                        decoration: BoxDecoration(
+                          color: AppColors.accentLight.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        onSelected: (val) {
-                          if (val) setState(() => _isDebtPayable = false);
-                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.handshake_outlined,
+                                  size: 16,
+                                  color: AppColors.accentDark,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _isDebtShortcut
+                                      ? 'Mode Catat Utang / Piutang'
+                                      : 'Shortcut Utang / Piutang',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.accentDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: _isDebtShortcut,
+                              activeThumbColor: AppColors.primary,
+                              onChanged: (val) =>
+                                  setState(() => _isDebtShortcut = val),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+                      if (_isDebtShortcut) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Center(
+                                  child: Text('Gw Ngutang (Kewajiban)'),
+                                ),
+                                selected: _isDebtPayable,
+                                selectedColor: AppColors.warning,
+                                labelStyle: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: _isDebtPayable
+                                      ? Colors.white
+                                      : AppColors.textPrimary,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setState(() => _isDebtPayable = true);
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Center(
+                                  child: Text('Gw Ngutangin (Piutang)'),
+                                ),
+                                selected: !_isDebtPayable,
+                                selectedColor: AppColors.income,
+                                labelStyle: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: !_isDebtPayable
+                                      ? Colors.white
+                                      : AppColors.textPrimary,
+                                ),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setState(() => _isDebtPayable = false);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
 
-            const SizedBox(height: 18),
+                    const SizedBox(height: 18),
 
-            // Nominal Input
-            const Text(
-              'Nominal',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                hintText: 'Rp 0',
-                prefixIcon: Icon(
-                  Icons.payments_rounded,
-                  color: AppColors.primary,
-                ),
-              ),
-              onChanged: _onAmountChanged,
-            ),
-            const SizedBox(height: 16),
-
-            // Akun Selector (Supporting pockets)
-            AccountSelectorTile(
-              label: _selectedType == TransactionType.transfer
-                  ? 'Dari Akun Asal'
-                  : 'Pilih Akun',
-              account: selectedAcc,
-              onTap: () async {
-                final picked = await AccountPickerSheet.show(
-                  context,
-                  title: _selectedType == TransactionType.transfer
-                      ? 'Pilih Akun Asal'
-                      : 'Pilih Akun',
-                  selectedAccountId: _selectedAccountId,
-                  accounts: selectableAccounts,
-                );
-                if (mounted && picked != null) {
-                  setState(() {
-                    _selectedAccountId = picked.id;
-                  });
-                }
-              },
-            ),
-
-            // If Transfer: Ke Akun Tujuan
-            if (_selectedType == TransactionType.transfer) ...[
-              const SizedBox(height: 14),
-              Builder(
-                builder: (context) {
-                  final selectedToAcc = state.getAccountById(
-                    _selectedToAccountId ?? '',
-                  );
-                  return AccountSelectorTile(
-                    label: 'Ke Akun Tujuan',
-                    account: selectedToAcc,
-                    onTap: () async {
-                      final picked = await AccountPickerSheet.show(
-                        context,
-                        title: 'Pilih Akun Tujuan',
-                        selectedAccountId: _selectedToAccountId,
-                        accounts: selectableAccounts
-                            .where((a) => a.id != _selectedAccountId)
-                            .toList(),
-                      );
-                      if (mounted && picked != null) {
-                        setState(() {
-                          _selectedToAccountId = picked.id;
-                        });
-                      }
-                    },
-                  );
-                },
-              ),
-            ],
-
-            // Categories (PRD 4.4: Show owner name if account owned by another member!)
-            if (_selectedType != TransactionType.transfer) ...[
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Kategori',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  if (isOtherMemberAccount)
-                    Text(
-                      '(Kategori milik ${selectedAcc.ownerName})',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.accentDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ...currentCategories.map((cat) {
-                    final isSelected = _selectedCategory == cat;
-                    final categoryObj = state.getCategoryByName(cat);
-                    return ChoiceChip(
-                      avatar: categoryObj != null
-                          ? Icon(
-                              categoryObj.icon,
-                              size: 15,
-                              color: isSelected
-                                  ? Colors.white
-                                  : categoryObj.color,
-                            )
-                          : null,
-                      label: Text(cat),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
+                    // Nominal Input
+                    const Text(
+                      'Nominal',
+                      style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: isSelected
-                            ? Colors.white
-                            : AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
                       ),
-                      onSelected: (val) {
-                        if (val) {
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _amountController,
+                      keyboardType: TextInputType.number,
+                      autofocus: true,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Rp 0',
+                        prefixIcon: Icon(
+                          Icons.payments_rounded,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      onChanged: _onAmountChanged,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Akun Selector (Supporting pockets)
+                    AccountSelectorTile(
+                      label: _selectedType == TransactionType.transfer
+                          ? 'Dari Akun Asal'
+                          : 'Pilih Akun',
+                      account: selectedAcc,
+                      onTap: () async {
+                        final picked = await AccountPickerSheet.show(
+                          context,
+                          title: _selectedType == TransactionType.transfer
+                              ? 'Pilih Akun Asal'
+                              : 'Pilih Akun',
+                          selectedAccountId: _selectedAccountId,
+                          accounts: selectableAccounts,
+                        );
+                        if (mounted && picked != null) {
                           setState(() {
-                            _selectedCategory = cat;
+                            _selectedAccountId = picked.id;
                           });
                         }
                       },
-                    );
-                  }),
-                  ActionChip(
-                    avatar: const Icon(
-                      Icons.add_rounded,
-                      size: 16,
-                      color: AppColors.primary,
                     ),
-                    label: const Text('Tambah Kategori'),
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                    side: const BorderSide(color: AppColors.border),
-                    backgroundColor: AppColors.surfaceVariant,
-                    onPressed: () =>
-                        _showQuickAddCategoryDialog(context, state, isIncome),
-                  ),
-                ],
-              ),
-            ],
 
-            const SizedBox(height: 16),
-
-            // Tanggal
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Tanggal',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2030),
+                    // If Transfer: Ke Akun Tujuan
+                    if (_selectedType == TransactionType.transfer) ...[
+                      const SizedBox(height: 14),
+                      Builder(
+                        builder: (context) {
+                          final selectedToAcc = state.getAccountById(
+                            _selectedToAccountId ?? '',
                           );
-                          if (picked != null) {
-                            setState(() {
-                              _selectedDate = picked;
-                            });
-                          }
+                          return AccountSelectorTile(
+                            label: 'Ke Akun Tujuan',
+                            account: selectedToAcc,
+                            onTap: () async {
+                              final picked = await AccountPickerSheet.show(
+                                context,
+                                title: 'Pilih Akun Tujuan',
+                                selectedAccountId: _selectedToAccountId,
+                                accounts: selectableAccounts
+                                    .where((a) => a.id != _selectedAccountId)
+                                    .toList(),
+                              );
+                              if (mounted && picked != null) {
+                                setState(() {
+                                  _selectedToAccountId = picked.id;
+                                });
+                              }
+                            },
+                          );
                         },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 14,
+                      ),
+                    ],
+
+                    // Categories (PRD 4.4: Show owner name if account owned by another member!)
+                    if (_selectedType != TransactionType.transfer) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Kategori',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.calendar_today_rounded,
-                                size: 16,
-                                color: AppColors.primary,
+                          if (isOtherMemberAccount)
+                            Text(
+                              '(Kategori milik ${selectedAcc.ownerName})',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: AppColors.accentDark,
+                                fontWeight: FontWeight.w600,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                DateFormatter.formatShort(_selectedDate),
-                                style: const TextStyle(
-                                  fontSize: 13,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ...currentCategories.map((cat) {
+                            final isSelected = _selectedCategory == cat;
+                            final categoryObj = state.getCategoryByName(cat);
+                            return ChoiceChip(
+                              avatar: categoryObj != null
+                                  ? Icon(
+                                      categoryObj.icon,
+                                      size: 15,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : categoryObj.color,
+                                    )
+                                  : null,
+                              label: Text(cat),
+                              selected: isSelected,
+                              selectedColor: AppColors.primary,
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                              ),
+                              onSelected: (val) {
+                                if (val) {
+                                  setState(() {
+                                    _selectedCategory = cat;
+                                  });
+                                }
+                              },
+                            );
+                          }),
+                          ActionChip(
+                            avatar: const Icon(
+                              Icons.add_rounded,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                            label: const Text('Tambah Kategori'),
+                            labelStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                            side: const BorderSide(color: AppColors.border),
+                            backgroundColor: AppColors.surfaceVariant,
+                            onPressed: () => _showQuickAddCategoryDialog(
+                              context,
+                              state,
+                              isIncome,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Tanggal
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Tanggal',
+                                style: TextStyle(
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _selectedDate,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2030),
+                                  );
+                                  if (picked != null) {
+                                    setState(() {
+                                      _selectedDate = picked;
+                                    });
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 14,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceVariant,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today_rounded,
+                                        size: 16,
+                                        color: AppColors.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        DateFormatter.formatShort(
+                                          _selectedDate,
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Catatan
+                    const Text(
+                      'Catatan (opsional)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _noteController,
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: Nasi Padang, Belanja Mingguan',
+                        prefixIcon: Icon(
+                          Icons.edit_note_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: AppColors.border)),
+              ),
+              child: ElevatedButton(
+                key: const ValueKey('transaction_save_button'),
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Catatan
-            const Text(
-              'Catatan (opsional)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _noteController,
-              decoration: const InputDecoration(
-                hintText: 'Contoh: Nasi Padang, Belanja Mingguan',
-                prefixIcon: Icon(
-                  Icons.edit_note_rounded,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Submit Button
-            ElevatedButton(
-              onPressed: _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text(
-                'Simpan Transaksi',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                child: Text(
+                  _isEditing ? 'Simpan Perubahan' : 'Simpan Transaksi',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

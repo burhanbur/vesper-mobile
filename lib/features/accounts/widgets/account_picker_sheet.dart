@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../models/account.dart';
 import '../models/account_picker_group.dart';
+import '../models/account_picker_section.dart';
 
 /// A reusable bottom sheet modal for picking an account.
 /// Features clean grouping, pocket nesting indication, institution badges,
@@ -219,24 +220,66 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
                           ),
                         ),
                       )
-                    : ListView.separated(
+                    : ListView(
                         shrinkWrap: true,
                         padding: const EdgeInsets.symmetric(
                           vertical: 12,
                           horizontal: 16,
                         ),
-                        itemCount: groups.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 14),
-                        itemBuilder: (context, groupIndex) {
-                          final group = groups[groupIndex];
-                          return _AccountGroupCard(
-                            group: group,
-                            selectedAccountId: widget.selectedAccountId,
-                            showBalance: widget.showBalance,
-                            isBalanceHidden: hidden,
-                            onSelect: (acc) => Navigator.of(context).pop(acc),
-                          );
-                        },
+                        children: [
+                          for (final category in ['Cash', 'Investasi'])
+                            if (buildAccountPickerSections(groups).any(
+                              (section) => section.category == category,
+                            )) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+                                child: Text(
+                                  category,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              for (final section in buildAccountPickerSections(
+                                groups,
+                              ))
+                                if (section.category == category) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      4,
+                                      0,
+                                      4,
+                                      10,
+                                    ),
+                                    child: Text(
+                                      section.label,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                  for (final group in section.groups)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 14,
+                                      ),
+                                      child: _AccountGroupCard(
+                                        group: group,
+                                        selectedAccountId:
+                                            widget.selectedAccountId,
+                                        showBalance: widget.showBalance,
+                                        isBalanceHidden: hidden,
+                                        onSelect: (acc) =>
+                                            Navigator.of(context).pop(acc),
+                                      ),
+                                    ),
+                                ],
+                            ],
+                        ],
                       ),
               ),
               const SizedBox(height: 12),

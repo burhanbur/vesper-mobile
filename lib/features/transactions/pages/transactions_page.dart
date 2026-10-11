@@ -4,7 +4,6 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../models/transaction.dart';
-import '../widgets/add_transaction_modal.dart';
 import '../widgets/transaction_item_tile.dart';
 
 class TransactionsPage extends StatefulWidget {
@@ -33,13 +32,15 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
     // Filter by type
     final filtered = allTransactions.where((tx) {
-      if (_selectedFilter == 'Pengeluaran' && tx.type != TransactionType.expense) {
+      if (_selectedFilter == 'Pengeluaran' &&
+          tx.type != TransactionType.expense) {
         return false;
       }
       if (_selectedFilter == 'Pemasukan' && tx.type != TransactionType.income) {
         return false;
       }
-      if (_selectedFilter == 'Transfer' && tx.type != TransactionType.transfer) {
+      if (_selectedFilter == 'Transfer' &&
+          tx.type != TransactionType.transfer) {
         return false;
       }
 
@@ -69,7 +70,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
         actions: [
           IconButton(
             icon: Icon(
-              _isSearchVisible ? Icons.search_off_rounded : Icons.search_rounded,
+              _isSearchVisible
+                  ? Icons.search_off_rounded
+                  : Icons.search_rounded,
               color: AppColors.primary,
             ),
             onPressed: () {
@@ -80,15 +83,6 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   _searchQuery = '';
                 }
               });
-            },
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.add_circle_outline_rounded,
-              color: AppColors.primary,
-            ),
-            onPressed: () {
-              AddTransactionModal.show(context);
             },
           ),
         ],
@@ -192,7 +186,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
                     itemCount: groupedByDate.keys.length,
                     itemBuilder: (context, groupIdx) {
                       final dateKey = groupedByDate.keys.elementAt(groupIdx);
@@ -203,7 +200,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
                         children: [
                           // Date Section Header (e.g. 26 Sep, 25 Sep)
                           Padding(
-                            padding: const EdgeInsets.only(top: 14, bottom: 6, left: 4),
+                            padding: const EdgeInsets.only(
+                              top: 14,
+                              bottom: 6,
+                              left: 4,
+                            ),
                             child: Text(
                               dateKey,
                               style: const TextStyle(
@@ -231,7 +232,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                 indent: 72,
                               ),
                               itemBuilder: (context, idx) {
-                                return TransactionItemTile(transaction: items[idx]);
+                                return TransactionItemTile(
+                                  transaction: items[idx],
+                                );
                               },
                             ),
                           ),

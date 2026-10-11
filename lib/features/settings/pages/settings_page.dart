@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
-import '../../../core/constants/app_assets.dart';
+import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../accounts/pages/accounts_page.dart';
 import '../../categories/pages/categories_page.dart';
@@ -13,6 +13,9 @@ import '../../offline/widgets/offline_mode_sheet.dart';
 import '../../reports/pages/budget_page.dart';
 import '../../reports/pages/reports_page.dart';
 import '../../sync/widgets/sync_conflict_modal.dart';
+import '../data/devices_repository.dart';
+import 'devices_page.dart';
+import 'security_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -82,7 +85,8 @@ class SettingsPage extends StatelessWidget {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: state.syncQueue.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = state.syncQueue[index];
                     return ListTile(
@@ -91,7 +95,9 @@ class SettingsPage extends StatelessWidget {
                         item.isSynced
                             ? Icons.check_circle_rounded
                             : Icons.pending_rounded,
-                        color: item.isSynced ? AppColors.income : AppColors.warning,
+                        color: item.isSynced
+                            ? AppColors.income
+                            : AppColors.warning,
                         size: 20,
                       ),
                       title: Text(
@@ -109,7 +115,10 @@ class SettingsPage extends StatelessWidget {
                         ),
                       ),
                       trailing: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: item.isSynced
                               ? AppColors.incomeLight
@@ -121,7 +130,9 @@ class SettingsPage extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: item.isSynced ? AppColors.income : AppColors.warning,
+                            color: item.isSynced
+                                ? AppColors.income
+                                : AppColors.warning,
                           ),
                         ),
                       ),
@@ -139,7 +150,9 @@ class SettingsPage extends StatelessWidget {
                         const SnackBar(
                           behavior: SnackBarBehavior.floating,
                           backgroundColor: AppColors.primary,
-                          content: Text('Semua mutasi berhasil disinkronkan ke server!'),
+                          content: Text(
+                            'Semua mutasi berhasil disinkronkan ke server!',
+                          ),
                         ),
                       );
                     }
@@ -188,11 +201,11 @@ class SettingsPage extends StatelessWidget {
                       child: Text(
                         state.userName.isNotEmpty
                             ? state.userName
-                                .split(' ')
-                                .where((e) => e.isNotEmpty)
-                                .map((e) => e[0])
-                                .take(2)
-                                .join()
+                                  .split(' ')
+                                  .where((e) => e.isNotEmpty)
+                                  .map((e) => e[0])
+                                  .take(2)
+                                  .join()
                             : 'U',
                         style: const TextStyle(
                           fontSize: 18,
@@ -224,7 +237,10 @@ class SettingsPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.accentLight,
                               borderRadius: BorderRadius.circular(6),
@@ -242,7 +258,10 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary),
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        color: AppColors.textSecondary,
+                      ),
                       onPressed: () {},
                     ),
                   ],
@@ -272,73 +291,173 @@ class SettingsPage extends StatelessWidget {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.trending_up_rounded, color: AppColors.primary),
-                      title: const Text('Aset & Portofolio Investasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Saham, kripto, reksa dana, & emas', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.trending_up_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Aset & Portofolio Investasi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Saham, kripto, reksa dana, & emas',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (context) => const InvestmentsPage()),
+                          MaterialPageRoute<void>(
+                            builder: (context) => const InvestmentsPage(),
+                          ),
                         );
                       },
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.bar_chart_rounded, color: AppColors.primary),
-                      title: const Text('Laporan & Analisis', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Grafik pemasukan vs pengeluaran & breakdown kategori', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.bar_chart_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Laporan & Analisis',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Grafik pemasukan vs pengeluaran & breakdown kategori',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (context) => const ReportsPage()),
+                          MaterialPageRoute<void>(
+                            builder: (context) => const ReportsPage(),
+                          ),
                         );
                       },
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.pie_chart_outline_rounded, color: AppColors.primary),
-                      title: const Text('Budget & Perencanaan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Pantau batas pengeluaran kategori', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.pie_chart_outline_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Budget & Perencanaan',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Pantau batas pengeluaran kategori',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (context) => const BudgetPage()),
+                          MaterialPageRoute<void>(
+                            builder: (context) => const BudgetPage(),
+                          ),
                         );
                       },
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.account_balance_rounded, color: AppColors.primary),
-                      title: const Text('Kelola Akun & Kantong (Pockets)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Rekening bank, kas dompet, nested kantong', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.account_balance_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Kelola Akun & Kantong (Pockets)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Rekening bank, kas dompet, nested kantong',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (context) => const AccountsPage()),
+                        ShellManagementScope.open(
+                          context,
+                          const AccountsPage(),
                         );
                       },
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.category_rounded, color: AppColors.primary),
-                      title: const Text('Kelola Kategori Transaksi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text('${state.categories.length} kategori pemasukan & pengeluaran', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.category_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Kelola Kategori Transaksi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${state.categories.length} kategori pemasukan & pengeluaran',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (context) => const CategoriesPage()),
+                        ShellManagementScope.open(
+                          context,
+                          const CategoriesPage(),
                         );
                       },
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.groups_rounded, color: AppColors.primary),
-                      title: const Text('Grup Finansial & Kolaborasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text('${state.households.length} grup aktif: ${state.household.type.emoji} ${state.household.name}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.groups_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Grup Finansial & Kolaborasi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${state.households.length} grup aktif: ${state.household.type.emoji} ${state.household.name}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (context) => const HouseholdPage()),
+                          MaterialPageRoute<void>(
+                            builder: (context) => const HouseholdPage(),
+                          ),
                         );
                       },
                     ),
@@ -373,11 +492,17 @@ class SettingsPage extends StatelessWidget {
                       activeThumbColor: AppColors.warning,
                       title: const Text(
                         'Simulasi Mode Offline',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: const Text(
                         'Simulasikan transaksi tanpa koneksi (data tersimpan di database lokal SQLite Drift).',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       onChanged: (val) {
                         state.toggleOfflineMode();
@@ -390,15 +515,23 @@ class SettingsPage extends StatelessWidget {
                     ListTile(
                       leading: Icon(
                         Icons.cloud_sync_rounded,
-                        color: state.pendingSyncCount > 0 ? AppColors.warning : AppColors.primary,
+                        color: state.pendingSyncCount > 0
+                            ? AppColors.warning
+                            : AppColors.primary,
                       ),
                       title: const Text(
                         'Status Antrean Sync',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: Text(
                         '${state.pendingSyncCount} mutasi menunggu sinkronisasi',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => _showSyncQueueModal(context, state),
@@ -407,22 +540,33 @@ class SettingsPage extends StatelessWidget {
                     ListTile(
                       leading: Icon(
                         Icons.sync_problem_rounded,
-                        color: state.conflictCount > 0 ? AppColors.warning : AppColors.primary,
+                        color: state.conflictCount > 0
+                            ? AppColors.warning
+                            : AppColors.primary,
                       ),
                       title: const Text(
                         'Resolusi Konflik Data',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: const Text(
-                        'Penyelesaian konflik versi server vs lokal (PRD 5)',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        'Penyelesaian konflik versi server vs lokal',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (state.conflictCount > 0) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.warningLight,
                                 borderRadius: BorderRadius.circular(6),
@@ -470,25 +614,85 @@ class SettingsPage extends StatelessWidget {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.security_rounded, color: AppColors.primary),
-                      title: const Text('Keamanan & Kunci Aplikasi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('PIN, Biometrik & Keamanan Token', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.security_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Keamanan & Sesi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Ingat saya & logout perangkat ini',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {},
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => SecurityPage(
+                            auth: state.auth,
+                            onLogout: state.logout,
+                          ),
+                        ),
+                      ),
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.devices_rounded, color: AppColors.primary),
-                      title: const Text('Device Terdaftar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Lihat & logout device lain yang aktif', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.devices_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Device Terdaftar',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Lihat perangkat terdaftar untuk sinkronisasi',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {},
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => DevicesPage(
+                            repository: DevicesRepository(
+                              client: state.auth.client,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
-                      leading: const Icon(Icons.notifications_none_rounded, color: AppColors.primary),
-                      title: const Text('Notifikasi & Peringatan', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Notifikasi transaksi bersama & pengingat budget', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Notifikasi & Peringatan',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Notifikasi transaksi bersama & pengingat budget',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => NotificationsSheet.show(context),
                     ),
@@ -519,19 +723,26 @@ class SettingsPage extends StatelessWidget {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.auto_stories_rounded, color: AppColors.primary),
-                      title: const Text('Lihat Panduan Onboarding', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Fitur multi-grup, offline-first & manajemen kekayaan', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      leading: const Icon(
+                        Icons.auto_stories_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Lihat Panduan Onboarding',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Fitur multi-grup, offline-first & manajemen kekayaan',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => state.showOnboarding(),
-                    ),
-                    const Divider(height: 1, indent: 56),
-                    ListTile(
-                      leading: const Icon(Icons.flash_on_rounded, color: AppColors.primary),
-                      title: const Text('Lihat Splash Screen', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Animasi pembuka & identitas aplikasi Vesper', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => state.showSplash(),
                     ),
                   ],
                 ),
@@ -548,7 +759,10 @@ class SettingsPage extends StatelessWidget {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: ListTile(
-                  leading: const Icon(Icons.logout_rounded, color: AppColors.expense),
+                  leading: const Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.expense,
+                  ),
                   title: const Text(
                     'Logout',
                     style: TextStyle(
@@ -558,8 +772,11 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ),
                   subtitle: const Text(
-                    'Revoke token & hapus data sesi dari perangkat ini',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    'Hapus sesi lokal & coba cabut sesi server perangkat ini',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   onTap: () {
                     showDialog<void>(
@@ -575,106 +792,39 @@ class SettingsPage extends StatelessWidget {
                             child: const Text('Batal'),
                           ),
                           TextButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.of(dialogCtx).pop();
-                              state.logout();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
+                              final messenger = ScaffoldMessenger.of(context);
+                              var failed = false;
+                              try {
+                                await state.logout();
+                              } catch (_) {
+                                failed = true;
+                              }
+                              messenger.showSnackBar(
+                                SnackBar(
                                   behavior: SnackBarBehavior.floating,
                                   backgroundColor: AppColors.primary,
-                                  content: Text('Anda telah logout. Silakan login kembali.'),
+                                  content: Text(
+                                    failed
+                                        ? 'Sesi lokal dihapus. Pencabutan sesi server tidak dapat dikonfirmasi.'
+                                        : 'Anda telah logout. Silakan login kembali.',
+                                  ),
                                 ),
                               );
                             },
                             child: const Text(
                               'Logout',
-                              style: TextStyle(color: AppColors.expense, fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                color: AppColors.expense,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     );
                   },
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Tentang Aplikasi Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        AppAssets.logoBg,
-                        width: 64,
-                        height: 64,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 64,
-                          height: 64,
-                          color: AppColors.primary,
-                          child: const Icon(
-                            Icons.account_balance_wallet_rounded,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Vesper Finance',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Better Money, Brighter Tomorrow',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Aplikasi Keuangan & Manajemen Aset Keluarga. Arsitektur Offline-First (SQLite + Express + PostgreSQL).',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textMuted,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Versi 1.0.0 (Flutter Mobile Preview)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
 

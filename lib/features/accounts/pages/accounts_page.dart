@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../household/models/household.dart';
 import '../../household/widgets/create_group_sheet.dart';
 import '../models/account.dart';
+import '../models/account_picker_group.dart';
+import '../models/account_picker_section.dart';
+import 'account_detail_page.dart';
 
 class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key});
+
+  static void showAccountSettings(BuildContext context, Account account) {
+    _AccountsPageState._showAccountDetailModal(context, account);
+  }
 
   @override
   State<AccountsPage> createState() => _AccountsPageState();
@@ -19,11 +27,11 @@ class _AccountsPageState extends State<AccountsPage> {
   String _activeFilter = 'all';
   final Set<String> _expandedParents = {'acc-jago'}; // Default expanded
 
-  IconData _getAccountIcon(AccountType type) {
+  static IconData _getAccountIcon(AccountType type) {
     return AccountTypeDefinition.getDefinition(type).icon;
   }
 
-  Color _getAccountColor(AccountType type) {
+  static Color _getAccountColor(AccountType type) {
     return AccountTypeDefinition.getDefinition(type).color;
   }
 
@@ -49,6 +57,7 @@ class _AccountsPageState extends State<AccountsPage> {
 
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
@@ -369,7 +378,21 @@ class _AccountsPageState extends State<AccountsPage> {
     );
   }
 
-  void _showAccountDetailModal(BuildContext context, Account account) {
+  void _openAccountDetail(BuildContext context, Account account) {
+    final state = AppStateScope.of(context);
+    ShellManagementScope.open(
+      context,
+      AccountDetailPage(
+        accountId: account.id,
+        onSettings: () => _showAccountDetailModal(
+          context,
+          state.getAccountById(account.id) ?? account,
+        ),
+      ),
+    );
+  }
+
+  static void _showAccountDetailModal(BuildContext context, Account account) {
     final state = AppStateScope.of(context);
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     bool modalIsShared = account.isShared;
@@ -385,6 +408,7 @@ class _AccountsPageState extends State<AccountsPage> {
 
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
@@ -493,7 +517,11 @@ class _AccountsPageState extends State<AccountsPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                CurrencyFormatter.formatRupiah(account.balance),
+                                state.isBalanceHidden
+                                    ? '••••••'
+                                    : CurrencyFormatter.formatRupiah(
+                                        account.balance,
+                                      ),
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,
@@ -803,6 +831,12 @@ class _AccountsPageState extends State<AccountsPage> {
     final rootAccounts = filteredAccounts
         .where((a) => a.parentAccountId == null && a.isVisible)
         .toList();
+    final sections = buildAccountPickerSections(
+      buildAccountPickerGroups(
+        selectableAccounts: rootAccounts,
+        accountUniverse: allAccounts,
+      ),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1144,268 +1178,314 @@ class _AccountsPageState extends State<AccountsPage> {
                   ),
                 ),
               ] else ...[
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: rootAccounts.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final account = rootAccounts[index];
-                    final children = state.getChildrenForAccount(account.id);
-                    final hasChildren = children.isNotEmpty;
-                    final isExpanded = _expandedParents.contains(account.id);
-                    final color = _getAccountColor(account.type);
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border),
+                for (
+                  var sectionIndex = 0;
+                  sectionIndex < sections.length;
+                  sectionIndex++
+                ) ...[
+                  if (sectionIndex == 0 ||
+                      sections[sectionIndex - 1].category !=
+                          sections[sectionIndex].category)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        top: sectionIndex == 0 ? 0 : 20,
+                        bottom: 12,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Parent Account Tile
-                          InkWell(
-                            onTap: hasChildren
-                                ? () {
-                                    setState(() {
-                                      if (isExpanded) {
-                                        _expandedParents.remove(account.id);
-                                      } else {
-                                        _expandedParents.add(account.id);
-                                      }
-                                    });
-                                  }
-                                : () =>
-                                      _showAccountDetailModal(context, account),
-                            onLongPress: () =>
-                                _showAccountDetailModal(context, account),
-                            borderRadius: BorderRadius.circular(20),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Icon(
-                                      _getAccountIcon(account.type),
-                                      color: color,
-                                      size: 22,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Flexible(
-                                              child: Text(
-                                                account.name,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: AppColors.textPrimary,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            _buildGroupBadge(account, state),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          hasChildren
-                                              ? '${children.length} Kantong Terhubung'
-                                              : '${account.accountNumber} • Milik ${account.ownerName}',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textMuted,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        isHidden
-                                            ? '••••••'
-                                            : CurrencyFormatter.formatRupiah(
-                                                account.balance,
-                                              ),
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      if (hasChildren)
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              isExpanded
-                                                  ? 'Tutup'
-                                                  : 'Lihat Kantong',
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.accentDark,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            Icon(
-                                              isExpanded
-                                                  ? Icons
-                                                        .keyboard_arrow_up_rounded
-                                                  : Icons
-                                                        .keyboard_arrow_down_rounded,
-                                              size: 16,
-                                              color: AppColors.accentDark,
-                                            ),
-                                          ],
-                                        )
-                                      else
-                                        const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Detail & Sharing',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.primary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            Icon(
-                                              Icons.chevron_right_rounded,
-                                              size: 14,
-                                              color: AppColors.primary,
-                                            ),
-                                          ],
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                      child: Text(
+                        sections[sectionIndex].category,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 8),
+                    child: Text(
+                      sections[sectionIndex].label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: sections[sectionIndex].groups.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final account = sections[sectionIndex]
+                          .groups[index]
+                          .entries
+                          .first
+                          .account;
+                      final children = state.getChildrenForAccount(account.id);
+                      final hasChildren = children.isNotEmpty;
+                      final isExpanded = _expandedParents.contains(account.id);
+                      final color = _getAccountColor(account.type);
 
-                          // Nested Pockets (Kantong Anak per PRD 4.3)
-                          if (hasChildren && isExpanded) ...[
-                            const Divider(
-                              height: 1,
-                              color: AppColors.divider,
-                              indent: 64,
-                            ),
-                            Container(
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFBFDFB),
-                                borderRadius: BorderRadius.vertical(
-                                  bottom: Radius.circular(20),
-                                ),
-                              ),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: children.length,
-                                separatorBuilder: (context, idx) =>
-                                    const Divider(
-                                      height: 1,
-                                      indent: 64,
-                                      color: AppColors.divider,
-                                    ),
-                                itemBuilder: (context, cIdx) {
-                                  final child = children[cIdx];
-                                  return InkWell(
-                                    onTap: () =>
-                                        _showAccountDetailModal(context, child),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Parent Account Tile
+                            InkWell(
+                              onTap: () => _openAccountDetail(context, account),
+                              onLongPress: () =>
+                                  _showAccountDetailModal(context, account),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
-                                      child: Row(
+                                      child: Icon(
+                                        _getAccountIcon(account.type),
+                                        color: color,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          const SizedBox(width: 14),
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: const BoxDecoration(
-                                              color: AppColors.accent,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  child.name,
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  account.name,
                                                   style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
                                                     color:
                                                         AppColors.textPrimary,
                                                   ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
-                                                Text(
-                                                  child.accountNumber,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: AppColors.textMuted,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              _buildGroupBadge(account, state),
+                                            ],
                                           ),
+                                          const SizedBox(height: 2),
                                           Text(
-                                            isHidden
-                                                ? '••••••'
-                                                : CurrencyFormatter.formatRupiah(
-                                                    child.balance,
-                                                  ),
+                                            hasChildren
+                                                ? '${children.length} Kantong Terhubung'
+                                                : '${account.accountNumber} • Milik ${account.ownerName}',
                                             style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.textPrimary,
+                                              fontSize: 11,
+                                              color: AppColors.textMuted,
                                             ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          const Icon(
-                                            Icons.chevron_right_rounded,
-                                            size: 16,
-                                            color: AppColors.textMuted,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ),
                                     ),
-                                  );
-                                },
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          isHidden
+                                              ? '••••••'
+                                              : CurrencyFormatter.formatRupiah(
+                                                  account.balance,
+                                                ),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        if (hasChildren)
+                                          TextButton(
+                                            onPressed: () => setState(() {
+                                              if (isExpanded) {
+                                                _expandedParents.remove(
+                                                  account.id,
+                                                );
+                                              } else {
+                                                _expandedParents.add(
+                                                  account.id,
+                                                );
+                                              }
+                                            }),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  isExpanded
+                                                      ? 'Tutup'
+                                                      : 'Lihat Kantong',
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.accentDark,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                Icon(
+                                                  isExpanded
+                                                      ? Icons
+                                                            .keyboard_arrow_up_rounded
+                                                      : Icons
+                                                            .keyboard_arrow_down_rounded,
+                                                  size: 16,
+                                                  color: AppColors.accentDark,
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        else
+                                          const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Riwayat Transaksi',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppColors.primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              Icon(
+                                                Icons.chevron_right_rounded,
+                                                size: 14,
+                                                color: AppColors.primary,
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
+
+                            // Nested Pockets (Kantong Anak per PRD 4.3)
+                            if (hasChildren && isExpanded) ...[
+                              const Divider(
+                                height: 1,
+                                color: AppColors.divider,
+                                indent: 64,
+                              ),
+                              Container(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFBFDFB),
+                                  borderRadius: BorderRadius.vertical(
+                                    bottom: Radius.circular(20),
+                                  ),
+                                ),
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: children.length,
+                                  separatorBuilder: (context, idx) =>
+                                      const Divider(
+                                        height: 1,
+                                        indent: 64,
+                                        color: AppColors.divider,
+                                      ),
+                                  itemBuilder: (context, cIdx) {
+                                    final child = children[cIdx];
+                                    return InkWell(
+                                      onTap: () =>
+                                          _openAccountDetail(context, child),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const SizedBox(width: 14),
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: const BoxDecoration(
+                                                color: AppColors.accent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    child.name,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          AppColors.textPrimary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    child.accountNumber,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color:
+                                                          AppColors.textMuted,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Text(
+                                              isHidden
+                                                  ? '••••••'
+                                                  : CurrencyFormatter.formatRupiah(
+                                                      child.balance,
+                                                    ),
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Icon(
+                                              Icons.chevron_right_rounded,
+                                              size: 16,
+                                              color: AppColors.textMuted,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ],
 
               const SizedBox(height: 20),

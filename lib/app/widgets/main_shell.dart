@@ -10,6 +10,7 @@ import '../../features/transactions/models/transaction.dart';
 import '../../features/transactions/pages/transactions_page.dart';
 import '../../features/transactions/widgets/add_transaction_modal.dart';
 import '../theme/app_colors.dart';
+import 'shell_management_scope.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -20,9 +21,26 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  final _managementNavigatorKey = GlobalKey<NavigatorState>();
+  bool _managementOpen = false;
+
+  void _openManagementPage(Widget page) {
+    setState(() => _managementOpen = true);
+    _managementNavigatorKey.currentState!
+        .push<void>(MaterialPageRoute<void>(builder: (_) => page))
+        .then((_) {
+          if (mounted) {
+            setState(() {
+              _managementOpen = _managementNavigatorKey.currentState!.canPop();
+            });
+          }
+        });
+  }
 
   void _onTabSelected(int index) {
+    _managementNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() {
+      _managementOpen = false;
       _currentIndex = index;
     });
   }
@@ -32,7 +50,12 @@ class _MainShellState extends State<MainShell> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 28),
+        padding: const EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 16,
+          bottom: 28,
+        ),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -72,7 +95,10 @@ class _MainShellState extends State<MainShell> {
               subtitle: 'Makan, belanja, tagihan & kebutuhan harian',
               onTap: () {
                 Navigator.of(ctx).pop();
-                AddTransactionModal.show(context, initialType: TransactionType.expense);
+                AddTransactionModal.show(
+                  context,
+                  initialType: TransactionType.expense,
+                );
               },
             ),
             const SizedBox(height: 10),
@@ -85,7 +111,10 @@ class _MainShellState extends State<MainShell> {
               subtitle: 'Gaji, bonus, side income & dividen',
               onTap: () {
                 Navigator.of(ctx).pop();
-                AddTransactionModal.show(context, initialType: TransactionType.income);
+                AddTransactionModal.show(
+                  context,
+                  initialType: TransactionType.income,
+                );
               },
             ),
             const SizedBox(height: 10),
@@ -98,7 +127,10 @@ class _MainShellState extends State<MainShell> {
               subtitle: 'Pindah dana rekening & pencatatan utang-piutang',
               onTap: () {
                 Navigator.of(ctx).pop();
-                AddTransactionModal.show(context, initialType: TransactionType.transfer);
+                AddTransactionModal.show(
+                  context,
+                  initialType: TransactionType.transfer,
+                );
               },
             ),
             const SizedBox(height: 10),
@@ -188,7 +220,9 @@ class _MainShellState extends State<MainShell> {
         onNavigateToTransactions: () => _onTabSelected(1),
         onNavigateToInvestments: () {
           Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (context) => const InvestmentsPage()),
+            MaterialPageRoute<void>(
+              builder: (context) => const InvestmentsPage(),
+            ),
           );
         },
         onNavigateToReports: () {
@@ -204,7 +238,34 @@ class _MainShellState extends State<MainShell> {
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: pages),
+      body: Stack(
+        children: [
+          Offstage(
+            offstage: _managementOpen,
+            child: ShellManagementScope(
+              openPage: _openManagementPage,
+              child: IndexedStack(index: _currentIndex, children: pages),
+            ),
+          ),
+          Offstage(
+            offstage: !_managementOpen,
+            child: NavigatorPopHandler<Object?>(
+              enabled: _managementOpen,
+              onPopWithResult: (_) =>
+                  _managementNavigatorKey.currentState!.pop(),
+              child: ShellManagementScope(
+                openPage: _openManagementPage,
+                child: Navigator(
+                  key: _managementNavigatorKey,
+                  onGenerateRoute: (_) => MaterialPageRoute<void>(
+                    builder: (_) => const SizedBox.expand(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -243,6 +304,7 @@ class _MainShellState extends State<MainShell> {
 
               // Center Floating Action Button (+) matching contoh-1.png & contoh-2.png
               GestureDetector(
+                key: const ValueKey('shell_quick_action'),
                 onTap: () => _showQuickActionSheet(context),
                 child: Container(
                   width: 48,
@@ -299,29 +361,34 @@ class _MainShellState extends State<MainShell> {
   }) {
     final isSelected = _currentIndex == index;
 
-    return InkWell(
-      onTap: () => _onTabSelected(index),
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? AppColors.primary : AppColors.textMuted,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onTabSelected(index),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
                 color: isSelected ? AppColors.primary : AppColors.textMuted,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? AppColors.primary : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

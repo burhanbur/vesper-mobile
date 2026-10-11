@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/widgets/app_header.dart';
+import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../accounts/pages/accounts_page.dart';
+import '../../accounts/pages/account_detail_page.dart';
 import '../../accounts/widgets/account_card.dart';
 import '../../investments/widgets/investment_trade_modal.dart';
 import '../../transactions/models/transaction.dart';
@@ -63,18 +65,30 @@ class DashboardPage extends StatelessWidget {
 
                 // Neraca Card matching contoh-1.png ("Neraca: + Rp 6.800.000")
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    key: const ValueKey('dashboard_month_balance'),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 12,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
+                        SizedBox(
+                          width: 190,
                           child: Row(
                             children: [
                               Container(
@@ -110,15 +124,19 @@ class DashboardPage extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Text(
                           isHidden
                               ? '••••••'
-                              : CurrencyFormatter.formatRupiah(netSavings, withSign: true),
+                              : CurrencyFormatter.formatRupiah(
+                                  netSavings,
+                                  withSign: true,
+                                ),
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: netSavings >= 0 ? AppColors.income : AppColors.expense,
+                            color: netSavings >= 0
+                                ? AppColors.income
+                                : AppColors.expense,
                           ),
                         ),
                       ],
@@ -126,7 +144,7 @@ class DashboardPage extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
 
                 // 4 Quick Actions (Catat, Transfer, Aset, Laporan)
                 QuickActionsBar(
@@ -146,99 +164,146 @@ class DashboardPage extends StatelessWidget {
                   onReports: onNavigateToReports,
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
 
                 // Akun Terdaftar (Horizontal List) with "Lihat Semua"
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Akun & Rekening',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 6,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 16,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Akun & Rekening',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) => const AccountsPage(),
+                        InkWell(
+                          onTap: () {
+                            ShellManagementScope.open(
+                              context,
+                              const AccountsPage(),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
                             ),
-                          );
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Text(
-                            'Lihat semua',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.accentDark,
+                            child: Text(
+                              'Lihat semua',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.accentDark,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
-                SizedBox(
-                  height: 195,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                if (accounts.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Text(
+                      'Belum ada akun',
+                      style: TextStyle(color: AppColors.textMuted),
+                    ),
+                  )
+                else
+                  SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    itemCount: accounts.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      return AccountCard(
-                        account: accounts[index],
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) => const AccountsPage(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final account in accounts)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: AccountCard(
+                              key: ValueKey('dashboard_account_${account.id}'),
+                              account: account,
+                              onTap: () => ShellManagementScope.open(
+                                context,
+                                AccountDetailPage(
+                                  accountId: account.id,
+                                  onSettings: () =>
+                                      AccountsPage.showAccountSettings(
+                                        context,
+                                        state.getAccountById(account.id) ??
+                                            account,
+                                      ),
+                                ),
+                              ),
                             ),
-                          );
-                        },
-                      );
-                    },
+                          ),
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
                 // Transaksi Terbaru
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Transaksi Terbaru',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 6,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 16,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Transaksi Terbaru',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                      ),
-                      InkWell(
-                        onTap: onNavigateToTransactions,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          child: Text(
-                            'Lihat semua',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.accentDark,
+                        InkWell(
+                          onTap: onNavigateToTransactions,
+                          borderRadius: BorderRadius.circular(8),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Text(
+                              'Lihat semua',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.accentDark,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -249,26 +314,72 @@ class DashboardPage extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.75),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.025),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: transactions.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.all(24),
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 28,
+                              horizontal: 24,
+                            ),
                             child: Center(
-                              child: Text(
-                                'Belum ada transaksi',
-                                style: TextStyle(color: AppColors.textMuted),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceVariant,
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: const Icon(
+                                      Icons.receipt_long_outlined,
+                                      color: AppColors.textMuted,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    'Belum ada transaksi',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Catat transaksi pertama Anda',
+                                    style: TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
                             ),
                           )
                         : ListView.separated(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             itemCount: transactions.length,
-                            separatorBuilder: (context, index) => const Divider(
+                            separatorBuilder: (context, index) => Divider(
                               height: 1,
-                              color: AppColors.divider,
+                              color: AppColors.divider.withValues(alpha: 0.8),
                               indent: 72,
+                              endIndent: 16,
                             ),
                             itemBuilder: (context, index) {
                               return TransactionItemTile(
