@@ -25,7 +25,7 @@ class AccountsPage extends StatefulWidget {
 class _AccountsPageState extends State<AccountsPage> {
   // Filter mode: 'all' = semua akun, 'personal' = akun pribadi, or household.id = grup spesifik
   String _activeFilter = 'all';
-  final Set<String> _expandedParents = {'acc-jago'}; // Default expanded
+  final Set<String> _expandedParents = <String>{};
 
   static IconData _getAccountIcon(AccountType type) {
     return AccountTypeDefinition.getDefinition(type).icon;

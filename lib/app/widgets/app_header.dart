@@ -13,7 +13,7 @@ class AppHeader extends StatelessWidget {
 
   String _getInitials(String name) {
     final trimmed = name.trim();
-    if (trimmed.isEmpty) return 'BM';
+    if (trimmed.isEmpty) return 'U';
     final parts = trimmed.split(RegExp(r'\s+'));
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
@@ -27,7 +27,7 @@ class AppHeader extends StatelessWidget {
     final initials = _getInitials(state.userName);
     final greetingName = state.userName.isNotEmpty
         ? state.userName.split(' ').first
-        : 'Burhan';
+        : 'Pengguna';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),

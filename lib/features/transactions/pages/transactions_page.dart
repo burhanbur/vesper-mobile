@@ -133,15 +133,15 @@ class _TransactionsPageState extends State<TransactionsPage> {
             ),
           ),
 
-          // Month Header Bar (September 2026 - contoh-1.png & contoh-2.png)
+          // Month Header Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'September 2026',
-                  style: TextStyle(
+                Text(
+                  DateFormatter.formatMonthYear(DateTime.now()),
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,

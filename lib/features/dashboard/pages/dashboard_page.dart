@@ -54,7 +54,7 @@ class DashboardPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top App Header (Avatar, Halo Burhan, Keluarga Mafazi, Bell)
+                // Top App Header (Avatar, Greeting, Household Selector, Bell)
                 AppHeader(onHouseholdTap: onNavigateToHousehold),
 
                 // Offline Mode Banner

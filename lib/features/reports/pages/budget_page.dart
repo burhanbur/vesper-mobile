@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
@@ -14,15 +15,16 @@ class BudgetPage extends StatefulWidget {
 class _BudgetPageState extends State<BudgetPage> {
   int _selectedPeriodTab = 0; // 0: Bulanan, 1: Tahunan
 
-  final List<String> _months = [
-    'Juli 2026',
-    'Agustus 2026',
-    'September 2026',
-    'Oktober 2026',
-  ];
-  int _currentMonthIndex = 2; // September 2026
+  late DateTime _selectedMonth;
+  late int _currentYear;
 
-  int _currentYear = 2026;
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month);
+    _currentYear = now.year;
+  }
 
   IconData _getCategoryIcon(String iconName) {
     switch (iconName) {
@@ -45,9 +47,9 @@ class _BudgetPageState extends State<BudgetPage> {
 
   void _showAddBudgetModal(BuildContext context) {
     final amountController = TextEditingController();
-    String selectedCategory = 'Makanan & Minuman';
     final state = AppStateScope.of(context);
     final availableCategories = state.expenseCategories.map((c) => c.name).toList();
+    String? selectedCategory = availableCategories.isNotEmpty ? availableCategories.first : null;
 
     showModalBottomSheet<void>(
       context: context,
@@ -172,10 +174,10 @@ class _BudgetPageState extends State<BudgetPage> {
                 onPressed: () {
                   final text = amountController.text.trim();
                   final amount = int.tryParse(text) ?? 0;
-                  if (amount <= 0) return;
+                  if (amount <= 0 || selectedCategory == null) return;
 
                   state.setCategoryBudget(
-                    categoryName: selectedCategory,
+                    categoryName: selectedCategory!,
                     allocatedAmount: amount,
                   );
 
@@ -297,7 +299,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
               const SizedBox(height: 16),
 
-              // Period Navigator: < September 2026 > or < Tahun 2026 >
+              // Period Navigator: < Bulan Tahun > or < Tahun >
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -309,13 +311,18 @@ class _BudgetPageState extends State<BudgetPage> {
                         if (isYearly) {
                           _currentYear--;
                         } else {
-                          if (_currentMonthIndex > 0) _currentMonthIndex--;
+                          _selectedMonth = DateTime(
+                            _selectedMonth.year,
+                            _selectedMonth.month - 1,
+                          );
                         }
                       });
                     },
                   ),
                   Text(
-                    isYearly ? 'Tahun $_currentYear' : _months[_currentMonthIndex],
+                    isYearly
+                        ? 'Tahun $_currentYear'
+                        : DateFormatter.formatMonthYear(_selectedMonth),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -330,7 +337,10 @@ class _BudgetPageState extends State<BudgetPage> {
                         if (isYearly) {
                           _currentYear++;
                         } else {
-                          if (_currentMonthIndex < _months.length - 1) _currentMonthIndex++;
+                          _selectedMonth = DateTime(
+                            _selectedMonth.year,
+                            _selectedMonth.month + 1,
+                          );
                         }
                       });
                     },
@@ -604,13 +614,13 @@ class _BudgetPageState extends State<BudgetPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.flag_rounded, color: AppColors.accentDark, size: 20),
-                          SizedBox(width: 8),
+                          const Icon(Icons.flag_rounded, color: AppColors.accentDark, size: 20),
+                          const SizedBox(width: 8),
                           Text(
-                            'Target Tabungan Tahunan 2026',
-                            style: TextStyle(
+                            'Target Tabungan Tahunan $_currentYear',
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
@@ -619,9 +629,9 @@ class _BudgetPageState extends State<BudgetPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Target Rp 120.000.000 / tahun. Terkumpul hingga September 2026: Rp 94.500.000 (78.8%). Sisa kuartal IV diperkirakan surplus Rp 28.000.000.',
-                        style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
+                      Text(
+                        'Total alokasi budget tahunan yang direncanakan: ${CurrencyFormatter.formatRupiah(totalAllocated)}. Terpakai: ${CurrencyFormatter.formatRupiah(totalSpent)}.',
+                        style: const TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
                       ),
                     ],
                   ),
