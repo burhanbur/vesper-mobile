@@ -7,17 +7,15 @@ import '../models/household.dart';
 class CreateOrJoinGroupSheet extends StatefulWidget {
   final int initialTabIndex;
 
-  const CreateOrJoinGroupSheet({
-    super.key,
-    this.initialTabIndex = 0,
-  });
+  const CreateOrJoinGroupSheet({super.key, this.initialTabIndex = 0});
 
   static Future<void> show(BuildContext context, {int initialTabIndex = 0}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => CreateOrJoinGroupSheet(initialTabIndex: initialTabIndex),
+      builder: (ctx) =>
+          CreateOrJoinGroupSheet(initialTabIndex: initialTabIndex),
     );
   }
 
@@ -30,6 +28,8 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _codeController = TextEditingController();
+  final _groupIdController = TextEditingController();
+  bool _joining = false;
   GroupType _selectedType = GroupType.roommates;
 
   @override
@@ -43,6 +43,7 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
     _nameController.dispose();
     _descController.dispose();
     _codeController.dispose();
+    _groupIdController.dispose();
     super.dispose();
   }
 
@@ -62,10 +63,15 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
       await state.createHousehold(
         name: name,
         type: _selectedType,
-        description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+        description: _descController.text.trim().isEmpty
+            ? null
+            : _descController.text.trim(),
       );
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
       return;
     }
     if (!mounted) return;
@@ -79,7 +85,8 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
     );
   }
 
-  void _handleJoin(AppState state) {
+  Future<void> _handleJoin(AppState state) async {
+    if (_joining) return;
     final code = _codeController.text.trim();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,13 +98,19 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
       return;
     }
 
-    bool success;
-    try { success = state.joinHouseholdWithCode(code); }
-    catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    setState(() => _joining = true);
+    try {
+      await state.joinHousehold(groupId: _groupIdController.text, code: code);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
       return;
+    } finally {
+      if (mounted) setState(() => _joining = false);
     }
-    if (success) {
+    if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -156,7 +169,9 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: _activeTab == 0 ? Colors.white : Colors.transparent,
+                          color: _activeTab == 0
+                              ? Colors.white
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: _activeTab == 0
                               ? [
@@ -173,8 +188,12 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                             '+ Buat Grup Baru',
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: _activeTab == 0 ? FontWeight.w700 : FontWeight.w500,
-                              color: _activeTab == 0 ? AppColors.textPrimary : AppColors.textMuted,
+                              fontWeight: _activeTab == 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: _activeTab == 0
+                                  ? AppColors.textPrimary
+                                  : AppColors.textMuted,
                             ),
                           ),
                         ),
@@ -187,7 +206,9 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: _activeTab == 1 ? Colors.white : Colors.transparent,
+                          color: _activeTab == 1
+                              ? Colors.white
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: _activeTab == 1
                               ? [
@@ -204,8 +225,12 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                             '🔑 Gabung via Kode',
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: _activeTab == 1 ? FontWeight.w700 : FontWeight.w500,
-                              color: _activeTab == 1 ? AppColors.textPrimary : AppColors.textMuted,
+                              fontWeight: _activeTab == 1
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: _activeTab == 1
+                                  ? AppColors.textPrimary
+                                  : AppColors.textMuted,
                             ),
                           ),
                         ),
@@ -222,15 +247,24 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
               // FORM: BUAT GRUP
               const Text(
                 'Nama Grup Finansial',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: 'Misal: Kosan Senopati, Trip Bali, Kas Usaha',
-                  prefixIcon: const Icon(Icons.groups_rounded, color: AppColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  prefixIcon: const Icon(
+                    Icons.groups_rounded,
+                    color: AppColors.primary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   filled: true,
                   fillColor: AppColors.surfaceVariant.withValues(alpha: 0.5),
                 ),
@@ -239,7 +273,11 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
               const SizedBox(height: 16),
               const Text(
                 'Tipe Grup',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 8),
 
@@ -252,26 +290,40 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                     onTap: () => setState(() => _selectedType = type),
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryLight.withValues(alpha: 0.15) : AppColors.surfaceVariant,
+                        color: isSelected
+                            ? AppColors.primaryLight.withValues(alpha: 0.15)
+                            : AppColors.surfaceVariant,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isSelected ? AppColors.primary : Colors.transparent,
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.transparent,
                           width: 1.5,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(type.emoji, style: const TextStyle(fontSize: 16)),
+                          Text(
+                            type.emoji,
+                            style: const TextStyle(fontSize: 16),
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             type.displayName,
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary,
                             ),
                           ),
                         ],
@@ -284,15 +336,22 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
               const SizedBox(height: 16),
               const Text(
                 'Deskripsi / Catatan (Opsional)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: _descController,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  hintText: 'Misal: Patungan sewa, listrik, dan kas darurat bulanan',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  hintText:
+                      'Misal: Patungan sewa, listrik, dan kas darurat bulanan',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   filled: true,
                   fillColor: AppColors.surfaceVariant.withValues(alpha: 0.5),
                 ),
@@ -304,27 +363,47 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 child: const Text(
                   'Buat & Aktifkan Grup',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ] else ...[
-              // FORM: GABUNG DENGAN KODE
+              // The server requires both group identity and invitation code.
+              TextField(
+                controller: _groupIdController,
+                decoration: const InputDecoration(labelText: 'ID Grup (UUID)'),
+              ),
+              const SizedBox(height: 12),
               const Text(
                 'Kode Undangan Grup',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
                 controller: _codeController,
                 textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  hintText: 'Contoh: KSN-4491 atau TRP-9023',
-                  prefixIcon: const Icon(Icons.vpn_key_rounded, color: AppColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  hintText: '12 karakter, contoh: ABCD1234EFGH',
+                  prefixIcon: const Icon(
+                    Icons.vpn_key_rounded,
+                    color: AppColors.primary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   filled: true,
                   fillColor: AppColors.surfaceVariant.withValues(alpha: 0.5),
                 ),
@@ -337,15 +416,21 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
 
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => _handleJoin(state),
+                onPressed: _joining ? null : () => _handleJoin(state),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 child: const Text(
                   'Gabung ke Grup Sekarang',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ],

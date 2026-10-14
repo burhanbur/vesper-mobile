@@ -29,6 +29,22 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Validate mobile resilience regressions",
+			"type": "shell",
+			"command": "C:\\flutter\\bin\\flutter.bat",
+			"args": [
+				"test",
+				"test/unit/auth_session_resilience_test.dart",
+				"test/unit/date_formatter_test.dart",
+				"test/unit/automatic_sync_test.dart",
+				"test/widget/dashboard_page_test.dart",
+				"test/widget/safe_ux_test.dart"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }

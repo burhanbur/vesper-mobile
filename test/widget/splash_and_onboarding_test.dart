@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:vesper_mobile/app/app.dart';
 import 'package:vesper_mobile/features/auth/pages/login_page.dart';
 import 'package:vesper_mobile/features/auth/pages/onboarding_page.dart';
 import 'package:vesper_mobile/features/auth/pages/splash_page.dart';
 
 void main() {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   group('Splash and Onboarding Flow Tests', () {
-    testWidgets('Full flow from Splash to Onboarding, LoginPage, and MainShell', (WidgetTester tester) async {
+    testWidgets('Splash restores login; guide slides return to unauthenticated login', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       // Start app with Splash screen enabled
       await tester.pumpWidget(
@@ -32,7 +35,12 @@ void main() {
       await tester.tap(find.byType(GestureDetector).first);
       await tester.pumpAndSettle();
 
-      // 2. Verify Onboarding Page - Slide 1 (Multi-Group Highlight)
+      expect(find.byType(LoginPage), findsOneWidget);
+      expect(find.byType(OnboardingPage), findsNothing);
+      await tester.tap(find.text('✦ Lihat Panduan & Pengenalan Fitur Vesper'));
+      await tester.pumpAndSettle();
+
+      // The guide is explicitly requested, never an authentication shortcut.
       expect(find.byType(OnboardingPage), findsOneWidget);
       expect(find.text('👥 Ruang Grup & Kolaborasi Pasangan'), findsOneWidget);
       expect(find.text('Kelola Keuangan Bersama Pasangan & Grup'), findsOneWidget);
@@ -76,39 +84,11 @@ void main() {
 
       expect(find.byType(LoginPage), findsOneWidget);
 
-      // Tap demo persona (Burhan Mafazi) to log in
-      await tester.tap(find.text('Burhan Mafazi'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pumpAndSettle();
-
-      // 4. Verify MainShell
-      expect(find.text('Total Kekayaan'), findsOneWidget);
-
-      // Navigate to Settings
-      await tester.tap(find.text('Lainnya'));
-      await tester.pumpAndSettle();
-
-      // Scroll to Panduan section in Settings
-      await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -600));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Panduan & Informasi Aplikasi'), findsOneWidget);
-      expect(find.text('Lihat Panduan Onboarding'), findsOneWidget);
-      expect(find.text('Lihat Splash Screen'), findsOneWidget);
-
-      // Tap "Lihat Splash Screen"
-      await tester.tap(find.text('Lihat Splash Screen'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(SplashPage), findsOneWidget);
-
-      // Tap to return
-      await tester.tap(find.byType(GestureDetector).first);
-      await tester.pumpAndSettle();
-
-      // Verify returned to MainShell
-      expect(find.text('Total Kekayaan'), findsOneWidget);
+      expect(find.text('Masuk ke Akun'), findsOneWidget);
+      expect(find.text('Masuk Cepat (Akun Demo)'), findsNothing);
+      expect(find.text('Total Kekayaan'), findsNothing);
+      expect(await const FlutterSecureStorage().read(key: 'vesper.session'), isNull);
+      expect(tester.takeException(), isNull);
     });
   });
 }

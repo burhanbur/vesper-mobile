@@ -13,7 +13,7 @@ class DateFormatter {
     'September',
     'Oktober',
     'November',
-    'Desember'
+    'Desember',
   ];
 
   static const List<String> _shortMonthsIndo = [
@@ -28,7 +28,7 @@ class DateFormatter {
     'Sep',
     'Okt',
     'Nov',
-    'Des'
+    'Des',
   ];
 
   static String formatShort(DateTime date) {
@@ -43,9 +43,11 @@ class DateFormatter {
   }
 
   static String formatFull(DateTime date) {
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '${formatShort(date)}, $hour:$minute WIB';
+    // WIB is UTC+7 regardless of the device's local timezone (no DST).
+    final wib = date.toUtc().add(const Duration(hours: 7));
+    final hour = wib.hour.toString().padLeft(2, '0');
+    final minute = wib.minute.toString().padLeft(2, '0');
+    return '${formatShort(wib)}, $hour:$minute WIB';
   }
 
   static String formatMonthYear(DateTime date) {

@@ -12,40 +12,8 @@ class NetWorthCard extends StatelessWidget {
     final state = AppStateScope.of(context);
     final isHidden = state.isBalanceHidden;
 
-    final growth = state.monthGrowthPercentage;
-    final isPositive = growth > 0.0001;
-    final isNegative = growth < -0.0001;
-
-    final Color badgeColor;
-    final Color badgeBg;
-    final Color badgeBorder;
-    final IconData badgeIcon;
-    final String badgeText;
-    final Color sparklineColor;
-
-    if (isPositive) {
-      badgeColor = AppColors.accent;
-      badgeBg = AppColors.accent.withValues(alpha: 0.18);
-      badgeBorder = AppColors.accent.withValues(alpha: 0.32);
-      badgeIcon = Icons.arrow_upward_rounded;
-      badgeText = '+${growth.toStringAsFixed(1)}% bulan ini';
-      sparklineColor = AppColors.accent;
-    } else if (isNegative) {
-      badgeColor = const Color(0xFFFF8A80);
-      badgeBg = AppColors.expense.withValues(alpha: 0.2);
-      badgeBorder = const Color(0xFFFF8A80).withValues(alpha: 0.32);
-      badgeIcon = Icons.arrow_downward_rounded;
-      badgeText = '${growth.toStringAsFixed(1)}% bulan ini';
-      sparklineColor = const Color(0xFFFF8A80);
-    } else {
-      badgeColor = AppColors.sageMuted;
-      badgeBg = Colors.white.withValues(alpha: 0.08);
-      badgeBorder = Colors.white.withValues(alpha: 0.14);
-      badgeIcon = Icons.remove_rounded;
-      badgeText = '0.0% bulan ini';
-      sparklineColor = AppColors.sageMuted.withValues(alpha: 0.5);
-    }
-
+    // Investment valuations and historical snapshots are not available here.
+    // Do not present cash totals as net worth or inferred savings as growth.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Container(
@@ -115,7 +83,7 @@ class NetWorthCard extends StatelessWidget {
                           children: [
                             const Flexible(
                               child: Text(
-                                'Total Kekayaan',
+                                'Total Saldo Non-Investasi',
                                 style: TextStyle(
                                   color: AppColors.sageMuted,
                                   fontSize: 13,
@@ -125,45 +93,32 @@ class NetWorthCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: state.toggleHideBalance,
-                              child: Icon(
+                            IconButton(
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(48, 48),
+                              ),
+                              tooltip: isHidden
+                                  ? 'Tampilkan saldo'
+                                  : 'Sembunyikan saldo',
+                              onPressed: state.toggleHideBalance,
+                              icon: Icon(
                                 isHidden
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
+                                semanticLabel: isHidden
+                                    ? 'Tampilkan saldo'
+                                    : 'Sembunyikan saldo',
                                 color: AppColors.sageMuted,
                                 size: 18,
                               ),
                             ),
                           ],
                         ),
-                        // Growth Badge (dinamis berdasarkan persentase bulan ini)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeBg,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: badgeBorder),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(badgeIcon, size: 12, color: badgeColor),
-                              const SizedBox(width: 3),
-                              Flexible(
-                                child: Text(
-                                  badgeText,
-                                  style: TextStyle(
-                                    color: badgeColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        const Text(
+                          'Tidak termasuk nilai investasi',
+                          style: TextStyle(
+                            color: AppColors.sageMuted,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -184,24 +139,13 @@ class NetWorthCard extends StatelessWidget {
                           isHidden
                               ? 'Rp •••••••••'
                               : CurrencyFormatter.formatRupiah(
-                                  state.totalNetWorth,
+                                  state.totalLiquidCash,
                                 ),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
-                          ),
-                        ),
-                        // Mini Sparkline curve
-                        SizedBox(
-                          width: 80,
-                          height: 30,
-                          child: CustomPaint(
-                            painter: _SparklinePainter(
-                              points: state.monthNetWorthTrend,
-                              lineColor: sparklineColor,
-                            ),
                           ),
                         ),
                       ],
@@ -344,62 +288,4 @@ class NetWorthCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SparklinePainter extends CustomPainter {
-  final List<double> points;
-  final Color lineColor;
-
-  const _SparklinePainter({required this.points, required this.lineColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
-
-    final paint = Paint()
-      ..color = lineColor
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final minVal = points.reduce((a, b) => a < b ? a : b);
-    final maxVal = points.reduce((a, b) => a > b ? a : b);
-
-    // If perfectly flat or single point, draw subtle horizontal line through center
-    if (minVal == maxVal || points.length == 1) {
-      canvas.drawLine(
-        Offset(0, size.height * 0.5),
-        Offset(size.width, size.height * 0.5),
-        paint,
-      );
-      return;
-    }
-
-    final path = Path();
-    const padding = 3.0;
-    final usableHeight = size.height - (padding * 2);
-
-    for (var i = 0; i < points.length; i++) {
-      final x = (i / (points.length - 1)) * size.width;
-      final normalized = (points[i] - minVal) / (maxVal - minVal);
-      final y = padding + usableHeight - (normalized * usableHeight);
-
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        final prevX = ((i - 1) / (points.length - 1)) * size.width;
-        final prevNorm = (points[i - 1] - minVal) / (maxVal - minVal);
-        final prevY = padding + usableHeight - (prevNorm * usableHeight);
-        final midX = (prevX + x) / 2;
-        path.cubicTo(midX, prevY, midX, y, x, y);
-      }
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
-      oldDelegate.lineColor != lineColor || oldDelegate.points != points;
 }

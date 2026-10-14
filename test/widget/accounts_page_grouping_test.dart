@@ -3,103 +3,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
 import 'package:vesper_mobile/features/accounts/models/account.dart';
 import 'package:vesper_mobile/features/accounts/pages/accounts_page.dart';
-import 'package:vesper_mobile/features/household/models/household.dart';
+import 'package:vesper_mobile/features/sync/data/finance_repository.dart';
 
+import '../fixtures/cached_finance.dart';
+
+// Sharing snapshots are not integrated into the production account adapter yet.
+// These overrides supply presentation-only sharing metadata, not fake writes.
 class _AccountsState extends AppState {
-  @override
-  List<Account> get accounts => const [
-    Account(
-      id: 'stock',
-      name: 'Stock account',
-      type: AccountType.investment,
-      institution: 'Saham',
-      balance: 500,
-      accountNumber: '',
-    ),
-    Account(
-      id: 'fund',
-      name: 'Fund account',
-      type: AccountType.investment,
-      institution: 'Reksadana',
-      balance: 400,
-      accountNumber: '',
-    ),
-    Account(
-      id: 'wallet',
-      name: 'Wallet account',
-      type: AccountType.wallet,
-      institution: 'E-wallet',
-      balance: 300,
-      accountNumber: '',
-    ),
-    Account(
-      id: 'acc-jago',
-      name: 'Bank parent',
-      type: AccountType.bank,
-      institution: 'Rekening Bank',
-      balance: 200,
-      accountNumber: '',
-      isShared: true,
-      householdId: 'hh-1',
-    ),
-    Account(
-      id: 'pocket',
-      name: 'Nested pocket',
-      type: AccountType.bank,
-      institution: 'Rekening Bank',
-      balance: 100,
-      accountNumber: '',
-      parentAccountId: 'acc-jago',
-      isShared: true,
-      householdId: 'hh-1',
-    ),
-    Account(
-      id: 'cash',
-      name: 'Cash account',
-      type: AccountType.cash,
-      institution: 'Cash',
-      balance: 50,
-      accountNumber: '',
-    ),
-    Account(
-      id: 'hidden',
-      name: 'Hidden account',
-      type: AccountType.cash,
-      balance: 0,
-      accountNumber: '',
-      isVisible: false,
-    ),
-  ];
+  _AccountsState(FinanceRepository repository) : super(repository: repository);
 
   @override
-  List<Household> get households => const [
-    Household(id: 'hh-1', name: 'Family', members: [], sharedBalance: 300),
-  ];
-
-  @override
-  Household get household => households.first;
-
-  @override
-  String get activeHouseholdId => 'hh-1';
-
-  String? selectedHousehold;
-  String? savedAccount;
-  bool? savedSharing;
-
-  @override
-  void switchHousehold(String id) {
-    selectedHousehold = id;
-  }
-
-  @override
-  Future<void> updateAccountSharing({
-    required String accountId,
-    required bool isShared,
-    String? householdId,
-  }) async {
-    savedAccount = accountId;
-    savedSharing = isShared;
-  }
+  List<Account> get accounts => super.accounts
+      .map(
+        (account) => account.id == 'acc-jago' || account.id == 'pocket'
+            ? account.copyWith(isShared: true, householdId: 'hh-1')
+            : account,
+      )
+      .toList();
 }
 
 Future<_AccountsState> _pumpPage(WidgetTester tester) async {
@@ -107,7 +27,53 @@ Future<_AccountsState> _pumpPage(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  final state = _AccountsState();
+  final base = cachedFinanceState();
+  final repo = base.repository!;
+  base.repository = null;
+  base.dispose();
+  repo.atomic(() {
+    repo.entities['account_types'] = {
+      for (final name in [
+        'Cash',
+        'Rekening Bank',
+        'E-wallet',
+        'Reksadana',
+        'Saham',
+      ])
+        name: {
+          'id': name,
+          'name': name,
+          'category': ['Reksadana', 'Saham'].contains(name)
+              ? 'INVESTMENT'
+              : 'CASH',
+        },
+    };
+    repo.entities['accounts'] = {
+      for (final row in [
+        ['stock', 'Stock account', 'Saham', '500.00'],
+        ['fund', 'Fund account', 'Reksadana', '400.00'],
+        ['wallet', 'Wallet account', 'E-wallet', '300.00'],
+        ['acc-jago', 'Bank parent', 'Rekening Bank', '200.00'],
+        ['pocket', 'Nested pocket', 'Rekening Bank', '100.00'],
+        ['cash', 'Cash account', 'Cash', '50.00'],
+        ['hidden', 'Hidden account', 'Cash', '0.00'],
+      ])
+        row[0]: {
+          'id': row[0],
+          'name': row[1],
+          'account_type_id': row[2],
+          'balance': row[3],
+          'user_id': 'user',
+          'is_visible': row[0] != 'hidden',
+          if (row[0] == 'pocket') 'parent_account_id': 'acc-jago',
+        },
+    };
+    repo.entities['groups'] = {
+      'hh-1': {'id': 'hh-1', 'name': 'Family'},
+    };
+  });
+  final state = _AccountsState(repo)..currentUserId = 'user';
+  state.toggleOfflineMode();
   addTearDown(state.dispose);
   await tester.pumpWidget(
     AppStateScope(
@@ -124,6 +90,9 @@ void main() {
     'Uses picker category and subtype order, keeping pockets nested',
     (tester) async {
       await _pumpPage(tester);
+      expect(find.text('Nested pocket'), findsNothing);
+      await tester.tap(find.text('Lihat Kantong'));
+      await tester.pumpAndSettle();
       final ordered = [
         find.text('Cash').first,
         find.text('Cash').last,
@@ -171,8 +140,11 @@ void main() {
     expect(find.text('4 Rekening'), findsOneWidget);
     await tester.tap(find.text('Family (1)'));
     await tester.pumpAndSettle();
-    expect(state.selectedHousehold, 'hh-1');
+    expect(state.activeHouseholdId, 'hh-1');
     expect(find.text('Bank parent'), findsOneWidget);
+    expect(find.text('Nested pocket'), findsNothing);
+    await tester.tap(find.text('Lihat Kantong'));
+    await tester.pumpAndSettle();
     expect(find.text('Nested pocket'), findsOneWidget);
     expect(find.text('Investasi'), findsNothing);
     expect(find.text('E-wallet'), findsNothing);
@@ -188,16 +160,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(state.isBalanceHidden, isTrue);
       expect(find.text('••••••'), findsWidgets);
+      await tester.tap(find.text('Lihat Kantong'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Nested pocket'));
       await tester.pumpAndSettle();
       expect(find.text('Saldo Rekening'), findsOneWidget);
       await tester.tap(find.byTooltip('Pengaturan & Sharing'));
       await tester.pumpAndSettle();
       expect(find.text('Pilih Grup yang Dapat Mengakses'), findsOneWidget);
-      await tester.tap(find.text('Simpan Pengaturan Rekening'));
+      expect(find.textContaining('Rp'), findsNothing);
+      expect(state.repository!.outbox, isEmpty);
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
-      expect(state.savedAccount, 'pocket');
-      expect(state.savedSharing, isTrue);
       await tester.pageBack();
       await tester.pumpAndSettle();
       await tester.longPress(find.text('Bank parent'));

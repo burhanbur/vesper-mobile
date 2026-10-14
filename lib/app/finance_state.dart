@@ -8,6 +8,7 @@ import '../features/accounts/models/account.dart';
 import '../features/accounts/models/balance_adjustment.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/categories/models/category.dart';
+import '../features/household/models/category_report.dart';
 import '../features/household/models/group_category.dart';
 import '../features/household/models/household.dart';
 import '../features/investments/models/investment.dart';
@@ -55,7 +56,7 @@ class SyncQueueItem {
 
 /// UI → observable state → repository → user-scoped SQLite/API.
 /// The existing notifier scope is retained; no second state-management layer.
-class AppState extends ChangeNotifier {
+class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final AuthRepository auth;
   FinanceRepository? repository;
   AppState({
@@ -74,6 +75,128 @@ class AppState extends ChangeNotifier {
   String _activeHouseholdId = '';
   bool _disposed = false;
   int _generation = 0;
+  Future<void>? _refreshTask;
+  String householdReportPeriod = utcReportPeriod(DateTime.now());
+  String? householdReportError;
+  bool householdReportLoading = false;
+  int _reportGeneration = 0;
+  Future<void>? _reportTask;
+  final Set<Future<void>> _reportTasks = {};
+  String? _reportKey;
+
+  HouseholdCategoryReport? get householdCategoryReport => repository
+      ?.cachedCategoryReport(activeHouseholdId, householdReportPeriod);
+
+  Future<void> loadHouseholdCategoryReport({String? period}) {
+    final selected = period ?? householdReportPeriod;
+    validateReportPeriod(selected);
+    final repo = repository;
+    final groupId = activeHouseholdId;
+    final key = '${repo?.userId}:$groupId:$selected';
+    if (_reportTask != null && _reportKey == key) return _reportTask!;
+    householdReportPeriod = selected;
+    householdReportError = null;
+    final token = ++_reportGeneration;
+    final generation = _generation;
+    bool active() =>
+        !_disposed &&
+        generation == _generation &&
+        token == _reportGeneration &&
+        identical(repository, repo) &&
+        groupId == activeHouseholdId &&
+        selected == householdReportPeriod;
+    if (repo == null || groupId.isEmpty || _offline) {
+      householdReportLoading = false;
+      _notify();
+      return Future.value();
+    }
+    householdReportLoading = true;
+    _reportKey = key;
+    _notify();
+    final task = () async {
+      try {
+        await repo.fetchCategoryReport(groupId, selected, isCurrent: active);
+      } catch (error) {
+        if (active()) householdReportError = error.toString();
+      } finally {
+        if (active()) {
+          householdReportLoading = false;
+          _notify();
+        }
+      }
+    }();
+    _reportTask = task;
+    _reportTasks.add(task);
+    return task.whenComplete(() {
+      _reportTasks.remove(task);
+      if (identical(_reportTask, task)) {
+        _reportTask = null;
+        _reportKey = null;
+      }
+    });
+  }
+
+  StreamSubscription<bool>? _connectivitySubscription;
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
+  bool _observingLifecycle = false;
+  static const retryDelays = [
+    Duration(seconds: 2),
+    Duration(seconds: 4),
+    Duration(seconds: 8),
+  ];
+
+  /// Connectivity is a trigger, never evidence that the API is reachable.
+  void startAutomaticSync(Stream<bool> connectivity) {
+    if (_disposed || _observingLifecycle) return;
+    _observingLifecycle = true;
+    WidgetsBinding.instance.addObserver(this);
+    _connectivitySubscription = connectivity.listen(
+      (available) {
+        if (available) requestAutomaticSync();
+      },
+      onError: (Object error) {
+        // Plugin errors must not disable manual sync or lifecycle triggers.
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) requestAutomaticSync();
+  }
+
+  void requestAutomaticSync() {
+    if (_disposed || !_authenticated || _offline || _refreshTask != null) {
+      return;
+    }
+    _cancelRetries();
+    unawaited(refresh());
+  }
+
+  void _cancelRetries() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryAttempt = 0;
+  }
+
+  void _scheduleRetry(int generation) {
+    if (_disposed ||
+        !_authenticated ||
+        _offline ||
+        generation != _generation ||
+        _retryAttempt >= retryDelays.length) {
+      return;
+    }
+    _retryTimer?.cancel();
+    _retryTimer = Timer(retryDelays[_retryAttempt++], () {
+      _retryTimer = null;
+      if (!_disposed && !_offline && generation == _generation) {
+        unawaited(refresh());
+      }
+    });
+  }
+
   bool get isAuthenticated => _authenticated;
   AppFlowStep get currentFlow => _currentFlow;
   bool get isOfflineMode => _offline;
@@ -116,6 +239,7 @@ class AppState extends ChangeNotifier {
     if (userId == null || userId.isEmpty) {
       throw const ApiFailure('Identitas server diperlukan.');
     }
+    _cancelRetries();
     final generation = ++_generation;
     currentUserId = userId;
     userName = name ?? '';
@@ -130,6 +254,7 @@ class AppState extends ChangeNotifier {
       repository?.store.close();
       repository = FinanceRepository(auth.client, store, userId);
     }
+    repository?.offline = _offline;
     _authenticated = true;
     _currentFlow = AppFlowStep.main;
     _notify();
@@ -137,17 +262,24 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _cancelRetries();
     ++_generation;
     _authenticated = false;
     _currentFlow = AppFlowStep.auth;
     final old = repository;
+    if (old != null) old.offline = true;
     repository = null;
     currentUserId = '';
     userName = '';
     userEmail = '';
     userPhone = '';
     _activeHouseholdId = '';
+    ++_reportGeneration;
+    _reportKey = null;
+    householdReportError = null;
+    householdReportLoading = false;
     dataError = null;
+    loading = false;
     _notify();
     // Let an in-flight request finish before closing its database.
     try {
@@ -155,6 +287,8 @@ class AppState extends ChangeNotifier {
     } finally {
       if (old != null) {
         try {
+          await _refreshTask;
+          await Future.wait(_reportTasks.toList());
           await old.waitForSync();
         } finally {
           old.store.close();
@@ -177,9 +311,21 @@ class AppState extends ChangeNotifier {
   FinanceRepository get _repo =>
       repository ?? (throw const ApiFailure('Data lokal belum siap.'));
   List<Map<String, dynamic>> _rows(String type) => repository?.rows(type) ?? [];
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    final active = _refreshTask;
+    if (active != null) return active;
+    final task = _refresh();
+    _refreshTask = task;
+    return task.whenComplete(() {
+      if (identical(_refreshTask, task)) _refreshTask = null;
+    });
+  }
+
+  Future<void> _refresh() async {
     final repo = repository;
-    if (repo == null || loading || _offline) return;
+    if (repo == null || _offline || _disposed) return;
+    final generation = _generation;
+    bool active() => !_disposed && !_offline && generation == _generation;
     loading = true;
     dataError = null;
     _notify();
@@ -189,8 +335,9 @@ class AppState extends ChangeNotifier {
       try {
         await repo.sync();
       } catch (error) {
-        dataError = error.toString();
+        if (active()) dataError = error.toString();
       }
+      if (!active()) return;
       for (final resource in [
         'account_types',
         'accounts',
@@ -202,13 +349,15 @@ class AppState extends ChangeNotifier {
         'budgets',
         'notifications',
       ]) {
+        if (!active()) return;
         try {
           await repo.refreshList(resource, '/${resource.replaceAll('_', '-')}');
         } catch (error) {
-          dataError ??= error.toString();
+          if (active()) dataError ??= error.toString();
         }
       }
       for (final group in repo.rows('groups')) {
+        if (!active()) return;
         try {
           await repo.refreshList(
             'members:${group['id']}',
@@ -219,10 +368,11 @@ class AppState extends ChangeNotifier {
             '/groups/${group['id']}/categories',
           );
         } catch (error) {
-          dataError ??= error.toString();
+          if (active()) dataError ??= error.toString();
         }
       }
       for (final budget in repo.rows('budgets')) {
+        if (!active()) return;
         final now = DateTime.now().toUtc();
         final period = switch (budget['period_type']) {
           'ANNUAL' => '${now.year}',
@@ -239,28 +389,48 @@ class AppState extends ChangeNotifier {
             ),
           );
         } catch (error) {
-          dataError ??= error.toString();
+          if (active()) dataError ??= error.toString();
         }
       }
     } catch (error) {
-      dataError = error.toString();
+      if (active()) dataError = error.toString();
     } finally {
-      loading = false;
-      _notify();
+      if (generation == _generation) {
+        loading = false;
+        if (active()) {
+          if (dataError == null) {
+            _cancelRetries();
+          } else {
+            _scheduleRetry(generation);
+          }
+        }
+        _notify();
+      }
     }
   }
 
-  Future<void> syncPendingNow() => refresh();
+  Future<void> syncPendingNow() {
+    _cancelRetries();
+    return refresh();
+  }
+
   void _changed() {
     _notify();
     if (!_offline) unawaited(refresh());
   }
 
   void toggleOfflineMode() {
+    _cancelRetries();
     _offline = !_offline;
     repository?.offline = _offline;
+    ++_reportGeneration;
+    _reportKey = null;
+    householdReportLoading = false;
     _notify();
-    if (!_offline) unawaited(refresh());
+    if (!_offline) {
+      unawaited(refresh());
+      unawaited(loadHouseholdCategoryReport());
+    }
   }
 
   void toggleHideBalance() {
@@ -396,7 +566,9 @@ class AppState extends ChangeNotifier {
       .where((c) => c.name.toLowerCase() == name.toLowerCase())
       .firstOrNull;
   List<String> getCategoriesForAccount(String id, {required bool isIncome}) {
-    final owner = getAccountById(id)?.ownerUserId ?? currentUserId;
+    final account = getAccountById(id);
+    if (account == null) return [];
+    final owner = account.ownerUserId;
     return categories
         .where(
           (c) =>
@@ -802,6 +974,7 @@ class AppState extends ChangeNotifier {
   Household get household => activeHousehold;
   void switchHousehold(String id) {
     _activeHouseholdId = id;
+    unawaited(loadHouseholdCategoryReport());
     _notify();
   }
 
@@ -814,12 +987,104 @@ class AppState extends ChangeNotifier {
       'name': name.trim(),
     });
     _repo.atomic(() {
-      (_repo.entities.putIfAbsent('groups', () => <String, dynamic>{})
-              as Map)[result['id']] =
-          result;
+      final groups = Map<String, dynamic>.from(
+        (_repo.entities['groups'] as Map?) ?? const {},
+      );
+      groups[result['id'] as String] = result;
+      _repo.entities['groups'] = groups;
     });
     _activeHouseholdId = result['id'];
     await refresh();
+  }
+
+  Future<void> joinHousehold({
+    required String groupId,
+    required String code,
+  }) async {
+    final id = groupId.trim();
+    final invitation = code.trim().toUpperCase();
+    if (!RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+        ).hasMatch(id) ||
+        !RegExp(r'^[A-Z0-9]{12}$').hasMatch(invitation)) {
+      throw const ApiFailure(
+        'Masukkan ID grup UUID dan kode undangan 12 karakter.',
+      );
+    }
+    final repo = _repo;
+    final generation = _generation;
+    final result = await repo.writeOnline('POST', '/groups/$id/join', {
+      'code': invitation,
+    });
+    if (_disposed ||
+        generation != _generation ||
+        !identical(repository, repo)) {
+      return;
+    }
+    repo.atomic(() {
+      final groups = Map<String, dynamic>.from(
+        (repo.entities['groups'] as Map?) ?? const {},
+      );
+      groups[result['id'] as String] = result;
+      repo.entities['groups'] = groups;
+    });
+    _activeHouseholdId = result['id'];
+    _notify();
+    await refresh();
+  }
+
+  bool get canManageGroupCategories =>
+      repository?.row('groups', activeHouseholdId)?['role'] == 'OWNER';
+
+  Future<void> createGroupCategory({
+    required String name,
+    required String type,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty ||
+        trimmed.runes.length > 120 ||
+        !['INCOME', 'EXPENSE'].contains(type)) {
+      throw const ApiFailure(
+        'Masukkan nama kategori 1–120 karakter dan tipe yang valid.',
+      );
+    }
+    if (!canManageGroupCategories) {
+      throw const ApiFailure(
+        'Hanya pemilik grup yang dapat menambah kategori.',
+      );
+    }
+    final repo = _repo;
+    final groupId = activeHouseholdId;
+    final generation = _generation;
+    final result = await repo.writeOnline(
+      'POST',
+      '/groups/$groupId/categories',
+      {'name': trimmed, 'type': type},
+    );
+    if (_disposed ||
+        generation != _generation ||
+        !identical(repository, repo)) {
+      return;
+    }
+    if (result is! Map ||
+        result['id'] is! String ||
+        result['group_id'] != groupId ||
+        result['name'] is! String ||
+        !['INCOME', 'EXPENSE'].contains(result['type'])) {
+      throw const ApiFailure(
+        'Respons kategori grup tidak valid. Muat ulang sebelum mencoba lagi.',
+      );
+    }
+    repo.atomic(() {
+      final table = Map<String, dynamic>.from(
+        (repo.entities['group_categories:$groupId'] as Map?) ?? const {},
+      );
+      table[result['id'] as String] = Map<String, dynamic>.from(result);
+      repo.entities['group_categories:$groupId'] = table;
+      repo.entities.remove('household_category_reports:$groupId');
+    });
+    _notify();
+    if (groupId == activeHouseholdId) await loadHouseholdCategoryReport();
   }
 
   bool joinHouseholdWithCode(String code) => throw const ApiFailure(
@@ -843,6 +1108,8 @@ class AppState extends ChangeNotifier {
   );
   void deleteOrLeaveHousehold(String id) =>
       throw const ApiFailure('API keluar/hapus grup belum tersedia.');
+  // No account-scoped group snapshot is integrated yet. Never render zeros as facts.
+  bool get householdFinancialDataAvailable => false;
   List<TransactionItem> get activeHouseholdTransactions => [];
   int get activeHouseholdTotalExpense => 0;
   Map<String, int> get activeHouseholdExpenseByMember => {};
@@ -1059,10 +1326,22 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _cancelRetries();
+    if (_observingLifecycle) WidgetsBinding.instance.removeObserver(this);
+    unawaited(_connectivitySubscription?.cancel());
     ++_generation;
     final repo = repository;
     if (repo != null) {
-      unawaited(repo.waitForSync().whenComplete(repo.store.close));
+      repo.offline = true;
+      unawaited(() async {
+        try {
+          await _refreshTask;
+          await Future.wait(_reportTasks.toList());
+          await repo.waitForSync();
+        } finally {
+          repo.store.close();
+        }
+      }());
     }
     super.dispose();
   }

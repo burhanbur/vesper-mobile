@@ -44,10 +44,9 @@ class DashboardPage extends StatelessWidget {
         child: RefreshIndicator(
           color: AppColors.primary,
           onRefresh: () async {
-            if (!state.isOfflineMode && state.pendingSyncCount > 0) {
-              state.syncPendingNow();
+            if (!state.isOfflineMode) {
+              await state.syncPendingNow();
             }
-            await Future.delayed(const Duration(milliseconds: 400));
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),

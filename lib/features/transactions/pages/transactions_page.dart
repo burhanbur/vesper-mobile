@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/transaction_period.dart';
+import '../../../core/widgets/month_selector.dart';
 import '../models/transaction.dart';
 import '../widgets/transaction_item_tile.dart';
 
@@ -18,6 +20,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchVisible = false;
+  TransactionPeriod _period = TransactionPeriod(DateTime.now());
 
   @override
   void dispose() {
@@ -28,7 +31,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final allTransactions = state.transactions;
+    final allTransactions = _period.filter(state.transactions);
 
     // Filter by type
     final filtered = allTransactions.where((tx) {
@@ -56,11 +59,16 @@ class _TransactionsPageState extends State<TransactionsPage> {
       return true;
     }).toList();
 
-    // Group transactions by date string (e.g. "26 Sep", "25 Sep", "24 Sep")
-    final Map<String, List<TransactionItem>> groupedByDate = {};
+    filtered.sort((a, b) => b.date.compareTo(a.date));
+    // Each header and transaction is a separate lazy row, not a nested list.
+    final rows = <Object>[];
+    DateTime? previousDay;
     for (final tx in filtered) {
-      final dateKey = DateFormatter.formatShort(tx.date);
-      groupedByDate.putIfAbsent(dateKey, () => []).add(tx);
+      final local = tx.date.toLocal();
+      final day = DateTime(local.year, local.month, local.day);
+      if (day != previousDay) rows.add(day);
+      rows.add(tx);
+      previousDay = day;
     }
 
     return Scaffold(
@@ -133,20 +141,27 @@ class _TransactionsPageState extends State<TransactionsPage> {
             ),
           ),
 
+          MonthSelector(
+            period: _period,
+            onChanged: (period) => setState(() => _period = period),
+          ),
           // Month Header Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  DateFormatter.formatMonthYear(DateTime.now()),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                const Expanded(
+                  child: Text(
+                    'Transaksi lokal pada periode ini',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${filtered.length} Transaksi',
                   style: const TextStyle(
@@ -190,55 +205,31 @@ class _TransactionsPageState extends State<TransactionsPage> {
                       horizontal: 20,
                       vertical: 6,
                     ),
-                    itemCount: groupedByDate.keys.length,
-                    itemBuilder: (context, groupIdx) {
-                      final dateKey = groupedByDate.keys.elementAt(groupIdx);
-                      final items = groupedByDate[dateKey]!;
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Date Section Header (e.g. 26 Sep, 25 Sep)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 14,
-                              bottom: 6,
-                              left: 4,
-                            ),
-                            child: Text(
-                              dateKey,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textSecondary,
-                              ),
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      if (row is DateTime) {
+                        return Padding(
+                          padding: const EdgeInsets.only(
+                            top: 14,
+                            bottom: 6,
+                            left: 4,
+                          ),
+                          child: Text(
+                            DateFormatter.formatShort(row),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
                             ),
                           ),
-
-                          // Card container holding date items
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: items.length,
-                              separatorBuilder: (context, idx) => const Divider(
-                                height: 1,
-                                color: AppColors.divider,
-                                indent: 72,
-                              ),
-                              itemBuilder: (context, idx) {
-                                return TransactionItemTile(
-                                  transaction: items[idx],
-                                );
-                              },
-                            ),
-                          ),
-                        ],
+                        );
+                      }
+                      final tx = row as TransactionItem;
+                      return Material(
+                        key: ValueKey(tx.id),
+                        color: Colors.white,
+                        child: TransactionItemTile(transaction: tx),
                       );
                     },
                   ),

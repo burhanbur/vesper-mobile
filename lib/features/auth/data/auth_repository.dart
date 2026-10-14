@@ -80,14 +80,13 @@ class AuthRepository {
     }
   }
 
-  /// Restore and validate identity before AppState enters the authenticated flow.
-  /// Null means no valid session. Other failures must not be treated as login
-  /// success; callers can present retry/offline UI without fabricating identity.
+  /// Validate server identity, or use persisted identity during a transient
+  /// outage only while the persisted refresh lifetime is still valid.
   Future<AuthUser?> bootstrap() async {
     if (client.session == null) {
       await client.restore();
-      _rememberMe = client.session != null;
     }
+    _rememberMe = client.isSessionPersisted;
     if (client.session == null) return null;
     final expiry = DateTime.parse(
       client.session!['refresh_expires_at'] as String,
@@ -100,6 +99,17 @@ class AuthRepository {
       return await currentUser();
     } on ApiFailure catch (error) {
       if (error.statusCode == 401 || client.session == null) return null;
+      final cached = client.session!;
+      final refreshExpiry = DateTime.parse(
+        cached['refresh_expires_at'] as String,
+      );
+      if (!refreshExpiry.isAfter(DateTime.now().toUtc())) {
+        await client.clearSession();
+        return null;
+      }
+      if (error.isTransient && _rememberMe) {
+        return AuthUser.fromJson(cached['user']);
+      }
       rethrow;
     }
   }

@@ -1,119 +1,207 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
-import 'package:vesper_mobile/features/accounts/models/account.dart';
+import 'package:vesper_mobile/core/network/api_client.dart';
 import 'package:vesper_mobile/features/investments/models/investment.dart';
 import 'package:vesper_mobile/features/transactions/models/transaction.dart';
 
+import '../fixtures/cached_finance.dart';
+
 void main() {
-  group('Finance Rules & PRD Business Logic', () {
-    late AppState appState;
-
+  group('Repository-backed finance rules', () {
+    late AppState state;
     setUp(() {
-      appState = AppState();
+      state = cachedFinanceState()..currentUserId = 'user';
+      state.toggleOfflineMode();
     });
+    tearDown(() => state.dispose());
 
     test(
-      'Parent account balance excludes double counting in total liquid cash',
+      'Excluded parents and investment accounts do not inflate liquid cash',
       () {
-        // Bank Jago is a parent with children pockets and has isIncludeTotal = false
-        final jagoParent = appState.getAccountById('acc-jago');
-        expect(jagoParent, isNotNull);
-        expect(jagoParent!.isIncludeTotal, isFalse);
-
-        final jagoChildren = appState.getChildrenForAccount('acc-jago');
-        expect(jagoChildren.length, 3);
-
-        final totalChildrenBalance = jagoChildren.fold(
-          0,
-          (sum, c) => sum + c.balance,
-        );
-        expect(jagoParent.balance, totalChildrenBalance);
-
-        // Verify total liquid cash sums only isIncludeTotal accounts
-        int expectedCash = 0;
-        for (final acc in appState.accounts) {
-          if (acc.isIncludeTotal && acc.type != AccountType.investment) {
-            expectedCash += acc.balance;
-          }
-        }
-        expect(appState.totalLiquidCash, expectedCash);
+        final repo = state.repository!;
+        repo.atomic(() {
+          repo.entities['account_types'] = {
+            'investment': {
+              'id': 'investment',
+              'name': 'Investment',
+              'category': 'INVESTMENT',
+            },
+          };
+          (repo.entities['accounts'] as Map).addAll(<String, dynamic>{
+            'parent': {
+              'id': 'parent',
+              'name': 'Parent',
+              'balance': '300.00',
+              'is_include_total': false,
+            },
+            'pocket-a': {
+              'id': 'pocket-a',
+              'name': 'Pocket A',
+              'balance': '100.00',
+              'parent_account_id': 'parent',
+            },
+            'pocket-b': {
+              'id': 'pocket-b',
+              'name': 'Pocket B',
+              'balance': '200.00',
+              'parent_account_id': 'parent',
+            },
+            'investment': {
+              'id': 'investment',
+              'name': 'Investment',
+              'balance': '500.00',
+              'account_type_id': 'investment',
+            },
+          });
+        });
+        expect(state.getAccountById('parent')!.isIncludeTotal, isFalse);
+        expect(state.getChildrenForAccount('parent').map((a) => a.balance), [
+          100,
+          200,
+        ]);
+        expect(state.totalLiquidCash, 100300);
+        expect(repo.store.read(), repo.state);
       },
     );
 
-    test('Transfer does not count as income or expense', () {
-      final initialIncome = appState.monthIncome;
-      final initialExpense = appState.monthExpense;
-
-      appState.addTransaction(
-        type: TransactionType.transfer,
-        amount: 500000,
-        accountId: 'acc-bca',
-        toAccountId: 'acc-cash',
-        categoryName: 'Transfer Antar Akun',
-        date: DateTime.now(),
-      );
-
-      expect(appState.monthIncome, initialIncome);
-      expect(appState.monthExpense, initialExpense);
-    });
-
-    test(
-      'Shared account uses categories belonging to account owner per PRD 4.4',
-      () {
-        // acc-bca is owned by u-1 (Burhan Mafazi)
-        final bcaCategories = appState.getCategoriesForAccount(
-          'acc-bca',
-          isIncome: false,
-        );
-        expect(bcaCategories.contains('Makanan & Minuman'), isTrue);
-
-        // acc-mandiri is owned by u-2 (Sarah Mafazi)
-        final mandiriCategories = appState.getCategoriesForAccount(
-          'acc-mandiri',
-          isIncome: false,
-        );
-        expect(mandiriCategories.contains('Dapur & Bahan Masak'), isTrue);
-        expect(mandiriCategories.contains('Skincare & Perawatan'), isTrue);
-      },
-    );
-
-    test('Investment buy decreases cash balance and increases holding position per PRD 5.8', () {
-      final initialCash = appState.getAccountById('acc-bca')!.balance;
-      final btcAsset = appState.investments.firstWhere(
-        (inv) => inv.id == 'inv-btc',
-      );
-      final initialQty = btcAsset.quantity;
-
-      appState.recordInvestmentTrade(
-        assetId: 'inv-btc',
-        tradeType: InvestmentTradeType.buy,
-        quantity: 0.005,
-        pricePerUnit: 1000000000,
-        fee: 10000,
-        cashAccountId: 'acc-bca',
-      );
-
-      final updatedBca = appState.getAccountById('acc-bca')!;
-      expect(updatedBca.balance, initialCash - (5000000 + 10000));
-
-      final updatedBtc = appState.investments.firstWhere(
-        (inv) => inv.id == 'inv-btc',
-      );
-      expect(updatedBtc.quantity, closeTo(initialQty + 0.005, 0.0001));
-    });
-
-    test('Conflict resolution Use Mine enqueues update to server per PRD Section 5', () {
-      expect(appState.conflictCount, 1);
-      final initialQueueLength = appState.syncQueue.length;
-
-      appState.resolveConflictUseMine('conflict-1');
-
-      expect(appState.conflictCount, 0);
-      expect(appState.syncQueue.length, initialQueueLength + 1);
+    test('Cached transfers are excluded from income and expense; new transfers fail safely', () {
+      final repo = state.repository!;
+      final date = DateTime.now().toUtc().toIso8601String();
+      repo.atomic(() {
+        repo.entities['transactions'] = {
+          for (final row in [
+            ['income', 'INCOME', '1000.00'],
+            ['expense', 'EXPENSE', '200.00'],
+            ['out', 'TRANSFER', '-500.00'],
+            ['in', 'TRANSFER', '500.00'],
+          ])
+            row[0]: {
+              'id': row[0],
+              'account_id': 'cash',
+              'type': row[1],
+              'amount': row[2],
+              'transacted_at': date,
+              if (row[1] == 'TRANSFER') 'transfer_id': 'pair',
+            },
+        };
+      });
+      expect(state.monthIncome, 1000);
+      expect(state.monthExpense, 200);
+      final before = repo.store.read();
       expect(
-        appState.syncQueue.first.description.contains('Pakai data lokal'),
-        isTrue,
+        () => state.addTransaction(
+          type: TransactionType.transfer,
+          amount: 500,
+          accountId: 'cash',
+          toAccountId: 'other',
+          categoryName: 'Transfer Antar Akun',
+          date: DateTime.now(),
+        ),
+        throwsA(
+          isA<ApiFailure>().having(
+            (e) => e.message,
+            'message',
+            contains('belum mendukung antrean offline'),
+          ),
+        ),
+      );
+      expect(state.monthIncome, 1000);
+      expect(state.monthExpense, 200);
+      expect(repo.state, before);
+      expect(repo.store.read(), before);
+      expect(repo.outbox, isEmpty);
+    });
+
+    test('Categories are scoped to account owner and transaction type', () {
+      final repo = state.repository!;
+      repo.atomic(() {
+        (repo.entities['accounts'] as Map)['other'] = {
+          'id': 'other',
+          'name': 'Other owner',
+          'user_id': 'other-user',
+          'balance': '0.00',
+        };
+        (repo.entities['categories'] as Map)['other-food'] = {
+          'id': 'other-food',
+          'user_id': 'other-user',
+          'name': 'Groceries',
+          'type': 'EXPENSE',
+        };
+      });
+      expect(state.getCategoriesForAccount('cash', isIncome: false), ['Food']);
+      expect(state.getCategoriesForAccount('cash', isIncome: true), ['Salary']);
+      expect(state.getCategoriesForAccount('other', isIncome: false), [
+        'Groceries',
+      ]);
+      expect(state.getCategoriesForAccount('other', isIncome: true), isEmpty);
+      expect(
+        state.getCategoriesForAccount('missing', isIncome: false),
+        isEmpty,
       );
     });
+
+    test(
+      'Unavailable investment trades never fabricate holdings or debit cash',
+      () {
+        final repo = state.repository!;
+        final before = repo.store.read();
+        expect(state.investments, isEmpty);
+        for (final type in InvestmentTradeType.values) {
+          expect(
+            () => state.recordInvestmentTrade(
+              assetId: 'missing',
+              tradeType: type,
+              quantity: 0.005,
+              pricePerUnit: 1000000000,
+              fee: 10000,
+              cashAccountId: 'cash',
+            ),
+            throwsA(
+              isA<ApiFailure>().having(
+                (e) => e.message,
+                'message',
+                contains('instrumen server'),
+              ),
+            ),
+          );
+        }
+        expect(state.getAccountById('cash')!.balance, 100000);
+        expect(state.investments, isEmpty);
+        expect(repo.outbox, isEmpty);
+        expect(repo.state, before);
+        expect(repo.store.read(), before);
+      },
+    );
+
+    test(
+      'Use Mine retries the existing conflict with the server version durably',
+      () {
+        final repo = state.repository!;
+        repo.mutate('categories', 'UPDATE', {'name': 'Local food'}, id: 'food');
+        final id = repo.outbox.single['id'] as String;
+        repo.atomic(() {
+          repo.outbox.single['status'] = 'conflict';
+          repo.outbox.single['error'] = 'Version conflict';
+          repo.outbox.single['server_data'] = {
+            'id': 'food',
+            'name': 'Server food',
+            'user_id': 'user',
+            'type': 'EXPENSE',
+            'version': '4',
+          };
+        });
+        expect(state.conflictCount, 1);
+        state.resolveConflictUseMine(id);
+        expect(state.conflictCount, 0);
+        expect(repo.outbox, hasLength(1));
+        expect(repo.outbox.single['id'], id);
+        expect(repo.outbox.single['status'], 'pending');
+        expect(repo.outbox.single['client_version'], '4');
+        expect(repo.outbox.single['payload'], {'name': 'Local food'});
+        expect(repo.outbox.single.containsKey('error'), isFalse);
+        expect(repo.row('categories', 'food')!['name'], 'Local food');
+        expect(repo.store.read(), repo.state);
+      },
+    );
   });
 }

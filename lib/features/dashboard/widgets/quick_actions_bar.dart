@@ -21,7 +21,7 @@ class QuickActionsBar extends StatelessWidget {
     required String label,
     required Color color,
     required Color bg,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
     return Material(
       color: Colors.transparent,
@@ -105,10 +105,10 @@ class QuickActionsBar extends StatelessWidget {
             Expanded(
               child: _buildActionButton(
                 icon: Icons.swap_horiz_rounded,
-                label: 'Transfer',
-                color: AppColors.transfer,
-                bg: AppColors.transferLight,
-                onTap: onTransfer,
+                label: 'Transfer 🔒',
+                color: AppColors.textMuted,
+                bg: AppColors.surfaceVariant,
+                onTap: null,
               ),
             ),
             Expanded(

@@ -232,6 +232,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Lainnya').hitTestable(), findsOneWidget);
       expect(find.byType(AccountsPage), findsOneWidget);
+      expect(find.text('pocket'), findsNothing);
+      await tester.tap(find.text('Lihat Kantong'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('pocket'));
       await tester.pumpAndSettle();
       expect(find.byType(AccountDetailPage), findsOneWidget);
@@ -261,26 +264,16 @@ void main() {
   );
 
   testWidgets(
-    'Pocket transfer prefills source and rejects unsupported save safely',
+    'Pocket transfer explains unavailability before exposing a write form',
     (tester) async {
       final state = _fixture(empty: true);
       await _pump(tester, state, _detail('pocket'));
       await tester.tap(find.text('Transfer Saldo'));
       await tester.pumpAndSettle();
-      final selectors = tester
-          .widgetList<AccountSelectorTile>(find.byType(AccountSelectorTile))
-          .toList();
-      expect(selectors[0].account!.id, 'pocket');
-      expect(selectors[1].account!.id, 'other');
-      await tester.enterText(find.byType(TextField).first, '100');
-      await tester.ensureVisible(find.text('Simpan Transaksi'));
-      await tester.tap(find.text('Simpan Transaksi'));
-      await tester.pumpAndSettle();
-      expect(find.byType(AddTransactionModal), findsOneWidget);
-      expect(
-        find.textContaining('belum mendukung antrean offline'),
-        findsOneWidget,
-      );
+      expect(find.text('Transfer belum tersedia'), findsOneWidget);
+      expect(find.byType(AccountSelectorTile), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(AddTransactionModal), findsNothing);
       expect(state.repository!.outbox, isEmpty);
       expect(state.getAccountById('pocket')!.balance, 9000);
       expect(tester.takeException(), isNull);

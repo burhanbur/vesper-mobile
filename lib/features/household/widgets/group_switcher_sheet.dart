@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../pages/household_page.dart';
 import 'create_group_sheet.dart';
 
@@ -63,7 +62,10 @@ class GroupSwitcherSheet extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'Kamu tergabung dalam ${households.length} grup bersama',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -103,7 +105,9 @@ class GroupSwitcherSheet extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isActive ? AppColors.primaryLight.withValues(alpha: 0.12) : AppColors.surfaceVariant,
+                    color: isActive
+                        ? AppColors.primaryLight.withValues(alpha: 0.12)
+                        : AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: isActive ? AppColors.primary : AppColors.border,
@@ -120,7 +124,9 @@ class GroupSwitcherSheet extends StatelessWidget {
                           color: isActive ? AppColors.primary : Colors.white,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: isActive ? Colors.transparent : AppColors.border,
+                            color: isActive
+                                ? Colors.transparent
+                                : AppColors.border,
                           ),
                         ),
                         child: Center(
@@ -144,7 +150,9 @@ class GroupSwitcherSheet extends StatelessWidget {
                                     group.name,
                                     style: TextStyle(
                                       fontSize: 15,
-                                      fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                                      fontWeight: isActive
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
                                       color: AppColors.textPrimary,
                                     ),
                                     maxLines: 1,
@@ -154,7 +162,10 @@ class GroupSwitcherSheet extends StatelessWidget {
                                 if (isActive) ...[
                                   const SizedBox(width: 6),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: AppColors.primary,
                                       borderRadius: BorderRadius.circular(6),
@@ -174,7 +185,12 @@ class GroupSwitcherSheet extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${group.type.displayName} • ${group.memberCount} Anggota',
+                              state.repository?.entities.containsKey(
+                                        'members:${group.id}',
+                                      ) ==
+                                      true
+                                  ? '${group.memberCount} anggota tersimpan'
+                                  : 'Daftar anggota belum tersedia',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -182,7 +198,7 @@ class GroupSwitcherSheet extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Saldo Bersama: ${CurrencyFormatter.formatRupiah(group.sharedBalance)}',
+                              'Saldo bersama belum tersedia',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -195,9 +211,17 @@ class GroupSwitcherSheet extends StatelessWidget {
 
                       // Checkmark or chevron
                       if (isActive)
-                        const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 24)
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.primary,
+                          size: 24,
+                        )
                       else
-                        const Icon(Icons.radio_button_unchecked_rounded, color: AppColors.textMuted, size: 22),
+                        const Icon(
+                          Icons.radio_button_unchecked_rounded,
+                          color: AppColors.textMuted,
+                          size: 22,
+                        ),
                     ],
                   ),
                 ),
@@ -221,10 +245,15 @@ class GroupSwitcherSheet extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.settings_outlined, size: 16),
-                  label: const Text('Kelola Grup', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  label: const Text(
+                    'Kelola Grup',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),
@@ -236,12 +265,17 @@ class GroupSwitcherSheet extends StatelessWidget {
                     CreateOrJoinGroupSheet.show(context);
                   },
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Grup Baru', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  label: const Text(
+                    'Grup Baru',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                 ),
               ),

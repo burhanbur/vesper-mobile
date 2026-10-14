@@ -8,7 +8,8 @@ import '../config/app_environment.dart';
 class ApiFailure implements Exception {
   final String message;
   final int? statusCode;
-  const ApiFailure(this.message, {this.statusCode});
+  final bool isTransient;
+  const ApiFailure(this.message, {this.statusCode, this.isTransient = false});
   @override
   String toString() => message;
 }
@@ -22,6 +23,7 @@ class ApiClient {
   Map<String, dynamic>? session;
   Future<void>? _refreshing;
   bool _persistSession = true;
+  bool get isSessionPersisted => session != null && _persistSession;
 
   ApiClient({Dio? dio, FlutterSecureStorage? storage})
     : dio =
@@ -113,6 +115,11 @@ class ApiClient {
     if (token == null) {
       throw const ApiFailure('Silakan masuk kembali.', statusCode: 401);
     }
+    final expiry = DateTime.tryParse('${previous?['refresh_expires_at']}');
+    if (expiry == null || !expiry.isAfter(DateTime.now().toUtc())) {
+      if (identical(session, previous)) await clearSession();
+      throw const ApiFailure('Silakan masuk kembali.', statusCode: 401);
+    }
     try {
       final data = await request(
         'POST',
@@ -124,8 +131,11 @@ class ApiClient {
       if (identical(session, previous)) {
         await saveSession(_validatedSession(data));
       }
-    } on ApiFailure {
-      if (identical(session, previous)) await clearSession();
+    } on ApiFailure catch (error) {
+      // Only an explicit invalid/revoked session response removes credentials.
+      if (error.statusCode == 401 && identical(session, previous)) {
+        await clearSession();
+      }
       rethrow;
     }
   }
@@ -187,36 +197,67 @@ class ApiClient {
         await clearSession();
       }
       // Never expose transport exceptions, request bodies, or server debug data.
-      throw ApiFailure(switch (status) {
-        400 ||
-        422 => 'Permintaan tidak valid. Periksa data yang Anda masukkan.',
-        401 => 'Email atau kata sandi salah, atau sesi telah berakhir.',
-        403 => 'Anda tidak memiliki akses untuk tindakan ini.',
-        409 => 'Data sudah digunakan atau bertentangan dengan data yang ada.',
-        429 => 'Terlalu banyak percobaan. Silakan coba lagi nanti.',
-        _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
-      }, statusCode: status);
+      throw ApiFailure(
+        switch (status) {
+          400 ||
+          422 => 'Permintaan tidak valid. Periksa data yang Anda masukkan.',
+          401 => 'Email atau kata sandi salah, atau sesi telah berakhir.',
+          403 => 'Anda tidak memiliki akses untuk tindakan ini.',
+          409 => 'Data sudah digunakan atau bertentangan dengan data yang ada.',
+          429 => 'Terlalu banyak percobaan. Silakan coba lagi nanti.',
+          _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
+        },
+        statusCode: status,
+        isTransient:
+            status == 408 ||
+            status == 429 ||
+            (status != null && status >= 500 && status <= 599) ||
+            (status == null &&
+                {
+                  DioExceptionType.connectionTimeout,
+                  DioExceptionType.sendTimeout,
+                  DioExceptionType.receiveTimeout,
+                  DioExceptionType.connectionError,
+                }.contains(error.type)),
+      );
     }
   }
 
-  /// Read every page; list endpoints all use the Laravel pagination envelope.
+  /// Load a complete snapshot or fail; never return a truncated cache update.
   Future<List<Map<String, dynamic>>> list(
     String path, {
     Map<String, dynamic>? query,
   }) async {
+    const pageSize = 100;
+    const maxPages = 1000;
     final result = <Map<String, dynamic>>[];
-    for (var page = 1; ; page++) {
+    final seenIds = <String>{};
+    for (var page = 1; page <= maxPages; page++) {
       final data = await request(
         'GET',
         path,
-        query: {...?query, 'page': page, 'limit': 100},
+        query: {...?query, 'page': page, 'limit': pageSize},
       );
-      final rows = (data as List)
-          .map((row) => Map<String, dynamic>.from(row as Map))
-          .toList();
-      result.addAll(rows);
-      if (rows.length < 100) break;
+      if (data is! List || data.length > pageSize) {
+        throw const ApiFailure('Respons daftar API tidak valid.');
+      }
+      for (final item in data) {
+        if (item is! Map || item.keys.any((key) => key is! String)) {
+          throw const ApiFailure('Respons daftar API tidak valid.');
+        }
+        final row = Map<String, dynamic>.from(item);
+        final id = row['id'] ?? row['user_id'];
+        if (id is! String || id.isEmpty || !seenIds.add(id)) {
+          throw const ApiFailure(
+            'Daftar berubah atau halaman berulang. Silakan muat ulang.',
+          );
+        }
+        result.add(row);
+      }
+      if (data.length < pageSize) return result;
     }
-    return result;
+    throw const ApiFailure(
+      'Data terlalu besar untuk dimuat sekaligus. Cache sebelumnya tetap tersedia.',
+    );
   }
 }

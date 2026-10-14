@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../features/auth/pages/login_page.dart';
 import '../features/auth/pages/onboarding_page.dart';
@@ -47,6 +48,11 @@ class _VesperAppState extends State<VesperApp> {
     _appState = AppState(
       isAuthenticated: widget.initialAuthenticated,
       initialFlow: startingFlow,
+    );
+    _appState.startAutomaticSync(
+      Connectivity().onConnectivityChanged.map(
+        (results) => results.any((result) => result != ConnectivityResult.none),
+      ),
     );
     if (startingFlow != AppFlowStep.splash) _appState.bootstrap();
   }

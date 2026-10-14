@@ -27,6 +27,25 @@ class AddTransactionModal extends StatefulWidget {
     String? initialAccountId,
     TransactionItem? transactionToEdit,
   }) {
+    if (initialType == TransactionType.transfer ||
+        transactionToEdit?.type == TransactionType.transfer ||
+        transactionToEdit?.transferId != null) {
+      return showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Transfer belum tersedia'),
+          content: const Text(
+            'Transfer, utang, dan piutang belum mendukung penyimpanan lokal dan antrean sinkronisasi. Tidak ada transaksi yang dibuat. Gunakan pemasukan atau pengeluaran hanya untuk transaksi sebenarnya, bukan pengganti transfer.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+    }
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -390,11 +409,14 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                                 activeColor: AppColors.income,
                               ),
                             ),
-                            Expanded(
-                              child: _buildTypeButton(
-                                type: TransactionType.transfer,
-                                label: 'Transfer',
-                                activeColor: AppColors.transfer,
+                            const Expanded(
+                              child: Tooltip(
+                                message:
+                                    'Transfer belum mendukung antrean offline.',
+                                child: TextButton(
+                                  onPressed: null,
+                                  child: Text('Transfer (belum tersedia)'),
+                                ),
                               ),
                             ),
                           ],

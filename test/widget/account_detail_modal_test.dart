@@ -1,59 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
+import 'package:vesper_mobile/features/accounts/pages/account_detail_page.dart';
 import 'package:vesper_mobile/features/accounts/pages/accounts_page.dart';
 
-void main() {
-  group('Accounts Page Detail Modal & Dropdown Verification', () {
-    testWidgets('Opens account detail for Kas Tunai Dompet without error', (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
+import '../fixtures/cached_finance.dart';
 
-      final appState = AppState();
+void main() {
+  testWidgets(
+    'Cached account opens detail and sharing dropdown without mutating data',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final state = cachedFinanceState()..currentUserId = 'user';
+      state.toggleOfflineMode();
+      addTearDown(state.dispose);
+      final repo = state.repository!;
+      repo.atomic(() {
+        repo.entities['groups'] = {
+          'group': {'id': 'group', 'name': 'Fixture group'},
+        };
+      });
+      final before = repo.store.read();
       await tester.pumpWidget(
         AppStateScope(
-          state: appState,
-          child: const MaterialApp(
-            home: AccountsPage(),
-          ),
+          state: state,
+          child: const MaterialApp(home: AccountsPage()),
         ),
       );
       await tester.pumpAndSettle();
-
-      expect(find.text('Kas Tunai Dompet'), findsOneWidget);
-
-      // Tap on Kas Tunai Dompet to open detail modal
-      await tester.tap(find.text('Kas Tunai Dompet'));
+      expect(find.text('Cash'), findsWidgets);
+      await tester.tap(find.text('Cash').last);
       await tester.pumpAndSettle();
-
-      // Verify modal opened
+      expect(find.byType(AccountDetailPage), findsOneWidget);
       expect(find.text('Saldo Rekening'), findsOneWidget);
+      expect(find.text('Rp 100.000'), findsOneWidget);
+      await tester.tap(find.byTooltip('Pengaturan & Sharing'));
+      await tester.pumpAndSettle();
       expect(find.text('Bagikan ke Ruang Grup Bersama'), findsOneWidget);
-
-      // Toggle switch to share with a group (opens the dropdown)
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
-
-      // Dropdown should render safely without assertion errors
       expect(find.text('Pilih Grup yang Dapat Mengakses'), findsOneWidget);
-
-      // Close modal by clicking save
-      await tester.tap(find.text('Simpan Pengaturan Rekening'));
+      final dropdown = tester.widget<DropdownButton<String>>(
+        find.byType(DropdownButton<String>),
+      );
+      expect(dropdown.value, 'group');
+      expect(dropdown.items!.map((item) => item.value), ['group']);
+      // Cancel: opening presentation settings must not report a server write.
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
-
-      // Tap on a shared account like BCA Utama
-      await tester.tap(find.text('BCA Utama'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Saldo Rekening'), findsOneWidget);
-      expect(find.text('Pilih Grup yang Dapat Mengakses'), findsOneWidget);
-
-      // Close modal
-      await tester.tap(find.text('Simpan Pengaturan Rekening'));
-      await tester.pumpAndSettle();
-
+      expect(repo.outbox, isEmpty);
+      expect(repo.state, before);
+      expect(repo.store.read(), before);
       expect(tester.takeException(), isNull);
-    });
-  });
+    },
+  );
 }

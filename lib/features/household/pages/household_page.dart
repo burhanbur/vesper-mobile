@@ -11,6 +11,7 @@ import '../../transactions/widgets/add_transaction_modal.dart';
 import '../models/household.dart';
 import '../widgets/create_group_sheet.dart';
 import '../widgets/group_switcher_sheet.dart';
+import '../widgets/household_unavailable_view.dart';
 import '../../accounts/pages/accounts_page.dart';
 
 class HouseholdPage extends StatelessWidget {
@@ -829,6 +830,9 @@ class HouseholdPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
+    if (!state.householdFinancialDataAvailable) {
+      return const HouseholdUnavailableView();
+    }
     final household = state.household;
     final households = state.households;
     final isHidden = state.isBalanceHidden;

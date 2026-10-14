@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../database/local_store.dart';
+import '../../household/models/category_report.dart';
 
 /// Raw contracts stay lossless (decimal/version strings) in the durable cache.
 class FinanceRepository {
@@ -134,6 +135,43 @@ class FinanceRepository {
     return entityId;
   }
 
+  HouseholdCategoryReport? cachedCategoryReport(String groupId, String period) {
+    validateReportPeriod(period);
+    final cached = row('household_category_reports:$groupId', period);
+    if (cached == null) return null;
+    return HouseholdCategoryReport.fromJson(
+      Map<String, dynamic>.from(cached['report'] as Map),
+      period,
+      DateTime.parse(cached['fetched_at'] as String),
+    );
+  }
+
+  Future<HouseholdCategoryReport> fetchCategoryReport(
+    String groupId,
+    String period, {
+    required bool Function() isCurrent,
+  }) async {
+    validateReportPeriod(period);
+    await requireOnline();
+    final data = await client.request(
+      'GET',
+      '/groups/$groupId/category-report',
+      query: {'period': period},
+    );
+    final payload = Map<String, dynamic>.from(data as Map);
+    final fetchedAt = DateTime.now().toUtc();
+    final report = HouseholdCategoryReport.fromJson(payload, period, fetchedAt);
+    if (isCurrent() && !offline) {
+      atomic(
+        () => _put('household_category_reports:$groupId', period, {
+          'report': payload,
+          'fetched_at': fetchedAt.toIso8601String(),
+        }),
+      );
+    }
+    return report;
+  }
+
   Future<void> requireOnline() async {
     if (offline) {
       throw const ApiFailure('Tindakan ini membutuhkan koneksi internet.');
@@ -187,6 +225,7 @@ class FinanceRepository {
     );
     final attempted = <String>{};
     while (true) {
+      await requireOnline();
       final pending = outbox
           .where((e) {
             if (e['status'] != 'pending' || attempted.contains(e['id'])) {
@@ -252,6 +291,7 @@ class FinanceRepository {
       });
     }
     while (true) {
+      await requireOnline();
       final response = await client.request(
         'GET',
         '/sync/pull',
@@ -324,7 +364,9 @@ class FinanceRepository {
           (row['id'] ?? row['user_id']) as String: _reconcileBalance(
             type,
             (row['id'] ?? row['user_id']) as String,
-            row,
+            type == 'groups' && row['code'] == null
+                ? {...row, 'code': this.row(type, row['id'] as String)?['code']}
+                : row,
           ),
       };
       // Preserve local edits across online refreshes.

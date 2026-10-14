@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -20,6 +22,16 @@ class _LocalClient extends ApiClient {
     bool authenticated = true,
     bool retry = true,
   }) async => throw StateError('No network in dashboard tests');
+}
+
+class _RefreshState extends AppState {
+  final completion = Completer<void>();
+  int syncCalls = 0;
+  @override
+  Future<void> syncPendingNow() {
+    syncCalls++;
+    return completion.future;
+  }
 }
 
 Future<AppState> _pump(
@@ -76,6 +88,67 @@ Future<AppState> _pump(
 }
 
 void main() {
+  testWidgets('Refresh awaits sync even with an empty queue', (tester) async {
+    final state = _RefreshState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      AppStateScope(
+        state: state,
+        child: MaterialApp(
+          home: DashboardPage(
+            onNavigateToTransactions: () {},
+            onNavigateToInvestments: () {},
+            onNavigateToReports: () {},
+            onNavigateToHousehold: () {},
+          ),
+        ),
+      ),
+    );
+    expect(state.pendingSyncCount, 0);
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    var finished = false;
+    final refresh = indicator.onRefresh().then((_) => finished = true);
+    await tester.pump();
+    expect(state.syncCalls, 1);
+    expect(finished, isFalse);
+    state.completion.complete();
+    await refresh;
+    expect(finished, isTrue);
+  });
+  testWidgets('Cash summary is truthful and icon controls are accessible', (
+    tester,
+  ) async {
+    final state = await _pump(tester);
+    expect(find.text('Total Saldo Non-Investasi'), findsOneWidget);
+    expect(find.text('Tidak termasuk nilai investasi'), findsOneWidget);
+    expect(find.text('Total Kekayaan'), findsNothing);
+    expect(find.textContaining('% bulan ini'), findsNothing);
+    expect(find.byTooltip('Notifikasi'), findsOneWidget);
+    final button = find.byTooltip('Sembunyikan saldo');
+    expect(tester.getSize(button).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+    final semantics = tester.ensureSemantics();
+    expect(
+      tester.getSemantics(button),
+      matchesSemantics(
+        label: 'Sembunyikan saldo',
+        isButton: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+        isFocusable: true,
+        hasEnabledState: true,
+        isEnabled: true,
+      ),
+    );
+    semantics.dispose();
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(state.isBalanceHidden, isTrue);
+    expect(find.byTooltip('Tampilkan saldo'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final scale in [1.0, 2.0]) {
     testWidgets('Dashboard fits 320px at text scale $scale', (tester) async {
       await _pump(tester, scale: scale);

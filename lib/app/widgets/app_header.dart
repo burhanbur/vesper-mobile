@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../features/notifications/widgets/notifications_sheet.dart';
@@ -54,10 +55,7 @@ class AppHeader extends StatelessWidget {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primaryLight,
-                          AppColors.primary,
-                        ],
+                        colors: [AppColors.primaryLight, AppColors.primary],
                       ),
                       border: Border.all(
                         color: AppColors.accent.withValues(alpha: 0.35),
@@ -192,10 +190,11 @@ class AppHeader extends StatelessWidget {
                                   : AppColors.accentDark,
                               boxShadow: [
                                 BoxShadow(
-                                  color: (state.isOfflineMode
-                                          ? AppColors.warning
-                                          : AppColors.accentDark)
-                                      .withValues(alpha: 0.4),
+                                  color:
+                                      (state.isOfflineMode
+                                              ? AppColors.warning
+                                              : AppColors.accentDark)
+                                          .withValues(alpha: 0.4),
                                   blurRadius: 4,
                                   spreadRadius: 0.5,
                                 ),
@@ -222,52 +221,48 @@ class AppHeader extends StatelessWidget {
                 const SizedBox(width: 8),
 
                 // Notification Bell (with unread badge)
-                Material(
-                  color: Colors.white,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    onTap: () => NotificationsSheet.show(context),
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.border.withValues(alpha: 0.8),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
+                IconButton(
+                  tooltip: 'Notifikasi',
+                  onPressed: () => NotificationsSheet.show(context),
+                  icon: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.8),
                       ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: [
-                          const Icon(
-                            Icons.notifications_none_rounded,
-                            color: AppColors.textPrimary,
-                            size: 20,
-                          ),
-                          if (state.unreadNotificationCount > 0)
-                            Positioned(
-                              right: 9,
-                              top: 8,
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.expense,
-                                  shape: BoxShape.circle,
-                                ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(
+                          Icons.notifications_none_rounded,
+                          color: AppColors.textPrimary,
+                          size: 20,
+                        ),
+                        if (state.unreadNotificationCount > 0)
+                          Positioned(
+                            right: 9,
+                            top: 8,
+                            child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: const BoxDecoration(
+                                color: AppColors.expense,
+                                shape: BoxShape.circle,
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
