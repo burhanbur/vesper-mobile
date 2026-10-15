@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
@@ -396,6 +397,12 @@ class _AccountsPageState extends State<AccountsPage> {
     final state = AppStateScope.of(context);
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     bool modalIsShared = account.isShared;
+    bool modalIsIncludeTotal = account.isIncludeTotal;
+    final children = state.getChildrenForAccount(account.id);
+    final hasChildren = children.isNotEmpty;
+    final modalDisplayBalance = hasChildren
+        ? account.balance + children.fold<int>(0, (sum, c) => sum + c.balance)
+        : account.balance;
     String modalSelectedHouseholdId =
         (account.householdId != null &&
             validHouseholdIds.contains(account.householdId))
@@ -515,12 +522,23 @@ class _AccountsPageState extends State<AccountsPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
+                              if (hasChildren) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Akumulasi dari ${children.length} kantong',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.accentDark,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 4),
                               Text(
                                 state.isBalanceHidden
                                     ? '••••••'
                                     : CurrencyFormatter.formatRupiah(
-                                        account.balance,
+                                        modalDisplayBalance,
                                       ),
                                 style: const TextStyle(
                                   fontSize: 20,
@@ -529,6 +547,17 @@ class _AccountsPageState extends State<AccountsPage> {
                                   letterSpacing: -0.5,
                                 ),
                               ),
+                              if (hasChildren) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Total akumulasi dari ${children.length} kantong terhubung',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.accentDark,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -556,7 +585,88 @@ class _AccountsPageState extends State<AccountsPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+
+                  // Include in Total Toggle Card
+                  Material(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: BorderSide(
+                        color: modalIsIncludeTotal && !hasChildren
+                            ? AppColors.accent.withValues(alpha: 0.5)
+                            : AppColors.border,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: modalIsIncludeTotal && !hasChildren
+                                  ? AppColors.accent.withValues(alpha: 0.12)
+                                  : AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              modalIsIncludeTotal && !hasChildren
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded,
+                              color: modalIsIncludeTotal && !hasChildren
+                                  ? AppColors.accentDark
+                                  : AppColors.textMuted,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Sertakan dalam Total Saldo',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  hasChildren
+                                      ? 'Akun induk otomatis dikecualikan agar saldo kantong tidak ganda.'
+                                      : modalIsIncludeTotal
+                                      ? 'Saldo akun ini dihitung dalam ringkasan total saldo.'
+                                      : 'Saldo akun ini diabaikan dari ringkasan total saldo.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: hasChildren
+                                        ? const Color(0xFFD97706)
+                                        : AppColors.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          CupertinoSwitch(
+                            value: modalIsIncludeTotal && !hasChildren,
+                            activeTrackColor: AppColors.primary,
+                            onChanged: hasChildren
+                                ? null
+                                : (val) => setModalState(
+                                    () => modalIsIncludeTotal = val,
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
 
                   // Sharing Settings Card
                   Material(
@@ -680,6 +790,13 @@ class _AccountsPageState extends State<AccountsPage> {
                   // Save button
                   ElevatedButton(
                     onPressed: () {
+                      if (modalIsIncludeTotal != account.isIncludeTotal &&
+                          !hasChildren) {
+                        state.updateAccountIncludeTotal(
+                          accountId: account.id,
+                          isIncludeTotal: modalIsIncludeTotal,
+                        );
+                      }
                       state.updateAccountSharing(
                         accountId: account.id,
                         isShared: modalIsShared,
@@ -794,11 +911,11 @@ class _AccountsPageState extends State<AccountsPage> {
         .where((a) => !a.isShared && a.householdId == null)
         .toList();
     final totalPersonalBalance = personalAccounts
-        .where((a) => a.isIncludeTotal)
+        .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
         .fold(0, (sum, a) => sum + a.balance);
 
     final totalSharedBalance = allAccounts
-        .where((a) => a.isShared && a.isIncludeTotal)
+        .where((a) => a.isShared && a.isIncludeTotal && a.isCashBankOrWallet)
         .fold(0, (sum, a) => sum + a.balance);
 
     // Hitung akun yang difilter dan total yang ditampilkan di Hero Card
@@ -823,7 +940,9 @@ class _AccountsPageState extends State<AccountsPage> {
         if (a.householdId != null) return a.householdId == _activeFilter;
         return a.isShared && _activeFilter == 'hh-1';
       }).toList();
-      heroBalance = selectedGroup.sharedBalance;
+      heroBalance = filteredAccounts
+          .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+          .fold(0, (sum, a) => sum + a.balance);
       heroTitle = 'Saldo Bersama: ${selectedGroup.name}';
     }
 
@@ -1227,6 +1346,13 @@ class _AccountsPageState extends State<AccountsPage> {
                       final hasChildren = children.isNotEmpty;
                       final isExpanded = _expandedParents.contains(account.id);
                       final color = _getAccountColor(account.type);
+                      final parentDisplayBalance = hasChildren
+                          ? account.balance +
+                                children.fold<int>(
+                                  0,
+                                  (sum, c) => sum + c.balance,
+                                )
+                          : account.balance;
 
                       return Container(
                         decoration: BoxDecoration(
@@ -1307,7 +1433,7 @@ class _AccountsPageState extends State<AccountsPage> {
                                           isHidden
                                               ? '••••••'
                                               : CurrencyFormatter.formatRupiah(
-                                                  account.balance,
+                                                  parentDisplayBalance,
                                                 ),
                                           style: const TextStyle(
                                             fontSize: 14,

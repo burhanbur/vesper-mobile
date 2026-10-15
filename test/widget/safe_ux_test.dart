@@ -27,6 +27,53 @@ void main() {
     child: MaterialApp(home: page),
   );
 
+  testWidgets('derived cash opens explanation instead of an editable form', (
+    tester,
+  ) async {
+    final state = cachedFinanceState();
+    addTearDown(state.dispose);
+    state.repository!.atomic(() {
+      state.repository!.entities['transactions'] = <String, dynamic>{
+        'settlement': {
+          'id': 'settlement',
+          'category_id': null,
+          'transfer_id': null,
+        },
+      };
+    });
+    final transaction = TransactionItem(
+      id: 'settlement',
+      type: TransactionType.expense,
+      amount: 21,
+      accountId: 'cash',
+      categoryName: '',
+      date: DateTime(2026, 10, 15),
+      householdId: '',
+    );
+    await tester.pumpWidget(
+      host(
+        state,
+        Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => AddTransactionModal.show(
+                context,
+                transactionToEdit: transaction,
+              ),
+              child: const Text('Edit'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Transaksi turunan tidak dapat diubah'), findsOneWidget);
+    expect(find.byType(AddTransactionModal), findsNothing);
+    expect(state.repository!.outbox, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   void seed(AppState state) {
     final now = DateTime.now();
     state.repository!.atomic(() {
@@ -124,7 +171,7 @@ void main() {
         };
       });
       await tester.pumpWidget(host(state, const HouseholdPage()));
-      expect(find.textContaining('ini bukan saldo nol'), findsOneWidget);
+      expect(find.textContaining('bukan saldo nol'), findsOneWidget);
       expect(
         find.text('Daftar anggota belum tersedia di perangkat.'),
         findsOneWidget,
@@ -138,9 +185,23 @@ void main() {
   );
 
   testWidgets(
-    'transfer entry explains unsupported offline writes before any form',
+    'transfer entry opens local-first creation form without creating rows',
     (tester) async {
       final state = cachedFinanceState();
+      state.toggleOfflineMode();
+      state.repository!.atomic(() {
+        state.repository!.entities['accounts'] = {
+          for (final id in ['cash', 'savings'])
+            id: {
+              'id': id,
+              'name': id,
+              'user_id': 'user',
+              'currency': 'IDR',
+              'balance': '100000.00',
+              'version': '1',
+            },
+        };
+      });
       await tester.pumpWidget(
         host(
           state,
@@ -159,9 +220,17 @@ void main() {
       );
       await tester.tap(find.text('Open transfer'));
       await tester.pumpAndSettle();
-      expect(find.text('Transfer belum tersedia'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(find.byType(TextField), findsWidgets);
       expect(state.repository!.outbox, isEmpty);
+      await tester.enterText(find.byType(TextField).first, '25000');
+      await tester.ensureVisible(find.text('Simpan Transaksi'));
+      await tester.tap(find.text('Simpan Transaksi'));
+      await tester.pumpAndSettle();
+      expect(state.repository!.outbox.single['entity_type'], 'transfers');
+      expect(state.repository!.rows('transactions'), hasLength(2));
+      expect(state.getAccountById('cash')!.balance, 75000);
+      expect(state.getAccountById('savings')!.balance, 125000);
       state.dispose();
       await tester.pump();
     },

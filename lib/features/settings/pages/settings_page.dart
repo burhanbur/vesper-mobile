@@ -7,7 +7,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../accounts/pages/accounts_page.dart';
 import '../../categories/pages/categories_page.dart';
 import '../../household/pages/household_page.dart';
-import '../../investments/pages/investments_page.dart';
+import '../../investments/pages/portfolio_page.dart';
 import '../../notifications/widgets/notifications_sheet.dart';
 import '../../offline/widgets/offline_mode_sheet.dart';
 import '../../reports/pages/budget_page.dart';
@@ -313,7 +313,7 @@ class SettingsPage extends StatelessWidget {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (context) => const InvestmentsPage(),
+                            builder: (context) => const PortfolioPage(),
                           ),
                         );
                       },

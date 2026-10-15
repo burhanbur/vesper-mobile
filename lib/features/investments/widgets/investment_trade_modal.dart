@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../accounts/widgets/account_picker_sheet.dart';
 import '../models/investment.dart';
+import 'offline_investment_trade_form.dart';
 
 class InvestmentTradeModal {
   static void show(
@@ -13,12 +14,30 @@ class InvestmentTradeModal {
     InvestmentTradeType initialTradeType = InvestmentTradeType.buy,
   }) {
     final state = AppStateScope.of(context);
-    final isOffline = state.isOfflineMode;
+    if (!(state.repository?.supportsInvestmentTradeCommands ?? false)) {
+      legacyPreview(context, initialTradeType: initialTradeType);
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => OfflineInvestmentTradeForm(initialType: initialTradeType),
+    );
+  }
 
-    if (isOffline) {
+  static void legacyPreview(
+    BuildContext context, {
+    InvestmentAsset? preselectedAsset,
+    InvestmentTradeType initialTradeType = InvestmentTradeType.buy,
+  }) {
+    final state = AppStateScope.of(context);
+    final canTrade = state.repository?.supportsInvestmentTradeCommands ?? false;
+
+    if (!canTrade) {
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
+          scrollable: true,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -26,11 +45,18 @@ class InvestmentTradeModal {
             children: [
               Icon(Icons.wifi_off_rounded, color: AppColors.warning),
               SizedBox(width: 8),
-              Text('Koneksi Diperlukan', style: TextStyle(fontSize: 16)),
+              Expanded(
+                child: Text(
+                  'Transaksi Belum Tersedia',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
             ],
           ),
           content: const Text(
-            'Pencatatan transaksi investasi (Beli, Jual, Dividen) bersifat online-required untuk memastikan akurasi urutan transaksi & perhitungan average cost price.',
+            'Pencatatan beli, jual, dan dividen belum tersedia. '
+            'Sinkronisasi posisi dan saldo kas yang aman belum terhubung. '
+            'Koneksi internet tidak membuka fitur ini; tidak ada transaksi yang disimpan.',
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           actions: [
@@ -73,7 +99,6 @@ class InvestmentTradeModal {
       text: selectedAsset.currentPrice.toInt().toString(),
     );
     final feeController = TextEditingController(text: '0');
-    final noteController = TextEditingController();
     String? selectedCashAccountId = state.selectableAccounts.isNotEmpty
         ? state.selectableAccounts.first.id
         : null;
@@ -404,18 +429,7 @@ class InvestmentTradeModal {
                     onPressed: () {
                       if (qty <= 0 || price <= 0) return;
 
-                      state.recordInvestmentTrade(
-                        assetId: selectedAsset.id,
-                        tradeType: selectedType,
-                        quantity: qty,
-                        pricePerUnit: price,
-                        fee: fee,
-                        cashAccountId: selectedCashAccountId,
-                        note: noteController.text.trim().isEmpty
-                            ? null
-                            : noteController.text.trim(),
-                      );
-
+                      // Retired preview never persists floating-point values.
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

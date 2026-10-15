@@ -2,13 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_colors.dart';
 
-enum AccountType {
-  bank,
-  cash,
-  wallet,
-  creditCard,
-  investment,
-}
+enum AccountType { bank, cash, wallet, creditCard, investment }
 
 class AccountTypeDefinition {
   final AccountType type;
@@ -45,7 +39,8 @@ class AccountTypeDefinition {
       type: AccountType.wallet,
       label: 'Dompet Digital',
       categoryGroup: 'E-Wallet',
-      description: 'Saldo aplikasi dompet digital seperti GoPay, OVO, Dana, ShopeePay.',
+      description:
+          'Saldo aplikasi dompet digital seperti GoPay, OVO, Dana, ShopeePay.',
       icon: Icons.phone_android_rounded,
       color: Color(0xFF0284C7),
       isLiquid: true,
@@ -54,7 +49,8 @@ class AccountTypeDefinition {
       type: AccountType.cash,
       label: 'Kas Tunai Dompet',
       categoryGroup: 'Kas Tunai',
-      description: 'Uang fisik di dompet, amplop budgeting, atau brankas rumah.',
+      description:
+          'Uang fisik di dompet, amplop budgeting, atau brankas rumah.',
       icon: Icons.payments_rounded,
       color: Color(0xFF16A34A),
       isLiquid: true,
@@ -63,7 +59,8 @@ class AccountTypeDefinition {
       type: AccountType.creditCard,
       label: 'Kartu Kredit / Paylater',
       categoryGroup: 'Kewajiban / Liabilitas',
-      description: 'Tagihan kartu kredit, limit paylater, atau pinjaman konsumtif.',
+      description:
+          'Tagihan kartu kredit, limit paylater, atau pinjaman konsumtif.',
       icon: Icons.credit_card_rounded,
       color: Color(0xFFDC2626),
       isLiability: true,
@@ -73,7 +70,8 @@ class AccountTypeDefinition {
       type: AccountType.investment,
       label: 'Portofolio Investasi',
       categoryGroup: 'Investasi',
-      description: 'Rekening RDN saham, reksadana, crypto, emas, atau obligasi.',
+      description:
+          'Rekening RDN saham, reksadana, crypto, emas, atau obligasi.',
       icon: Icons.trending_up_rounded,
       color: Color(0xFF7C3AED),
       isLiability: false,
@@ -98,8 +96,10 @@ class Account {
   final bool isShared;
   final String? householdId;
   final String institution;
-  final String? parentAccountId; // For nested accounts (Bank Jago pockets, etc.)
-  final bool isIncludeTotal; // false if parent node with children to prevent double-count
+  final String?
+  parentAccountId; // For nested accounts (Bank Jago pockets, etc.)
+  final bool
+  isIncludeTotal; // false if parent node with children to prevent double-count
   final bool isVisible;
   final int sequenceOrder;
   final String currency;
@@ -126,6 +126,50 @@ class Account {
 
   bool get isParent => parentAccountId == null;
   bool get isPocket => parentAccountId != null;
+
+  /// Whether this account is liquid cash, bank, or e-wallet account,
+  /// matching the formula requirement for total balance.
+  bool get isCashBankOrWallet {
+    if (type == AccountType.investment || type == AccountType.creditCard) {
+      return false;
+    }
+    final normInst = institution.toLowerCase().replaceAll(
+      RegExp(r'[\s_-]'),
+      '',
+    );
+    final normName = name.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    if (normInst.contains('hutang') ||
+        normInst.contains('piutang') ||
+        normInst.contains('loan') ||
+        normInst.contains('debt') ||
+        normInst.contains('kredit') ||
+        normInst.contains('credit') ||
+        normInst.contains('paylater') ||
+        normInst.contains('saham') ||
+        normInst.contains('reksadana') ||
+        normInst.contains('invest') ||
+        normInst.contains('crypto') ||
+        normInst.contains('kripto') ||
+        normInst.contains('obligasi') ||
+        normInst.contains('emas')) {
+      return false;
+    }
+    if (normName.contains('hutang') ||
+        normName.contains('piutang') ||
+        normName.contains('paylater')) {
+      return false;
+    }
+    if (type == AccountType.bank ||
+        type == AccountType.cash ||
+        type == AccountType.wallet) {
+      return true;
+    }
+    return normInst.contains('cash') ||
+        normInst.contains('kas') ||
+        normInst.contains('bank') ||
+        normInst.contains('wallet') ||
+        normInst.contains('dompet');
+  }
 
   Account copyWith({
     String? id,

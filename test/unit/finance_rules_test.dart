@@ -64,7 +64,7 @@ void main() {
       },
     );
 
-    test('Cached transfers are excluded from income and expense; new transfers fail safely', () {
+    test('Cached transfers are excluded from income and expense; missing destination fails safely', () {
       final repo = state.repository!;
       final date = DateTime.now().toUtc().toIso8601String();
       repo.atomic(() {
@@ -101,7 +101,7 @@ void main() {
           isA<ApiFailure>().having(
             (e) => e.message,
             'message',
-            contains('belum mendukung antrean offline'),
+            contains('dua akun berbeda'),
           ),
         ),
       );
@@ -149,18 +149,19 @@ void main() {
         for (final type in InvestmentTradeType.values) {
           expect(
             () => state.recordInvestmentTrade(
-              assetId: 'missing',
+              accountId: 'missing',
+              instrumentId: 'missing',
               tradeType: type,
-              quantity: 0.005,
-              pricePerUnit: 1000000000,
-              fee: 10000,
+              quantity: '0.005',
+              pricePerUnit: '1000000000',
+              fee: '10000',
               cashAccountId: 'cash',
             ),
             throwsA(
               isA<ApiFailure>().having(
                 (e) => e.message,
                 'message',
-                contains('instrumen server'),
+                contains('akun IDR'),
               ),
             ),
           );

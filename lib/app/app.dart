@@ -7,6 +7,7 @@ import '../features/auth/pages/splash_page.dart';
 import 'app_state.dart';
 import 'theme/app_theme.dart';
 import 'widgets/main_shell.dart';
+import 'widgets/lifecycle_privacy_shield.dart';
 
 class VesperApp extends StatefulWidget {
   final bool initialAuthenticated;
@@ -71,6 +72,8 @@ class _VesperAppState extends State<VesperApp> {
         title: 'Vesper Finance',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        builder: (context, child) =>
+            LifecyclePrivacyShield(child: child ?? const SizedBox.shrink()),
         home: ListenableBuilder(
           listenable: _appState,
           builder: (context, _) {

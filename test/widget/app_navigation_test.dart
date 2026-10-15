@@ -46,7 +46,7 @@ void main() {
     // 3. Tap Grup Tab (Highlight Ruang Bersama & Pasangan)
     await tester.tap(find.text('Grup'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('ini bukan saldo nol'), findsOneWidget);
+    expect(find.textContaining('bukan saldo nol'), findsOneWidget);
     expect(
       find.text('Daftar anggota belum tersedia di perangkat.'),
       findsOneWidget,

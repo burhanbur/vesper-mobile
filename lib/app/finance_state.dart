@@ -136,6 +136,112 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  final Map<String, int> _groupListTokens = {};
+  final Set<String> _groupListLoading = {}, _groupListFresh = {};
+  final Map<String, String> _groupListErrors = {};
+  final Set<Future<bool>> _groupListTasks = {};
+
+  String _groupListKey(String groupId, bool mappings) =>
+      '${mappings ? 'group_category_mappings' : 'group_accounts'}:$groupId';
+
+  bool groupListLoading(String groupId, {bool mappings = false}) =>
+      _groupListLoading.contains(_groupListKey(groupId, mappings));
+  String? groupListError(String groupId, {bool mappings = false}) =>
+      _groupListErrors[_groupListKey(groupId, mappings)];
+  bool groupListFresh(String groupId, {bool mappings = false}) =>
+      !_offline && _groupListFresh.contains(_groupListKey(groupId, mappings));
+  bool groupListCached(String groupId, {bool mappings = false}) =>
+      repository?.entities.containsKey(_groupListKey(groupId, mappings)) ??
+      false;
+  List<Map<String, dynamic>> groupListRows(
+    String groupId, {
+    bool mappings = false,
+  }) {
+    final group = repository?.row('groups', groupId);
+    if (groupId != activeHouseholdId ||
+        !['OWNER', 'MEMBER'].contains(group?['role'])) {
+      return [];
+    }
+    return _rows(_groupListKey(groupId, mappings));
+  }
+
+  /// Fetch every page before a single guarded cache replacement. These endpoints
+  /// describe only the actor's relationships, never all members' relationships.
+  Future<bool> loadGroupList(String groupId, {bool mappings = false}) {
+    final repo = repository;
+    final key = _groupListKey(groupId, mappings);
+    final generation = _generation;
+    final token = (_groupListTokens[key] ?? 0) + 1;
+    _groupListTokens[key] = token;
+    bool current() =>
+        !_disposed &&
+        !_offline &&
+        generation == _generation &&
+        identical(repository, repo) &&
+        groupId == activeHouseholdId &&
+        _groupListTokens[key] == token &&
+        ['OWNER', 'MEMBER'].contains(repo?.row('groups', groupId)?['role']);
+    _groupListFresh.remove(key);
+    _groupListErrors.remove(key);
+    if (repo == null || !current()) {
+      _groupListLoading.remove(key);
+      _notify();
+      return Future.value(false);
+    }
+    _groupListLoading.add(key);
+    _notify();
+    final task = () async {
+      try {
+        final rows = await repo.client.list(
+          '/groups/$groupId/${mappings ? 'category-mappings' : 'accounts'}',
+        );
+        final ids = <String>{};
+        for (final row in rows) {
+          final fields = mappings
+              ? ['id', 'group_category_id', 'user_category_id']
+              : ['id', 'account_id', 'name'];
+          if (row['group_id'] != groupId ||
+              fields.any(
+                (field) =>
+                    row[field] is! String || (row[field] as String).isEmpty,
+              ) ||
+              !ids.add(row['id'] as String)) {
+            throw const ApiFailure(
+              'Respons daftar grup tidak valid. Cache sebelumnya dipertahankan.',
+            );
+          }
+        }
+        if (!current()) return false;
+        repo.atomic(
+          () => repo.entities[key] = {
+            for (final row in rows) row['id'] as String: row,
+          },
+        );
+        _groupListFresh.add(key);
+        return true;
+      } catch (error) {
+        if (current()) _groupListErrors[key] = error.toString();
+        return false;
+      } finally {
+        if (_groupListTokens[key] == token) {
+          _groupListLoading.remove(key);
+          _notify();
+        }
+      }
+    }();
+    _groupListTasks.add(task);
+    return task.whenComplete(() => _groupListTasks.remove(task));
+  }
+
+  void _resetGroupLists() {
+    for (final key in _groupListTokens.keys.toList()) {
+      _groupListTokens[key] = _groupListTokens[key]! + 1;
+    }
+    _groupListFresh.clear();
+    _groupListLoading.clear();
+    _groupListErrors.clear();
+  }
+
   StreamSubscription<bool>? _connectivitySubscription;
   Timer? _retryTimer;
   int _retryAttempt = 0;
@@ -241,6 +347,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     _cancelRetries();
     final generation = ++_generation;
+    _resetGroupLists();
     currentUserId = userId;
     userName = name ?? '';
     userEmail = email ?? '';
@@ -264,6 +371,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> logout() async {
     _cancelRetries();
     ++_generation;
+    _resetGroupLists();
     _authenticated = false;
     _currentFlow = AppFlowStep.auth;
     final old = repository;
@@ -289,6 +397,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         try {
           await _refreshTask;
           await Future.wait(_reportTasks.toList());
+          await Future.wait(_groupListTasks.toList());
           await old.waitForSync();
         } finally {
           old.store.close();
@@ -348,6 +457,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'groups',
         'budgets',
         'notifications',
+        'instruments',
       ]) {
         if (!active()) return;
         try {
@@ -369,6 +479,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           );
         } catch (error) {
           if (active()) dataError ??= error.toString();
+        }
+      }
+      if (active() && activeHouseholdId.isNotEmpty) {
+        final groupId = activeHouseholdId;
+        await loadGroupList(groupId);
+        if (active() && groupId == activeHouseholdId) {
+          dataError ??= groupListError(groupId);
+          await loadGroupList(groupId, mappings: true);
+          if (active() && groupId == activeHouseholdId) {
+            dataError ??= groupListError(groupId, mappings: true);
+          }
         }
       }
       for (final budget in repo.rows('budgets')) {
@@ -422,6 +543,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void toggleOfflineMode() {
     _cancelRetries();
     _offline = !_offline;
+    _resetGroupLists();
     repository?.offline = _offline;
     ++_reportGeneration;
     _reportKey = null;
@@ -442,12 +564,84 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, dynamic>> get referenceAccountTypes =>
       _rows('ref_account_types');
   List<Map<String, dynamic>> get referenceCategories => _rows('ref_categories');
+
+  static bool _boolVal(dynamic val, {bool defaultValue = true}) {
+    if (val == null) return defaultValue;
+    if (val is bool) return val;
+    if (val is num) return val != 0;
+    if (val is String) {
+      final s = val.trim().toLowerCase();
+      if (s == 'true' || s == '1') return true;
+      if (s == 'false' || s == '0') return false;
+    }
+    return defaultValue;
+  }
+
   AccountType _accountType(Map<String, dynamic> row) {
+    final rawType =
+        (row['type'] as String? ?? row['account_type'] as String? ?? '')
+            .toLowerCase();
+    if (rawType.contains('investment') ||
+        rawType.contains('saham') ||
+        rawType.contains('reksadana')) {
+      return AccountType.investment;
+    }
+    if (rawType.contains('bank')) return AccountType.bank;
+    if (rawType.contains('wallet') || rawType.contains('dompet')) {
+      return AccountType.wallet;
+    }
+    if (rawType.contains('credit') ||
+        rawType.contains('kredit') ||
+        rawType.contains('paylater') ||
+        rawType.contains('hutang') ||
+        rawType.contains('loan')) {
+      return AccountType.creditCard;
+    }
+
     final types = accountTypes.where((t) => t['id'] == row['account_type_id']);
-    if (types.isEmpty) return AccountType.cash;
-    return types.first['category'] == 'INVESTMENT'
-        ? AccountType.investment
-        : AccountType.cash;
+    if (types.isEmpty) {
+      final typeId = (row['account_type_id'] as String? ?? '').toLowerCase();
+      if (typeId.contains('investment') ||
+          typeId.contains('saham') ||
+          typeId.contains('reksadana')) {
+        return AccountType.investment;
+      }
+      if (typeId.contains('bank')) return AccountType.bank;
+      if (typeId.contains('wallet') || typeId.contains('dompet')) {
+        return AccountType.wallet;
+      }
+      if (typeId.contains('credit') ||
+          typeId.contains('kredit') ||
+          typeId.contains('paylater') ||
+          typeId.contains('hutang') ||
+          typeId.contains('loan')) {
+        return AccountType.creditCard;
+      }
+      return AccountType.cash;
+    }
+    final typeRow = types.first;
+    if (typeRow['category'] == 'INVESTMENT') {
+      return AccountType.investment;
+    }
+    if (typeRow['category'] == 'LIABILITY') {
+      return AccountType.creditCard;
+    }
+    final name = (typeRow['name'] as String? ?? '').toLowerCase().replaceAll(
+      RegExp(r'[\s_-]'),
+      '',
+    );
+    if (name.contains('bank')) return AccountType.bank;
+    if (name.contains('wallet') || name.contains('dompet')) {
+      return AccountType.wallet;
+    }
+    if (name.contains('kredit') ||
+        name.contains('credit') ||
+        name.contains('paylater') ||
+        name.contains('hutang') ||
+        name.contains('loan')) {
+      return AccountType.creditCard;
+    }
+    return AccountType.cash;
   }
 
   List<Account> get accounts => _rows('accounts')
@@ -463,9 +657,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                   .where((t) => t['id'] == r['account_type_id'])
                   .map((t) => t['name'] as String)
                   .firstOrNull ??
-              '',
+              (r['account_type_id'] is String
+                  ? r['account_type_id'] as String
+                  : ''),
           parentAccountId: r['parent_account_id'],
-          isIncludeTotal: r['is_include_total'] ?? true,
+          isIncludeTotal: _boolVal(r['is_include_total'], defaultValue: true),
           isVisible: r['is_visible'] ?? true,
           sequenceOrder: int.parse('${r['sequence_order'] ?? 0}'),
           currency: r['currency'] ?? 'IDR',
@@ -490,6 +686,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Account? getAccountById(String id) =>
       accounts.where((a) => a.id == id).firstOrNull;
+
+  Future<void> updateAccountIncludeTotal({
+    required String accountId,
+    required bool isIncludeTotal,
+  }) async {
+    final hasChildren = getChildrenForAccount(accountId).isNotEmpty;
+    if (hasChildren && isIncludeTotal) {
+      throw const ApiFailure(
+        'Akun dengan kantong terhubung tidak dapat disertakan dalam total untuk mencegah perhitungan ganda.',
+      );
+    }
+    _repo.mutate('accounts', 'UPDATE', {
+      'is_include_total': isIncludeTotal,
+    }, id: accountId);
+    _changed();
+  }
+
   void addAccount({
     required String name,
     required AccountType type,
@@ -614,7 +827,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<TransactionItem> get transactions =>
       _rows('transactions').map((r) {
         final pending = _repo.outbox
-            .where((e) => e['entity_id'] == r['id'])
+            .where(
+              (e) =>
+                  e['entity_id'] == r['id'] ||
+                  (r['transfer_id'] != null &&
+                      e['entity_type'] == 'transfers' &&
+                      e['entity_id'] == r['transfer_id']),
+            )
             .firstOrNull;
         final amount = rupiah(r['amount']);
         return TransactionItem(
@@ -668,6 +887,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     bool isDebt = false,
     bool isReceivable = false,
   }) {
+    if (type == TransactionType.transfer && !isDebt && !isReceivable) {
+      _repo.createTransfer(
+        fromAccountId: accountId,
+        toAccountId: toAccountId ?? '',
+        amount: amount,
+        date: date,
+        description: note,
+      );
+      _changed();
+      return;
+    }
     if (type != TransactionType.income && type != TransactionType.expense ||
         isDebt ||
         isReceivable) {
@@ -973,7 +1203,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
   Household get household => activeHousehold;
   void switchHousehold(String id) {
+    _resetGroupLists();
     _activeHouseholdId = id;
+    unawaited(loadGroupList(id));
+    unawaited(loadGroupList(id, mappings: true));
     unawaited(loadHouseholdCategoryReport());
     _notify();
   }
@@ -1039,6 +1272,25 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> createGroupCategory({
     required String name,
     required String type,
+  }) => _saveGroupCategory(name: name, type: type);
+
+  Future<void> updateGroupCategory({
+    required String categoryId,
+    required String groupId,
+    required String name,
+    required String type,
+  }) => _saveGroupCategory(
+    name: name,
+    type: type,
+    categoryId: categoryId,
+    expectedGroupId: groupId,
+  );
+
+  Future<void> _saveGroupCategory({
+    required String name,
+    required String type,
+    String? categoryId,
+    String? expectedGroupId,
   }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty ||
@@ -1055,11 +1307,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     final repo = _repo;
     final groupId = activeHouseholdId;
+    if (expectedGroupId != null && expectedGroupId != groupId) {
+      throw const ApiFailure(
+        'Grup aktif berubah. Buka kembali formulir kategori.',
+      );
+    }
+    if (categoryId != null &&
+        repo.row('group_categories:$groupId', categoryId) == null) {
+      throw const ApiFailure(
+        'Kategori grup tidak ditemukan. Muat ulang daftar kategori.',
+      );
+    }
     final generation = _generation;
     final result = await repo.writeOnline(
-      'POST',
+      categoryId == null ? 'POST' : 'PATCH',
       '/groups/$groupId/categories',
-      {'name': trimmed, 'type': type},
+      {'group_category_id': ?categoryId, 'name': trimmed, 'type': type},
     );
     if (_disposed ||
         generation != _generation ||
@@ -1068,6 +1331,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (result is! Map ||
         result['id'] is! String ||
+        (categoryId != null && result['id'] != categoryId) ||
         result['group_id'] != groupId ||
         result['name'] is! String ||
         !['INCOME', 'EXPENSE'].contains(result['type'])) {
@@ -1084,6 +1348,153 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       repo.entities.remove('household_category_reports:$groupId');
     });
     _notify();
+    if (groupId == activeHouseholdId) await loadHouseholdCategoryReport();
+  }
+
+  Future<void> deleteGroupCategory({
+    required String groupId,
+    required String categoryId,
+  }) async {
+    final repo = _repo;
+    if (groupId != activeHouseholdId ||
+        !canManageGroupCategories ||
+        repo.row('group_categories:$groupId', categoryId) == null) {
+      throw const ApiFailure(
+        'Hanya pemilik dapat menghapus kategori pada grup aktif.',
+      );
+    }
+    final generation = _generation;
+    await repo.writeOnline('DELETE', '/groups/$groupId/categories', {
+      'group_category_id': categoryId,
+    });
+    if (_disposed ||
+        generation != _generation ||
+        !identical(repository, repo)) {
+      return;
+    }
+    repo.atomic(() {
+      final table = Map<String, dynamic>.from(
+        (repo.entities['group_categories:$groupId'] as Map?) ?? const {},
+      );
+      table.remove(categoryId);
+      repo.entities['group_categories:$groupId'] = table;
+      repo.entities.remove('household_category_reports:$groupId');
+      repo.entities.remove(_groupListKey(groupId, true));
+    });
+    final key = _groupListKey(groupId, true);
+    _groupListTokens[key] = (_groupListTokens[key] ?? 0) + 1;
+    _groupListFresh.remove(key);
+    _notify();
+    if (groupId == activeHouseholdId) {
+      await loadGroupList(groupId, mappings: true);
+      await loadHouseholdCategoryReport();
+    }
+  }
+
+  Future<void> mapGroupCategory({
+    required String groupId,
+    required String groupCategoryId,
+    required String personalCategoryId,
+    bool remove = false,
+  }) async {
+    final repo = _repo;
+    final group = repo.row('groups', groupId);
+    final category = repo.row('group_categories:$groupId', groupCategoryId);
+    final personal = repo.row('categories', personalCategoryId);
+    if (groupId != activeHouseholdId ||
+        group == null ||
+        !['OWNER', 'MEMBER'].contains(group['role']) ||
+        category == null ||
+        personal == null ||
+        personal['user_id'] != repo.userId ||
+        personal['deleted_at'] != null ||
+        personal['type'] != category['type']) {
+      throw const ApiFailure(
+        'Pilih kategori milik Anda dengan tipe yang sama pada grup aktif.',
+      );
+    }
+    if (repo.outbox.any(
+      (item) =>
+          item['entity_type'] == 'categories' &&
+          item['entity_id'] == personalCategoryId,
+    )) {
+      throw const ApiFailure(
+        'Sinkronkan kategori pribadi sebelum melakukan pemetaan.',
+      );
+    }
+    final generation = _generation;
+    await repo.writeOnline(
+      remove ? 'DELETE' : 'POST',
+      '/groups/$groupId/categories/$groupCategoryId/mapping',
+      {'user_category_id': personalCategoryId},
+    );
+    if (_disposed ||
+        generation != _generation ||
+        !identical(repository, repo)) {
+      return;
+    }
+    await _reloadGroupListAfterMutation(repo, groupId, mappings: true);
+  }
+
+  Future<void> shareGroupAccount({
+    required String groupId,
+    required String accountId,
+    bool remove = false,
+  }) async {
+    final repo = _repo;
+    final group = repo.row('groups', groupId);
+    final account = repo.row('accounts', accountId);
+    if (groupId != activeHouseholdId ||
+        group == null ||
+        !['OWNER', 'MEMBER'].contains(group['role']) ||
+        account == null ||
+        account['user_id'] != repo.userId ||
+        account['deleted_at'] != null) {
+      throw const ApiFailure('Pilih akun milik Anda pada grup aktif.');
+    }
+    if (repo.outbox.any(
+      (item) =>
+          (item['entity_type'] == 'accounts' &&
+              item['entity_id'] == accountId) ||
+          (item['entity_type'] == 'account_types' &&
+              item['entity_id'] == account['account_type_id']),
+    )) {
+      throw const ApiFailure(
+        'Sinkronkan akun dan tipe akunnya sebelum mengubah pembagian.',
+      );
+    }
+    final generation = _generation;
+    await repo.writeOnline(
+      remove ? 'DELETE' : 'POST',
+      '/groups/$groupId/accounts',
+      {'account_id': accountId},
+    );
+    if (_disposed ||
+        generation != _generation ||
+        !identical(repository, repo)) {
+      return;
+    }
+    await _reloadGroupListAfterMutation(repo, groupId);
+  }
+
+  Future<void> _reloadGroupListAfterMutation(
+    FinanceRepository repo,
+    String groupId, {
+    bool mappings = false,
+  }) async {
+    final key = _groupListKey(groupId, mappings);
+    _groupListTokens[key] = (_groupListTokens[key] ?? 0) + 1;
+    _groupListFresh.remove(key);
+    repo.atomic(() {
+      repo.entities.remove(key);
+      repo.entities.remove('household_category_reports:$groupId');
+    });
+    _notify();
+    if (!await loadGroupList(groupId, mappings: mappings)) {
+      throw const ApiFailure(
+        'Permintaan perubahan diterima server, tetapi status terbaru belum dapat diverifikasi. Muat ulang daftar sebelum mencoba lagi.',
+      );
+    }
     if (groupId == activeHouseholdId) await loadHouseholdCategoryReport();
   }
 
@@ -1178,17 +1589,40 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   // No fabricated holdings. Portfolio integration requires account-scoped snapshots.
   List<InvestmentAsset> get investments => [];
+
+  void retryInvestmentTrade(String queueId) {
+    _repo.retryInvestmentTrade(queueId);
+    _notify();
+    requestAutomaticSync();
+  }
+
   void recordInvestmentTrade({
-    required String assetId,
+    required String accountId,
+    required String instrumentId,
     required InvestmentTradeType tradeType,
-    required double quantity,
-    required double pricePerUnit,
-    required int fee,
-    String? cashAccountId,
+    required String quantity,
+    required String pricePerUnit,
+    required String fee,
+    required String cashAccountId,
     String? note,
-  }) => throw const ApiFailure(
-    'Pilih portofolio dan instrumen server terlebih dahulu.',
-  );
+  }) {
+    _repo.createInvestmentTrade(
+      accountId: accountId,
+      cashAccountId: cashAccountId,
+      instrumentId: instrumentId,
+      type: tradeType.name.toUpperCase(),
+      quantity: quantity,
+      pricePerUnit: pricePerUnit,
+      fee: fee,
+      at: DateTime.fromMillisecondsSinceEpoch(
+        DateTime.now().millisecondsSinceEpoch,
+        isUtc: true,
+      ),
+      description: note,
+    );
+    _notify();
+  }
+
   void updateInstrumentPrice(String assetId, double newPrice) =>
       throw const ApiFailure(
         'Instrumen server diperlukan untuk memperbarui harga.',
@@ -1258,7 +1692,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int get totalLiquidCash => accounts
-      .where((a) => a.isIncludeTotal && a.type != AccountType.investment)
+      .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
       .fold(0, (sum, a) => sum + a.balance);
   int get totalInvestmentValue =>
       investments.fold(0, (sum, a) => sum + a.totalCurrentValue);

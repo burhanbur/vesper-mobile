@@ -43,6 +43,7 @@ dependencies:
   path: ^1.9.1
   connectivity_plus: ^7.3.2
   web: ^1.1.1
+  local_auth: 3.0.2
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -264,16 +265,15 @@ void main() {
   );
 
   testWidgets(
-    'Pocket transfer explains unavailability before exposing a write form',
+    'Pocket transfer opens creation form without writing before submit',
     (tester) async {
       final state = _fixture(empty: true);
       await _pump(tester, state, _detail('pocket'));
       await tester.tap(find.text('Transfer Saldo'));
       await tester.pumpAndSettle();
-      expect(find.text('Transfer belum tersedia'), findsOneWidget);
-      expect(find.byType(AccountSelectorTile), findsNothing);
-      expect(find.byType(TextField), findsNothing);
-      expect(find.byType(AddTransactionModal), findsNothing);
+      expect(find.byType(AccountSelectorTile), findsWidgets);
+      expect(find.byType(TextField), findsWidgets);
+      expect(find.byType(AddTransactionModal), findsOneWidget);
       expect(state.repository!.outbox, isEmpty);
       expect(state.getAccountById('pocket')!.balance, 9000);
       expect(tester.takeException(), isNull);
@@ -289,4 +289,39 @@ void main() {
     );
     expect(button.onPressed, isNull);
   });
+
+  testWidgets(
+    'Account detail page displays include total switch and handles parent/child correctly',
+    (tester) async {
+      final state = _fixture();
+      // Test child account 'pocket'
+      await _pump(tester, state, _detail('pocket'));
+      expect(find.text('Sertakan dalam Total Saldo'), findsOneWidget);
+      final switchFinder = find.byKey(
+        const ValueKey('account_include_total_switch'),
+      );
+      expect(switchFinder, findsOneWidget);
+
+      // Verify toggle can be tapped for child
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+      expect(state.getAccountById('pocket')!.isIncludeTotal, isFalse);
+
+      // Test parent account 'acc-jago' (has pocket child)
+      await _pump(tester, state, _detail('acc-jago'));
+      expect(find.text('Sertakan dalam Total Saldo'), findsOneWidget);
+      expect(
+        find.textContaining('Akun induk otomatis dikecualikan'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Total akumulasi dari 1 kantong'),
+        findsOneWidget,
+      );
+      final parentSwitch = tester.widget<CupertinoSwitch>(
+        find.byKey(const ValueKey('account_include_total_switch')),
+      );
+      expect(parentSwitch.onChanged, isNull);
+    },
+  );
 }

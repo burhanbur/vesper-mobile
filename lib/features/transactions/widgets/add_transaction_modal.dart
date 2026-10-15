@@ -27,15 +27,41 @@ class AddTransactionModal extends StatefulWidget {
     String? initialAccountId,
     TransactionItem? transactionToEdit,
   }) {
-    if (initialType == TransactionType.transfer ||
-        transactionToEdit?.type == TransactionType.transfer ||
+    final cached = transactionToEdit == null
+        ? null
+        : AppStateScope.of(context).repository
+              ?.row('transactions', transactionToEdit.id);
+    if (cached != null &&
+        cached.containsKey('category_id') &&
+        cached['category_id'] == null &&
+        transactionToEdit?.type != TransactionType.transfer &&
+        transactionToEdit?.transferId == null) {
+      return showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Transaksi turunan tidak dapat diubah'),
+          content: const SingleChildScrollView(
+            child: Text(
+              'Transaksi kas ini dikelola oleh modul asalnya dan tidak dapat diubah atau dihapus secara langsung.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Mengerti'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (transactionToEdit?.type == TransactionType.transfer ||
         transactionToEdit?.transferId != null) {
       return showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Transfer belum tersedia'),
+          title: const Text('Transfer tidak dapat diubah'),
           content: const Text(
-            'Transfer, utang, dan piutang belum mendukung penyimpanan lokal dan antrean sinkronisasi. Tidak ada transaksi yang dibuat. Gunakan pemasukan atau pengeluaran hanya untuk transaksi sebenarnya, bukan pengganti transfer.',
+            'Transfer yang sudah dicatat tidak dapat diubah atau dihapus. Tidak ada transaksi yang dibuat.',
           ),
           actions: [
             TextButton(
@@ -409,14 +435,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                                 activeColor: AppColors.income,
                               ),
                             ),
-                            const Expanded(
-                              child: Tooltip(
-                                message:
-                                    'Transfer belum mendukung antrean offline.',
-                                child: TextButton(
-                                  onPressed: null,
-                                  child: Text('Transfer (belum tersedia)'),
-                                ),
+                            Expanded(
+                              child: _buildTypeButton(
+                                type: TransactionType.transfer,
+                                label: 'Transfer',
+                                activeColor: AppColors.transfer,
                               ),
                             ),
                           ],

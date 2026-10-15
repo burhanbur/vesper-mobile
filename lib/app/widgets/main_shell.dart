@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../features/dashboard/pages/dashboard_page.dart';
 import '../../features/household/pages/household_page.dart';
-import '../../features/investments/pages/investments_page.dart';
-import '../../features/investments/widgets/investment_trade_modal.dart';
+import '../../features/investments/pages/portfolio_page.dart';
+
 import '../../features/reports/pages/reports_page.dart';
 import '../../features/settings/pages/settings_page.dart';
 import '../../features/transactions/models/transaction.dart';
@@ -139,11 +139,15 @@ class _MainShellState extends State<MainShell> {
               icon: Icons.trending_up_rounded,
               color: AppColors.investment,
               bgColor: AppColors.investmentLight,
-              title: 'Catat Investasi',
-              subtitle: 'Beli / jual saham, reksadana, crypto & emas',
+              title: 'Lihat Portofolio',
+              subtitle: 'Holdings dan snapshot investasi • hanya baca',
               onTap: () {
                 Navigator.of(ctx).pop();
-                InvestmentTradeModal.show(context);
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PortfolioPage(),
+                  ),
+                );
               },
             ),
           ],
@@ -221,7 +225,7 @@ class _MainShellState extends State<MainShell> {
         onNavigateToInvestments: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (context) => const InvestmentsPage(),
+              builder: (context) => const PortfolioPage(),
             ),
           );
         },

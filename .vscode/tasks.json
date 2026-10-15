@@ -45,6 +45,24 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Validate investment safety boundary",
+			"type": "shell",
+			"command": "C:\\flutter\\bin\\flutter.bat analyze; C:\\flutter\\bin\\flutter.bat test",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate exact investment settlement",
+			"type": "shell",
+			"command": "C:\\flutter\\bin\\flutter.bat analyze; C:\\flutter\\bin\\flutter.bat test",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }

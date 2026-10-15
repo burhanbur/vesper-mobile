@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
@@ -8,6 +9,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../transactions/models/transaction.dart';
 import '../../transactions/widgets/add_transaction_modal.dart';
 import '../../transactions/widgets/transaction_item_tile.dart';
+import '../models/account.dart';
 import '../widgets/balance_adjustment_dialog.dart';
 
 /// Account ledger displayed within the shell's management navigator.
@@ -55,6 +57,11 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
         ? account.name
         : '${parent.name} - ${account.name}';
     final transactions = state.transactionsForAccount(widget.accountId);
+    final children = account != null
+        ? state.getChildrenForAccount(account.id)
+        : const <Account>[];
+    final hasChildren = children.isNotEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -91,6 +98,18 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
+                        if (hasChildren) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Total akumulasi dari ${children.length} kantong terhubung: ${state.isBalanceHidden ? '••••••' : CurrencyFormatter.formatRupiah(account.balance + children.fold<int>(0, (sum, c) => sum + c.balance))}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.accentDark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
                         Wrap(
                           spacing: 12,
                           children: [
@@ -132,6 +151,109 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                               child: const Text('Transfer Saldo'),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 18),
+                        // Include in Total Toggle Card
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: account.isIncludeTotal && !hasChildren
+                                  ? AppColors.accent.withValues(alpha: 0.3)
+                                  : AppColors.border,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: account.isIncludeTotal && !hasChildren
+                                      ? AppColors.accent.withValues(alpha: 0.12)
+                                      : AppColors.surfaceVariant,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  account.isIncludeTotal && !hasChildren
+                                      ? Icons.visibility_rounded
+                                      : Icons.visibility_off_rounded,
+                                  color: account.isIncludeTotal && !hasChildren
+                                      ? AppColors.accentDark
+                                      : AppColors.textMuted,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Sertakan dalam Total Saldo',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      hasChildren
+                                          ? 'Akun induk otomatis dikecualikan agar saldo kantong tidak ganda.'
+                                          : account.isIncludeTotal
+                                          ? 'Saldo akun ini dihitung dalam ringkasan total saldo.'
+                                          : 'Saldo akun ini diabaikan dari ringkasan total saldo.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: hasChildren
+                                            ? const Color(0xFFD97706)
+                                            : AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              CupertinoSwitch(
+                                key: const ValueKey(
+                                  'account_include_total_switch',
+                                ),
+                                value: account.isIncludeTotal && !hasChildren,
+                                activeTrackColor: AppColors.primary,
+                                onChanged:
+                                    (account.ownerUserId !=
+                                                state.currentUserId &&
+                                            state.currentUserId.isNotEmpty) ||
+                                        hasChildren
+                                    ? null
+                                    : (val) async {
+                                        try {
+                                          await state.updateAccountIncludeTotal(
+                                            accountId: account.id,
+                                            isIncludeTotal: val,
+                                          );
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Gagal memperbarui: $e',
+                                                    ),
+                                                  ),
+                                                );
+                                          }
+                                        }
+                                      },
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 24),
                         const Text(
