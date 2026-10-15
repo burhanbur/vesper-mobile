@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../app/widgets/app_lock_gate.dart';
 import '../../auth/data/auth_repository.dart';
 
 class SecurityPage extends StatefulWidget {
@@ -97,13 +98,7 @@ class _SecurityPageState extends State<SecurityPage> {
         ),
         if (_error != null)
           Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
-        const ListTile(
-          leading: Icon(Icons.info_outline),
-          title: Text('Kunci aplikasi'),
-          subtitle: Text(
-            'PIN dan biometrik belum tersedia. Pengaturan ini hanya mengelola penyimpanan sesi pada perangkat ini.',
-          ),
-        ),
+        _appLockSetting(context),
         ListTile(
           leading: const Icon(Icons.logout_rounded),
           title: const Text('Logout perangkat ini'),
@@ -117,4 +112,41 @@ class _SecurityPageState extends State<SecurityPage> {
       ],
     ),
   );
+
+  Widget _appLockSetting(BuildContext context) {
+    final lock = AppLockScope.maybeOf(context);
+    if (lock == null) {
+      return const ListTile(
+        leading: Icon(Icons.lock_outline),
+        title: Text('Kunci aplikasi'),
+        subtitle: Text('Kunci perangkat tidak tersedia pada sesi ini.'),
+      );
+    }
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.lock_outline),
+          title: const Text('Kunci aplikasi'),
+          subtitle: const Text(
+            'Minta biometrik atau PIN/sandi perangkat saat aplikasi dibuka dan setelah meninggalkan aplikasi. Berlaku untuk semua akun pada perangkat ini. Data dan antrean tetap tersimpan.',
+          ),
+          value: lock.enabled,
+          onChanged: _busy || lock.busy || !lock.loaded
+              ? null
+              : lock.setEnabled,
+        ),
+        if (lock.error != null)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Semantics(liveRegion: true, child: Text(lock.error!)),
+          ),
+        const ListTile(
+          leading: Icon(Icons.info_outline),
+          subtitle: Text(
+            'Kunci aplikasi memakai keamanan perangkat. Pada browser, kunci ini tidak tersedia dan data lokal tidak terenkripsi. Gunakan profil browser pribadi pada perangkat tepercaya.',
+          ),
+        ),
+      ],
+    );
+  }
 }

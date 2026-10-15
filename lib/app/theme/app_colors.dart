@@ -13,7 +13,7 @@ class AppColors {
   // Mint / Sage Accents
   static const Color accent = Color(0xFF5AB693);
   static const Color accentLight = Color(0xFFE2F4EB);
-  static const Color accentDark = Color(0xFF2E7B62);
+  static const Color accentDark = Color(0xFF2B745C);
   static const Color sageMuted = Color(0xFFC7DDCF);
 
   // Backgrounds & Surfaces
@@ -29,15 +29,15 @@ class AppColors {
 
   // Typography
   static const Color textPrimary = Color(0xFF132521);
-  static const Color textSecondary = Color(0xFF63746E);
-  static const Color textMuted = Color(0xFF91A19A);
+  static const Color textSecondary = Color(0xFF53665D);
+  static const Color textMuted = Color(0xFF5F7069);
   static const Color textOnPrimary = Colors.white;
   static const Color textOnAccent = Color(0xFF0C3329);
 
   // Financial Semantics (Income, Expense, Transfer, Investment)
-  static const Color income = Color(0xFF1A8C5B);
+  static const Color income = Color(0xFF137548);
   static const Color incomeLight = Color(0xFFE3F7EE);
-  static const Color expense = Color(0xFFD63B38);
+  static const Color expense = Color(0xFFC53030);
   static const Color expenseLight = Color(0xFFFDECEB);
   static const Color transfer = Color(0xFF2563EB);
   static const Color transferLight = Color(0xFFEFF6FF);
@@ -45,9 +45,9 @@ class AppColors {
   static const Color investmentLight = Color(0xFFF3E8FF);
 
   // Status & Warning
-  static const Color warning = Color(0xFFD97706);
+  static const Color warning = Color(0xFF9C5304);
   static const Color warningLight = Color(0xFFFEF3C7);
-  static const Color info = Color(0xFF0284C7);
+  static const Color info = Color(0xFF00699E);
   static const Color infoLight = Color(0xFFE0F2FE);
 
   // Gold / Asset Badge

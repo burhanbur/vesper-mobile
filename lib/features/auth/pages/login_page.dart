@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/security/local_data_failure.dart';
 import '../data/auth_repository.dart';
 
 class LoginPage extends StatefulWidget {
@@ -86,6 +87,8 @@ class _LoginPageState extends State<LoginPage>
       await state.login(userId: user.id, name: user.name, email: user.email);
     } on ApiFailure catch (error) {
       if (mounted) _showError(error.message);
+    } on LocalDataFailure catch (error) {
+      if (mounted) _showError(error.toString());
     } catch (_) {
       if (mounted) _showError('Sesi tidak dapat disimpan. Silakan coba lagi.');
     } finally {
@@ -105,6 +108,10 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   Widget build(BuildContext context) {
+    final storageError = context
+        .dependOnInheritedWidgetOfExactType<AppStateScope>()
+        ?.notifier
+        ?.localStorageError;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -117,6 +124,12 @@ class _LoginPageState extends State<LoginPage>
               // Brand & Logo Header
               _buildBrandHeader(),
               const SizedBox(height: 24),
+
+              if (storageError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Semantics(liveRegion: true, child: Text(storageError)),
+                ),
 
               // Segmented Tab Bar (Masuk / Daftar)
               Container(

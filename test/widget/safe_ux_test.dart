@@ -149,7 +149,8 @@ void main() {
       seed(state);
       await tester.pumpWidget(host(state, const TransactionsPage()));
       expect(find.text('1 Transaksi'), findsOneWidget);
-      expect(find.byType(ListView), findsOneWidget);
+      expect(find.byType(CustomScrollView), findsOneWidget);
+      expect(find.byType(SliverList), findsOneWidget);
       await tester.tap(find.byTooltip('Bulan sebelumnya'));
       await tester.pump();
       expect(find.text('2 Transaksi'), findsOneWidget);

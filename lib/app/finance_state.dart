@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../core/network/api_client.dart';
 import '../database/local_store.dart';
+import '../database/transaction_query.dart';
+import '../core/security/local_data_failure.dart';
 import '../features/accounts/models/account.dart';
 import '../features/accounts/models/balance_adjustment.dart';
 import '../features/auth/data/auth_repository.dart';
@@ -71,6 +73,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _authenticated = false, _offline = false, _hidden = false;
   bool loading = false;
   String? dataError;
+  String? localStorageError;
   AppFlowStep _currentFlow;
   String _activeHouseholdId = '';
   bool _disposed = false;
@@ -332,6 +335,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
     } catch (error) {
       dataError = error.toString();
+      localStorageError = error is LocalDataFailure ? error.toString() : null;
       setFlowStep(AppFlowStep.auth);
     }
   }
@@ -346,6 +350,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       throw const ApiFailure('Identitas server diperlukan.');
     }
     _cancelRetries();
+    localStorageError = null;
     final generation = ++_generation;
     _resetGroupLists();
     currentUserId = userId;
@@ -387,6 +392,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     householdReportError = null;
     householdReportLoading = false;
     dataError = null;
+    localStorageError = null;
     loading = false;
     _notify();
     // Let an in-flight request finish before closing its database.
@@ -825,7 +831,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   List<TransactionItem> get transactions =>
-      _rows('transactions').map((r) {
+      _transactionItems(_rows('transactions'));
+
+  int get localDataRevision => repository?.store.revision ?? 0;
+  String get localDataScope => repository?.userId ?? '';
+
+  List<TransactionItem> _transactionItems(List<Map<String, dynamic>> records) =>
+      records.map((r) {
         final pending = _repo.outbox
             .where(
               (e) =>
@@ -874,7 +886,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   /// A parent account does not include its pockets' independent ledgers.
   List<TransactionItem> transactionsForAccount(String id) =>
-      transactions.where((transaction) => transaction.accountId == id).toList();
+      transactionPage(TransactionQuery(accountId: id)).items;
+
+  ({List<TransactionItem> items, TransactionCursor? next}) transactionPage(
+    TransactionQuery query,
+  ) {
+    if (repository == null) return (items: <TransactionItem>[], next: null);
+    final page = _repo.transactionPage(query);
+    return (items: _transactionItems(page.rows), next: page.next);
+  }
+
+  List<TransactionItem> transactionsInPeriod(DateTime start, DateTime end) {
+    final result = <TransactionItem>[];
+    TransactionCursor? cursor;
+    do {
+      final page = transactionPage(
+        TransactionQuery(start: start, end: end, after: cursor),
+      );
+      result.addAll(page.items);
+      cursor = page.next;
+    } while (cursor != null);
+    return result;
+  }
 
   void addTransaction({
     required TransactionType type,
@@ -1703,13 +1736,29 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return local.year == now.year && local.month == now.month;
   }
 
-  int get monthIncome => transactions
-      .where((t) => t.type == TransactionType.income && _thisMonth(t.date))
-      .fold(0, (sum, t) => sum + t.amount);
-  int get monthExpense => transactions
-      .where((t) => t.type == TransactionType.expense && _thisMonth(t.date))
-      .fold(0, (sum, t) => sum + t.amount);
+  int get monthIncome => repository?.store.isIndexed == true
+      ? rupiah(_monthSummary.income)
+      : transactions
+            .where(
+              (t) => t.type == TransactionType.income && _thisMonth(t.date),
+            )
+            .fold(0, (sum, t) => sum + t.amount);
+  int get monthExpense => repository?.store.isIndexed == true
+      ? rupiah(_monthSummary.expense)
+      : transactions
+            .where(
+              (t) => t.type == TransactionType.expense && _thisMonth(t.date),
+            )
+            .fold(0, (sum, t) => sum + t.amount);
   int get monthNetSavings => monthIncome - monthExpense;
+
+  TransactionSummary get _monthSummary {
+    final now = DateTime.now();
+    return _repo.store.transactionSummary(
+      DateTime(now.year, now.month),
+      DateTime(now.year, now.month + 1),
+    );
+  }
 
   double get monthGrowthPercentage {
     final savings = monthNetSavings;
@@ -1725,6 +1774,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<double> get monthNetWorthTrend {
     final now = DateTime.now();
     final startVal = (totalNetWorth - monthNetSavings).toDouble();
+    if (repository?.store.isIndexed == true) {
+      final daily = _monthSummary.dailyNet;
+      final points = <double>[startVal];
+      var running = startVal;
+      for (var day = 1; day <= now.day; day++) {
+        if (daily.containsKey(day)) {
+          running += rupiah(daily[day]).toDouble();
+          points.add(running);
+        }
+      }
+      if (points.last != totalNetWorth.toDouble()) {
+        points.add(totalNetWorth.toDouble());
+      }
+      return points;
+    }
     final monthTx = transactions.where((t) => _thisMonth(t.date)).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 

@@ -107,7 +107,7 @@ class _ReportsPageState extends State<ReportsPage> {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final transactions = _period.filter(state.transactions);
+    final transactions = state.transactionsInPeriod(_period.start, _period.end);
     final income = _period.total(transactions, TransactionType.income);
     final expense = _period.total(transactions, TransactionType.expense);
     final totals = <String, int>{};

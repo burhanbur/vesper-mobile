@@ -11,6 +11,7 @@ import '../../features/transactions/pages/transactions_page.dart';
 import '../../features/transactions/widgets/add_transaction_modal.dart';
 import '../theme/app_colors.dart';
 import 'shell_management_scope.dart';
+import 'app_lock_gate.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -255,8 +256,12 @@ class _MainShellState extends State<MainShell> {
             offstage: !_managementOpen,
             child: NavigatorPopHandler<Object?>(
               enabled: _managementOpen,
-              onPopWithResult: (_) =>
-                  _managementNavigatorKey.currentState!.pop(),
+              onPopWithResult: (_) {
+                if (AppLockScope.maybeOf(context)?.blocksContent ?? false) {
+                  return;
+                }
+                _managementNavigatorKey.currentState!.pop();
+              },
               child: ShellManagementScope(
                 openPage: _openManagementPage,
                 child: Navigator(
@@ -307,29 +312,33 @@ class _MainShellState extends State<MainShell> {
               ),
 
               // Center Floating Action Button (+) matching contoh-1.png & contoh-2.png
-              GestureDetector(
-                key: const ValueKey('shell_quick_action'),
-                onTap: () => _showQuickActionSheet(context),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+              Semantics(
+                label: 'Aksi cepat',
+                button: true,
+                child: GestureDetector(
+                  key: const ValueKey('shell_quick_action'),
+                  onTap: () => _showQuickActionSheet(context),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 28,
                       ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.add_rounded,
-                      color: Colors.white,
-                      size: 28,
                     ),
                   ),
                 ),
@@ -366,32 +375,41 @@ class _MainShellState extends State<MainShell> {
     final isSelected = _currentIndex == index;
 
     return Expanded(
-      child: InkWell(
-        onTap: () => _onTabSelected(index),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isSelected ? activeIcon : icon,
-                color: isSelected ? AppColors.primary : AppColors.textMuted,
-                size: 24,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+          child: InkWell(
+            onTap: () => _onTabSelected(index),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isSelected ? activeIcon : icon,
+                    color: isSelected ? AppColors.primary : AppColors.textMuted,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? AppColors.primary : AppColors.textMuted,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

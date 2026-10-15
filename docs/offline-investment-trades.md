@@ -16,6 +16,8 @@ An applied response changes the durable status to `acknowledged`, not complete. 
 
 Conflict/rejection retains the original command and optimistic state, exposes status/error in the form and blocks subsequent trades and dependent edits. Generic “mine/server” resolution is forbidden: a server-reviewed recovery is required because blindly undoing or rebasing a financial command could duplicate a lost-response trade. There is intentionally no unsafe discard button. Backend authorization remains authoritative; cached ownership is only a conservative offline guard.
 
+The form now offers confirmed retry of the unchanged original command and **Info pemulihan**, a read-only reference sheet containing IDs and a stable SHA-256 envelope fingerprint. Financial values, descriptions and credentials are excluded. No support message or financial export is sent. See `investment-recovery-runbook.md` for operator investigation, lost-response reconciliation and escalation of terminal invalid commands; cancellation/reversal still requires an additional reviewed server contract.
+
 ## Scope and limits
 
 No backend migrations or database resets are required. The backend UNC workspace was inspected for command fields and decimal constraints; no backend files are changed by this workflow.

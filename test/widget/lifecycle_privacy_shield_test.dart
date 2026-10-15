@@ -16,6 +16,8 @@ void main() {
           ),
         ),
       );
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await tester.pump();
       expect(find.byIcon(Icons.shield_outlined), findsOneWidget);
@@ -27,6 +29,11 @@ void main() {
       );
       expect(ignorePointers.any((w) => w.ignoring), isTrue);
       expect(controller.text, 'unsaved draft');
+      expect(
+        tester.binding.focusManager.primaryFocus?.context?.widget
+            is EditableText,
+        isFalse,
+      );
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump();

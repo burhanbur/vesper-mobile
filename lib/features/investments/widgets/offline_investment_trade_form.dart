@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../models/investment.dart';
 import '../models/investment_settlement.dart';
+import 'investment_recovery_sheet.dart';
 
 class OfflineInvestmentTradeForm extends StatefulWidget {
   final InvestmentTradeType initialType;
@@ -35,7 +36,17 @@ class _OfflineInvestmentTradeFormState
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final repo = state.repository!;
+    final repo = state.repository;
+    if (repo == null) {
+      return const SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Silakan masuk kembali untuk membuka transaksi investasi.',
+          ),
+        ),
+      );
+    }
     final accounts = repo.rows('accounts');
     final instruments = repo
         .rows('instruments')
@@ -256,6 +267,25 @@ class _OfflineInvestmentTradeFormState
                               },
                         child: const Text('Coba ulang command asli'),
                       ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        try {
+                          final reference = repo.investmentRecoveryReference(
+                            item['id'] as String,
+                          );
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (_) =>
+                                InvestmentRecoverySheet(reference: reference),
+                          );
+                        } catch (failure) {
+                          setState(() => error = failure.toString());
+                        }
+                      },
+                      icon: const Icon(Icons.support_agent),
+                      label: const Text('Info pemulihan'),
+                    ),
                   ],
                 ),
               if (blocked != null) Text(blocked),

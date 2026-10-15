@@ -482,50 +482,54 @@ class TransactionItemTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
 
-            // Amount & Type Pill Badge
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  isHidden
-                      ? '••••••'
-                      : CurrencyFormatter.formatRupiah(
-                          transaction.amount,
-                          withSign: true,
-                          isIncome: transaction.isIncoming,
-                          isExpense: !transaction.isIncoming,
-                        ),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    color: transaction.type == TransactionType.income
-                        ? AppColors.income
-                        : (transaction.type == TransactionType.expense
-                              ? AppColors.expense
-                              : AppColors.textPrimary),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1.5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    transaction.typeLabel,
+            // Constrain long amounts at large text sizes instead of pushing
+            // the title column outside the card.
+            Flexible(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    isHidden
+                        ? '••••••'
+                        : CurrencyFormatter.formatRupiah(
+                            transaction.amount,
+                            withSign: true,
+                            isIncome: transaction.isIncoming,
+                            isExpense: !transaction.isIncoming,
+                          ),
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: color,
+                      letterSpacing: -0.2,
+                      color: transaction.type == TransactionType.income
+                          ? AppColors.income
+                          : (transaction.type == TransactionType.expense
+                                ? AppColors.expense
+                                : AppColors.textPrimary),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      transaction.typeLabel,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

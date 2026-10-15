@@ -18,6 +18,12 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 version: 1.0.0+1
 
+# Authenticated page encryption for indexed financial data, including WAL.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
+
 environment:
   sdk: ^3.13.4
 
@@ -44,6 +50,7 @@ dependencies:
   connectivity_plus: ^7.3.2
   web: ^1.1.1
   local_auth: 3.0.2
+  cryptography: 2.9.0
 
 dev_dependencies:
   flutter_test:
@@ -55,6 +62,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -69,6 +78,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/licenses/
     - env/development.json
     - env/web.json
 

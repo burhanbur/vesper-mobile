@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/network/api_client.dart';
 import '../data/collaboration_repository.dart';
 
 /// No durable cross-member cache: revocation is checked on every online refresh.
@@ -10,7 +11,8 @@ class CollaborationPanel extends StatefulWidget {
   State<CollaborationPanel> createState() => _CollaborationPanelState();
 }
 
-class _CollaborationPanelState extends State<CollaborationPanel> {
+class _CollaborationPanelState extends State<CollaborationPanel>
+    with WidgetsBindingObserver {
   String? _scope;
   int _token = 0, _contributionPage = 1, _feedPage = 1, _memberPage = 1;
   bool _owner = false;
@@ -18,6 +20,40 @@ class _CollaborationPanelState extends State<CollaborationPanel> {
   String? _error;
   Map<String, dynamic>? _data;
   List<Map<String, dynamic>> _members = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state != AppLifecycleState.resumed) {
+      setState(() {
+        ++_token;
+        _data = null;
+        _members = [];
+        _owner = false;
+        _loading = false;
+        _error = null;
+      });
+    } else {
+      final app = AppStateScope.of(context);
+      if (app.repository != null &&
+          !app.isOfflineMode &&
+          app.activeHouseholdId.isNotEmpty) {
+        _load();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -71,6 +107,12 @@ class _CollaborationPanelState extends State<CollaborationPanel> {
       if (!mounted || token != _token) return;
       final role = await service.actorRole(group, repo.userId);
       if (!mounted || token != _token) return;
+      if (role == null) {
+        throw const ApiFailure(
+          'Keanggotaan tidak dapat diverifikasi. Muat ulang grup.',
+          statusCode: 403,
+        );
+      }
       setState(() {
         _data = {...data, 'feed': feedData['feed']};
         _members = members;
@@ -150,6 +192,9 @@ class _CollaborationPanelState extends State<CollaborationPanel> {
         setState(() {
           _error = '$error';
           _loading = false;
+          _data = null;
+          _members = [];
+          _owner = false;
         });
       }
     }

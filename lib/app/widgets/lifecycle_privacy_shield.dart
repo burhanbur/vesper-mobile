@@ -41,7 +41,10 @@ class _LifecyclePrivacyShieldState extends State<LifecyclePrivacyShield>
     children: [
       ExcludeSemantics(
         excluding: _concealed,
-        child: IgnorePointer(ignoring: _concealed, child: widget.child),
+        child: ExcludeFocus(
+          excluding: _concealed,
+          child: IgnorePointer(ignoring: _concealed, child: widget.child),
+        ),
       ),
       if (_concealed)
         Positioned.fill(

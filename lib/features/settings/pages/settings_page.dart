@@ -744,6 +744,15 @@ class SettingsPage extends StatelessWidget {
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => state.showOnboarding(),
                     ),
+                    ListTile(
+                      leading: const Icon(Icons.description_outlined),
+                      title: const Text('Lisensi sumber terbuka'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => showLicensePage(
+                        context: context,
+                        applicationName: 'Vesper',
+                      ),
+                    ),
                   ],
                 ),
               ),

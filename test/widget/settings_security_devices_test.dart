@@ -95,7 +95,7 @@ void main() {
       expect(client.persisted, isFalse);
       expect(client.session, isNotNull);
       expect(
-        find.textContaining('PIN dan biometrik belum tersedia'),
+        find.textContaining('Kunci perangkat tidak tersedia'),
         findsOneWidget,
       );
     },

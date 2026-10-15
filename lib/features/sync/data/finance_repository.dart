@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:cryptography/dart.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../database/local_store.dart';
+import '../../../database/transaction_query.dart';
 import '../../household/models/category_report.dart';
 import '../../investments/models/investment_history.dart';
 import '../../investments/models/investment_trade_command.dart';
@@ -33,8 +35,77 @@ class FinanceRepository {
     return value == null ? null : Map<String, dynamic>.from(value as Map);
   }
 
+  TransactionPage transactionPage(TransactionQuery query) {
+    if (store.isIndexed) return store.transactionPage(query);
+    final search = query.search.trim().toLowerCase();
+    final filtered =
+        rows('transactions').where((record) {
+          if (record['deleted_at'] != null) return false;
+          final date = DateTime.parse(record['transacted_at'] as String);
+          if (query.start != null && date.isBefore(query.start!)) return false;
+          if (query.end != null && !date.isBefore(query.end!)) return false;
+          if (query.accountId != null &&
+              record['account_id'] != query.accountId) {
+            return false;
+          }
+          if (query.type != null && record['type'] != query.type) return false;
+          if (search.isNotEmpty) {
+            final category =
+                row('categories', '${record['category_id']}')?['name'] ?? '';
+            final categoryName = category == '' && record['type'] == 'TRANSFER'
+                ? 'Transfer Antar Akun'
+                : '$category';
+            final actor = record['created_by'] == query.actorId
+                ? query.actorName
+                : '';
+            if (!'${record['description'] ?? ''}'.toLowerCase().contains(
+                  search,
+                ) &&
+                !categoryName.toLowerCase().contains(search) &&
+                !actor.toLowerCase().contains(search)) {
+              return false;
+            }
+          }
+          if (query.after != null) {
+            final stamp = int.parse(query.after!.microseconds);
+            if (date.microsecondsSinceEpoch > stamp ||
+                (date.microsecondsSinceEpoch == stamp &&
+                    (record['id'] as String).compareTo(query.after!.id) <= 0)) {
+              return false;
+            }
+          }
+          return true;
+        }).toList()..sort((a, b) {
+          final comparison = DateTime.parse(b['transacted_at'] as String)
+              .compareTo(DateTime.parse(a['transacted_at'] as String));
+          return comparison == 0
+              ? (a['id'] as String).compareTo(b['id'] as String)
+              : comparison;
+        });
+    final visible = filtered.take(query.limit.clamp(1, 100)).toList();
+    return TransactionPage(
+      visible,
+      filtered.length > visible.length
+          ? TransactionCursor(
+              '${DateTime.parse(visible.last['transacted_at'] as String).microsecondsSinceEpoch}',
+              visible.last['id'] as String,
+            )
+          : null,
+    );
+  }
+
   void _save() => store.write(state);
   void _put(String type, String id, dynamic payload) {
+    if (store.isIndexed) {
+      if (!entities.containsKey(type)) entities[type] = <String, dynamic>{};
+      final table = entities[type] as Map<String, dynamic>;
+      if (payload == null) {
+        table.remove(id);
+      } else {
+        table[id] = payload;
+      }
+      return;
+    }
     // Cached maps can have narrower runtime value types before JSON reload.
     // Normalize the write boundary rather than requiring a reload to mutate.
     final table = Map<String, dynamic>.from(
@@ -55,6 +126,15 @@ class FinanceRepository {
       action();
       return;
     }
+    if (store.isIndexed) {
+      _inAtomic = true;
+      try {
+        store.atomicState(action);
+      } finally {
+        _inAtomic = false;
+      }
+      return;
+    }
     final previous = jsonEncode(state);
     _inAtomic = true;
     try {
@@ -73,6 +153,59 @@ class FinanceRepository {
   bool get supportsInvestmentTradeCommands => true;
 
   bool get hasUnresolvedInvestmentTrade => outbox.any(_isTrade);
+
+  /// Read-only support references, never a financial export or a recovery
+  /// authorization. Status/retry counters are excluded from the fingerprint.
+  Map<String, String> investmentRecoveryReference(String queueId) {
+    final matches = outbox.where((e) => e['id'] == queueId && _isTrade(e));
+    if (matches.length != 1) {
+      throw const ApiFailure('Perintah investasi tidak ditemukan.');
+    }
+    final item = matches.single as Map;
+    final payload = item['payload'] as Map;
+    dynamic canonical(dynamic value) {
+      if (value is Map) {
+        final keys = value.keys.cast<String>().toList()..sort();
+        return <String, dynamic>{
+          for (final key in keys) key: canonical(value[key]),
+        };
+      }
+      if (value is List) return value.map(canonical).toList();
+      return value;
+    }
+
+    final command = <String, dynamic>{
+      for (final key in [
+        'id',
+        'entity_type',
+        'entity_id',
+        'operation',
+        'client_version',
+        'payload',
+      ])
+        key: item[key],
+    };
+    final fingerprint = const DartSha256().hashSync(
+      utf8.encode(jsonEncode(canonical(command))),
+    );
+    return Map<String, String>.unmodifiable({
+      'schema': 'vesper.investment-recovery-reference.v1',
+      'user_id': userId,
+      'command_id': queueId,
+      'trade_id': '${item['entity_id']}',
+      'status': '${item['status']}',
+      for (final key in [
+        'linked_transaction_id',
+        'account_id',
+        'cash_account_id',
+        'instrument_id',
+      ])
+        if (payload[key] is String) key: payload[key] as String,
+      'command_sha256': fingerprint.bytes
+          .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+          .join(),
+    });
+  }
 
   /// Recovery only retries the original immutable command. Server idempotency
   /// decides whether it committed; neither local rollback nor rebasing is safe.

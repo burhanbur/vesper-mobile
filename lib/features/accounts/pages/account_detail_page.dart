@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../database/transaction_query.dart';
 import '../../transactions/models/transaction.dart';
 import '../../transactions/widgets/add_transaction_modal.dart';
 import '../../transactions/widgets/transaction_item_tile.dart';
@@ -29,6 +30,10 @@ class AccountDetailPage extends StatefulWidget {
 
 class _AccountDetailPageState extends State<AccountDetailPage> {
   bool _started = false;
+  final _pages = <TransactionCursor?>[null];
+  int _page = 0;
+  Object? _scope;
+  int? _revision;
 
   @override
   void didChangeDependencies() {
@@ -56,7 +61,19 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
         : parent == null
         ? account.name
         : '${parent.name} - ${account.name}';
-    final transactions = state.transactionsForAccount(widget.accountId);
+    if (_scope != state.localDataScope ||
+        _revision != state.localDataRevision) {
+      _scope = state.localDataScope;
+      _revision = state.localDataRevision;
+      _page = 0;
+      _pages
+        ..clear()
+        ..add(null);
+    }
+    final history = state.transactionPage(
+      TransactionQuery(accountId: widget.accountId, after: _pages[_page]),
+    );
+    final transactions = history.items;
     final children = account != null
         ? state.getChildrenForAccount(account.id)
         : const <Account>[];
@@ -80,6 +97,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           : RefreshIndicator(
               onRefresh: state.refresh,
               child: ListView(
+                key: ValueKey((_scope, _revision, _page, widget.accountId)),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   Padding(
@@ -290,6 +308,38 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                         transaction: transaction,
                       ),
                     ),
+                  SafeArea(
+                    top: false,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Halaman transaksi sebelumnya',
+                          onPressed: _page == 0
+                              ? null
+                              : () => setState(() => _page--),
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Halaman ${_page + 1} · ${transactions.length} ditampilkan',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Halaman transaksi berikutnya',
+                          onPressed: history.next == null
+                              ? null
+                              : () => setState(() {
+                                  if (_pages.length == _page + 1) {
+                                    _pages.add(history.next);
+                                  }
+                                  _page++;
+                                }),
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),

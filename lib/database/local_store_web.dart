@@ -2,10 +2,21 @@ import 'dart:convert';
 
 import 'package:web/web.dart' as web;
 
+import 'transaction_query.dart';
+
 /// Browser snapshot and outbox, isolated by user. Never stores credentials.
 /// A single setItem commits the complete snapshot atomically; storage failures
 /// propagate so the repository can roll back the optimistic mutation.
 class LocalStore {
+  bool get isIndexed => false;
+  int _revision = 0;
+  int get revision => _revision;
+  void atomicState(void Function() action) =>
+      throw UnsupportedError('Indexed native transactions unavailable');
+  TransactionPage transactionPage(TransactionQuery query) =>
+      throw UnsupportedError('Indexed native queries unavailable');
+  TransactionSummary transactionSummary(DateTime start, DateTime end) =>
+      throw UnsupportedError('Indexed native queries unavailable');
   final String _key;
 
   LocalStore._(this._key);
@@ -31,6 +42,7 @@ class LocalStore {
 
   void write(Map<String, dynamic> state) {
     web.window.localStorage.setItem(_key, jsonEncode(state));
+    _revision++;
   }
 
   void close() {}

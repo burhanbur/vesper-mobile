@@ -1,12 +1,55 @@
 # Mobile improvement status
 
-## Verified on 2026-10-15
+## Reconnection continuation (2026-10-15)
+
+The interrupted Codex transport did not remove working-tree changes. Current source has been revalidated; earlier results below are retained as historical checkpoints.
+
+- [x] Native indexed v3 storage implemented with authenticated page/index/WAL encryption; supported sqlite3mc build hook, device-only per-user key, canonical snapshot validation, retained encrypted legacy source, guarded activation and fail-closed active pointer. Eight storage tests and the native cipher regression pass.
+- [x] Ordinary edits journal only changed fields and write affected rows, outbox and metadata in one durable transaction. Existing investment/transfer behavior runs against both legacy and v3 stores: **44 tests pass**, including rejection, retry, lost acknowledgement, incomplete pulls and failed commits.
+- [x] Transaction/account history use bounded 100-row keyset pages; dashboard reads five rows; reports restrict reads to the selected month. Exact BigInt monthly totals cache and update from changed rows. Large-text pagination overflow was corrected and all four accessibility regressions pass.
+- [x] Indexed synthetic benchmark: at 50k rows, warm atomic edit median **13.9 ms**, p95 **26.6 ms**; 100-row query median **0.84 ms**, p95 **11.3 ms**, on the Windows host under concurrent build load. This does not certify physical-device performance.
+- [x] Current analyzer/test/native validation: analyzer clean; **278 Flutter tests pass**; **2 Android emulator integration tests pass** with v3; main-entry debug APK builds, installs and starts. Startup log has zero fatal/unhandled markers. Final-source JavaScript web build and Wasm dry run pass; actual Wasm runtime certification was not performed.
+- [ ] Physical-device performance, iOS and device accessibility certification remain unavailable in this session.
+
+## Completion tracker — continuation on 2026-10-15
+
+Items are checked only after implementation and the relevant verification pass.
+
+- [x] Device app lock controller/root gate/settings implemented; 5 controller tests, 2 gate tests and a session-navigation test pass (startup/read failure, enable/disable persistence, cancellation/unavailable auth, stale prompt, interruption, focus/semantics, hardware-back protection, draft retention and previous-user route removal). Native device verification is tracked separately below.
+- [x] Native AES-256-GCM snapshot envelopes, user-scoped secure keys and restartable v0/v1/v2 migration implemented; 6 tests pass (tampering/user binding, plaintext cleanup, full outbox/cursor preservation, failed commit, interrupted cleanup, wrong/missing/corrupt keys). `cryptography` is added for authenticated encryption; the Flutter SDK `integration_test` dev dependency supports device verification below.
+- [x] Android backup restrictions: cloud and device-transfer exclusions, `allowBackup=false`, native biometric setup and screenshot/task-preview protection compile in `flutter build apk --debug`. Merged manifest includes all backup attributes and biometric permission.
+- [x] Android emulator security integration: 2 tests pass on Android 17/API 37 using real secure storage, SQLite, path provider and local authentication. Encrypted commands survive restart; removing only the synthetic user's key fails closed without creating a replacement; restoring that key recovers the exact outbox. Platform authentication cancellation/unavailability leaves the UI locked. No existing user data or session is touched.
+- [ ] iOS file protection/backup exclusion and native task-preview shield implemented; compilation and device verification require macOS/iOS, which is unavailable on this host.
+- [x] Large-history benchmark and versioned indexed-storage migration plan: isolated 1k/10k/50k histories measured; results, limitations, migration stages and acceptance gates recorded in `local-storage-performance.md`. Historical full-snapshot edits were slow; indexed v3 implementation and comparative host measurements are now recorded above. Physical-device certification remains incomplete.
+- [x] Investment support-reference UI and operator investigation/retry runbook: immutable command fingerprint and identifiers only, with a passing redaction/retry/restart regression (`investment-recovery-runbook.md`).
+- [ ] Terminal investment cancellation/reversal: concrete API/persistence/reconciliation proposal in `investment-terminal-recovery-contract.md`; product scope clarification requested (never-applied cancellation versus applied-trade reversal). Current support references/retry do not implement cancellation. `AGENTS.md` prohibits silently changing financial rules/models.
+- [x] Household mobile revocation regressions: 403 during management clears old private data/controls; background invalidates in-flight responses and resume reauthorizes; absent actor membership fails closed. All 3 new regressions and the independent-pagination test pass.
+- [x] Backend concurrent-revocation transaction checks: 3 new isolated PostgreSQL tests pass for share/mapping versus removal, ownership transfer versus self-leave, and snapshot reads versus revocation. Fixed sync publication's compound-unique lookup (`findUnique` for single-record writes). Full isolated suite: 20 tests pass; all existing migrations applied only to a fresh test database. No development data changed or test-container cleanup performed.
+- [ ] Household physical-device end-to-end member management; user confirmed no physical device is available in this session.
+- [x] Automated accessibility regressions: 4 tests pass for body/status contrast >=4.5:1, 200% text on a 320px viewport, large transaction amounts, named search/clear/quick-action controls, navigation selection, Android tap-target and labeled-target guidelines, security/lock usability and hidden private semantics. Readability colors and overflowing transaction/empty-state/navigation layouts were corrected.
+- [ ] Physical TalkBack/VoiceOver and full-device accessibility audit remains separate from automated checks. No physical device is available (confirmed by user).
+- [x] Earlier final checkpoint: analyzer clean and 245 tests passed before v3. The reconnection section above records the latest 278-test result.
+
+Unchecked items above remain incomplete. The following baseline is retained for context; current continuation results are listed in this tracker and the latest-validation section.
+
+## Earlier continuation validation (2026-10-15; superseded by reconnection section)
+
+- `flutter test --no-pub`: **245 tests passed**.
+- `flutter test --no-pub integration_test/device_security_test.dart -d emulator-5554`: **2 tests passed** on Android 17/API 37 emulator.
+- `flutter build apk --debug --no-pub`: **passed**, including the final main application entry point.
+- `flutter build web --no-pub`: **JavaScript build passed** and Wasm dry run succeeded; an actual Wasm build/runtime audit was not run.
+- Snapshot benchmark: **passed**, 1k/10k/50k isolated synthetic histories; substantial large-snapshot latency remains documented.
+- Backend focused Prettier/ESLint: **passed**; isolated PostgreSQL suite: **20 tests passed**.
+- `flutter analyze --no-pub`: **no issues**, final run.
+- Backend production build: **passed**. Backend-wide gates remain **not green**: formatting check reports 53 files, typecheck reports the existing unused `seedCategories`, and the unit suite reports **229 passed / 1 failed** on the existing seed-account name expectation. No seed definitions were changed or executed. The backend edit is limited to sync publication plus the new concurrency regression file.
+
+## Earlier baseline verified on 2026-10-15
 
 - `flutter analyze`: no issues.
-- `flutter test`: 223 tests passed in the latest workspace run, including independent collaboration pagination, owner controls outside the visible member page, confirmed retry of an unchanged investment command, and the new lifecycle privacy shield.
+- `flutter test`: 223 tests passed in the earlier workspace run, including independent collaboration pagination, owner controls outside the visible member page, confirmed retry of an unchanged investment command, and the lifecycle privacy shield. Superseded by the continuation result above.
 - Added an immutable investment command preparation model: distinct generated trade/cash UUIDs, stable repeated JSON serialization, history-account binding, strictly newer UTC millisecond timestamps, exact BUY/SELL settlement and position projection, and cent-precise cash arithmetic including values above JS safe integers. Five tests cover envelope stability, fees, overselling, identity/chronology and cash bounds. The model is now integrated into atomic repository persistence and the decimal-string BUY/SELL form. See `offline-investment-trades.md` for reconciliation and recovery limits.
 - Investment history coverage is persisted with user, schema, cursor and completion status. Legacy snapshots without compatible coverage replay the feed from zero without deleting local data/outbox. Starting sync invalidates readiness; only a final validated page commits readiness atomically. Owner-scoped history reads reject missing/deleted/non-investment accounts and pending account/trade edits. Coverage is not current server authorization; enabled BUY/SELL additionally requires conservative cached ownership/activity guards and server authorization during sync.
-- Latest isolated PostgreSQL suite: 17 tests passed (10 investment, 6 transfer, 1 collaboration privacy/revocation); all 20 migrations deployed into a fresh test-only database. No development database was migrated or reset. Eight collaboration unit tests and OpenAPI validation also passed. Backend typecheck still fails on the existing unused `seedCategories` in `prisma/seed.ts`.
+- Earlier isolated PostgreSQL suite: 17 tests passed (10 investment, 6 transfer, 1 collaboration privacy/revocation); all 20 migrations deployed into a fresh test-only database. No development database was migrated or reset. Eight collaboration unit tests and OpenAPI validation also passed. Backend typecheck still fails on the existing unused `seedCategories` in `prisma/seed.ts`.
 - Incomplete push result sets now fail atomically: acknowledged removals in that response roll back, commands/ledgers/balances survive restart, and pull does not advance. A two-transfer regression covers this behavior.
 - Investment history replay validates account scope, duplicate IDs, canonical UTC timestamps and tombstones; sorts by timestamp then ID; handles legacy dividends without changing holdings; and enforces strictly newer append times. The repository establishes feed coverage separately and persists optimistic trades with the command envelope.
 - Connected Android emulator hot reload succeeded; no runtime errors were reported immediately afterward. This is not a completed device accessibility or end-to-end trade audit.
@@ -23,6 +66,10 @@
 - Online group joining accepts a group UUID and 12-character invitation code, persists the server response, and guards against stale session responses. The group screen exposes both invitation components.
 - Transaction header wraps within available width, including larger text layouts.
 - Household category reports use the existing server endpoint and explicit UTC calendar months. Decimal strings are retained exactly, cached per group/month with fetch timestamps, and remain available offline. Loading/errors, missing-data presentation, period switching, and stale-response guards have regression coverage.
+- Account total balance calculation: hero summary now strictly calculates liquid cash/bank/wallet accounts marked as included in total (`isCashBankOrWallet && isIncludeTotal`), excluding investment, liability, and debt accounts from inflating liquid cash.
+- Parent-pocket balance aggregation: parent account cards (such as Bareksa) aggregate balances from connected child pockets for display (`parentDisplayBalance`), with connected pocket counts and indicators.
+- Include in total setting toggle: interactive toggle controls on both the account settings modal and the account detail page allow toggling `isIncludeTotal` with double-counting prevention (parent accounts with active child pockets are guarded and disabled). State and outbox synchronization verified with unit and widget test suites.
+- Read-only investment holdings and dated portfolio snapshots: exact decimal text, durable user/account-scoped cache, freshness/error states and stale-response guards. Rounded read snapshots never seed command cost-basis arithmetic.
 
 ## Group category creation
 
@@ -36,13 +83,13 @@ Owners and members can share/unshare their own accounts using the existing onlin
 
 Online-only collaboration displays shared CASH balances separately per currency, mapped monthly income/expense contributions, privacy-filtered activity, and paginated membership. Transfers and investment-linked cash rows are excluded from activity/contributions. Member removal/self-leave and ownership transfer require confirmation and server authorization; removal revokes sharing/mappings without deleting personal financial records. Successful membership changes refresh group state before reloading the panel. Cross-member responses are not stored in the personal sync cache; group/user/offline changes clear presentation and invalidate stale responses. Response validation rejects numeric money, malformed activity and oversized pages. Unloaded information remains explicitly different from zero.
 
-Contribution, activity and member lists now have independent page indices. Owner controls use a fresh bounded membership scan rather than relying on the visible page; repeated pages fail closed. A widget regression verifies an owner on member page 2 can manage page 1 and contribution navigation leaves other page indices unchanged. Real-device end-to-end management and concurrent revocation coverage remain follow-up work.
+Contribution, activity and member lists have independent page indices. Owner controls use a fresh bounded membership scan rather than relying on the visible page; repeated pages and absent actor membership fail closed. A widget regression verifies an owner on member page 2 can manage page 1 and contribution navigation leaves other page indices unchanged. New mobile and PostgreSQL regressions cover concurrent revocation; failed management clears old private presentation and backgrounding invalidates in-flight reads. A read authorized before server revocation can finish with its existing transaction snapshot; new reads after commit deny. Physical-device end-to-end management remains unverified.
 
 ## Snapshot loading safeguards
 
 List reads validate response shape, page size, and record identifiers, reject duplicate/repeated pages, and stop after 1,000 pages of 100 records. Exhausting the bound fails explicitly rather than returning a truncated snapshot. Repository regression tests verify failed reads leave both memory and persisted cache unchanged. This is a safety bound, not a replacement for indexed local queries or scalable incremental loading.
 
-## Backend validation checkpoint
+## Earlier backend validation checkpoint
 
 The new group read routes/repository tests pass (33 tests), and focused Prettier/ESLint checks pass. Production build and OpenAPI validation pass. Full `npm run validate` is not green: existing formatting issues span 34 unrelated files; `prisma/seed.ts` has unused `seedCategories`; the full test run reports 191 passed and one seed-account name expectation failure (`Succorinvest Stable Fund` versus `Reksadana Succorinvest Stable Fund`). These seed definitions were not silently changed and no seeding/reset was executed.
 
@@ -54,11 +101,11 @@ Backend investment BUY/SELL commands and synchronization exist, including linked
 
 The projection is a foundation, not an authoritative synced holding: callers must supply complete backend-ordered history, never partial pages or rounded holdings snapshots. Internal averages use exact rational arithmetic; backend Decimal uses 80 significant digits. Broader pathological cross-runtime differential coverage remains useful; authoritative settlement rows replace the optimistic projection after acknowledgement and a complete replay.
 
-Synced category-null derived cash rows cannot be changed through generic transaction mutations; the edit UI explains this restriction. BUY/SELL is enabled through the new offline form. One unresolved command is allowed; rejected/conflicted commands remain durable and require server-reviewed recovery, not unsafe automatic rollback.
+Synced category-null derived cash rows cannot be changed through generic transaction mutations; the edit UI explains this restriction. BUY/SELL is enabled through the offline form. One unresolved command is allowed; rejected/conflicted commands remain durable. Confirmed unchanged retry and read-only support references are available; see `investment-recovery-runbook.md` for operator review and the remaining terminal-cancellation boundary.
 
 ## Device data security policy
 
-`docs/device-data-security.md` documents the current state: native SQLite is plaintext, browser localStorage is unencrypted, no app lock is active, and Android backup is not restricted. The policy defines invariants (no deletion of pending changes on lock/logout/expiry/failure, fail-closed lock, platform auth only, lock ≠ encryption, no restore overwrites unresolved commands) and acceptance criteria for device lifecycle, auth failures, user changes, native backup, iOS, and browser.
+`docs/device-data-security.md` documents native v3 authenticated page encryption, including query indexes/WAL, and restartable legacy snapshot migration, optional device-wide platform app lock, Android backup/transfer exclusions and screenshot protection, plus explicit browser limitations. User-scoped filenames and approximate file sizes remain visible; retained legacy files contain authenticated AES-GCM payloads. The iOS protection bridge and preview shield are implemented but uncompiled on this Windows host. Invariants preserve pending data on lock/logout/expiry/failure and keep lock separate from encryption and backup recovery. Physical-device/platform certification remains explicit.
 
 ## Lifecycle privacy shield
 
@@ -66,13 +113,13 @@ Synced category-null derived cash rows cannot be changed through generic transac
 
 
 
-## Remaining work (not implemented)
+## Remaining implementation and device acceptance
 
-1. Investment recovery operations: confirmed retry of the original rejected/conflicted command is implemented. Repository tests cover restart, unchanged IDs/payload, exact cash balance and failed durable retry commit; a widget test verifies cancel/confirm behavior. Confirmation also checks current state/repository identity. This is retry only, not cancellation: terminal invalid commands still require a server-reviewed support/admin recovery workflow. No unsafe discard/rebase action is provided.
-2. Investment read coverage: read-only holdings and dated portfolio snapshots are integrated with exact decimal text, durable user/account-scoped cache, freshness/error states, and stale-response guards. These rounded read snapshots must not seed command cost-basis arithmetic.
-3. Household collaboration follow-up: core online balances/contributions/activity/member management, independent pagination and owner-control availability across pages are integrated with regression coverage. Real-device management and concurrent revocation checks remain. Actor-owned sharing/mapping lists are not complete lists of other members' relationships.
-4. Large-history performance: benchmark real workloads, then plan versioned migration from snapshot persistence to indexed local tables and paginated queries. Preserve outbox/cursors and existing user data.
-5. Device security: app lock using `local_auth` (already in `pubspec.yaml`) is not yet implemented. The lifecycle privacy shield conceals content while backgrounded but is not a lock. Encryption and backup restriction are also not yet implemented. Never delete pending local changes implicitly.
-6. Accessibility: complete TalkBack/VoiceOver, contrast, large-text and touch-target device checks.
+- [ ] Implement terminal recovery after the cancellation/reversal business scope is clarified. Concrete draft: `investment-terminal-recovery-contract.md`; no automatic discard, rebase or balance rollback is allowed.
+- [x] Implement v3 indexed encrypted storage with bounded transaction queries, exact cached totals and row-level durable edits; migration/failure tests and host benchmark pass.
+- [ ] Certify v3 on physical Android/iOS targets, including migration frames/memory, cold summary latency and the proposed save/query targets.
+- [ ] Physical-device household member management end to end. Mobile race regressions and isolated PostgreSQL concurrency coverage are complete; actor-owned sharing/mapping lists still do not expose other members' private relationships.
+- [ ] Compile and test iOS protection on macOS/iOS; verify native backup/transfer behavior, successful biometrics, enrollment changes and lifecycle behavior on physical target devices. Windows-host tests and an Android emulator do not certify these cases.
+- [ ] Physical TalkBack/VoiceOver and complete accessibility/device audit. Automated contrast, 200% text, tap-target, semantics and overflow checks are implemented and passing.
 
-These remaining features must not be considered complete merely because the current test suite passes. No backend schema migration or destructive data operation was performed in this continuation.
+Unchecked items are not complete merely because tests pass. No development/production database was migrated, reset or deleted. Existing backend migrations were deployed only into fresh test-only PostgreSQL containers, which were retained without stop/down/drop/volume cleanup.

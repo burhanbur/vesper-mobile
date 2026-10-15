@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../app/widgets/app_header.dart';
 import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../database/transaction_query.dart';
 import '../../accounts/pages/accounts_page.dart';
 import '../../accounts/pages/account_detail_page.dart';
 import '../../accounts/widgets/account_card.dart';
@@ -35,7 +36,9 @@ class DashboardPage extends StatelessWidget {
     final state = AppStateScope.of(context);
     final isHidden = state.isBalanceHidden;
     final accounts = state.accounts;
-    final transactions = state.transactions.take(5).toList();
+    final transactions = state
+        .transactionPage(const TransactionQuery(limit: 5))
+        .items;
     final netSavings = state.monthNetSavings;
 
     return Scaffold(

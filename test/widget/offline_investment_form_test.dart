@@ -40,6 +40,19 @@ void main() {
           ),
         ),
       );
+      final beforeSupport = store.read();
+      await tester.ensureVisible(find.text('Info pemulihan'));
+      await tester.tap(find.text('Info pemulihan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Referensi pemulihan investasi'), findsOneWidget);
+      expect(
+        tester.widget<SelectableText>(find.byType(SelectableText)).data,
+        contains('command_id: queue'),
+      );
+      expect(store.read(), beforeSupport);
+      await tester.ensureVisible(find.text('Tutup'));
+      await tester.tap(find.text('Tutup'));
+      await tester.pumpAndSettle();
       final retry = find.text('Coba ulang command asli');
       await tester.ensureVisible(retry);
       await tester.tap(retry);
