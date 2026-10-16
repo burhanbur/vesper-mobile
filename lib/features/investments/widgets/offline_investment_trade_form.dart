@@ -22,6 +22,7 @@ class _OfflineInvestmentTradeFormState
   final fee = TextEditingController(text: '0');
   final note = TextEditingController();
   String? accountId, cashId, instrumentId, error;
+  bool recovering = false;
   late InvestmentTradeType type = widget.initialType == InvestmentTradeType.sell
       ? InvestmentTradeType.sell
       : InvestmentTradeType.buy;
@@ -631,7 +632,13 @@ class _OfflineInvestmentTradeFormState
                       const SizedBox(height: 8),
                       if (['rejected', 'conflict'].contains(item['status']))
                         OutlinedButton(
-                          onPressed: repo.isSyncing
+                          onPressed:
+                              repo.isSyncing ||
+                                  recovering ||
+                                  (item['recovery_requested'] == true &&
+                                      (item['recovery_receipt']
+                                              as Map?)?['status'] !=
+                                          'DENIED')
                               ? null
                               : () async {
                                   final confirmed = await showDialog<bool>(
@@ -679,6 +686,81 @@ class _OfflineInvestmentTradeFormState
                           child: const Text('Coba ulang command asli'),
                         ),
                       const SizedBox(height: 6),
+                      if (item['recovery_requested'] == true)
+                        Text(
+                          (item['recovery_receipt'] as Map?)?['status'] ==
+                                  'DENIED'
+                              ? 'Pembatalan ditolak pengelola. Perintah asli tetap disimpan.'
+                              : (item['recovery_receipt'] as Map?)?['status'] ==
+                                    'CANCELLED'
+                              ? 'Pembatalan disetujui. Menunggu rekonsiliasi lengkap.'
+                              : 'Pengajuan tersimpan. Menunggu peninjauan pengelola.',
+                        ),
+                      if (item['recovery_requested'] == true ||
+                          ['rejected', 'conflict'].contains(item['status']))
+                        OutlinedButton(
+                          onPressed:
+                              recovering ||
+                                  repo.isSyncing ||
+                                  state.isOfflineMode
+                              ? null
+                              : () async {
+                                  if (item['recovery_requested'] != true) {
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text(
+                                          'Ajukan pembatalan investasi?',
+                                        ),
+                                        content: const Text(
+                                          'Pengelola perlu memastikan transaksi belum pernah diproses server. Saldo dan antrean tetap disimpan sampai keputusan disetujui dan rekonsiliasi selesai. Transaksi yang sudah berhasil tidak dapat dibatalkan melalui tindakan ini.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Kembali'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Ajukan'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirmed != true || !mounted) return;
+                                  }
+                                  setState(() {
+                                    recovering = true;
+                                    error = null;
+                                  });
+                                  try {
+                                    if (item['recovery_requested'] == true) {
+                                      await state.checkInvestmentRecovery();
+                                    } else {
+                                      await state.requestInvestmentCancellation(
+                                        item['id'] as String,
+                                      );
+                                    }
+                                  } catch (failure) {
+                                    if (mounted) {
+                                      setState(
+                                        () => error = failure.toString(),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => recovering = false);
+                                    }
+                                  }
+                                },
+                          child: Text(
+                            item['recovery_requested'] == true
+                                ? 'Periksa status pembatalan'
+                                : 'Ajukan pembatalan',
+                          ),
+                        ),
                       OutlinedButton.icon(
                         onPressed: () {
                           try {

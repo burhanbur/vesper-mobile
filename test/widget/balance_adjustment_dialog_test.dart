@@ -57,7 +57,10 @@ void main() {
     tester,
   ) async {
     await open(tester);
-    expect(find.text('1000000'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Rp 1.000.000',
+    );
     await tester.enterText(find.byType(TextField), '2000000');
     await tester.pump();
     expect(find.textContaining('Pemasukan: +'), findsOneWidget);

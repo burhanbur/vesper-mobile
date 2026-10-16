@@ -449,6 +449,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     dataError = null;
     _notify();
     Duration? retryAfter;
+    var syncCompleted = false;
     void handleError(Object error) {
       if (active()) dataError ??= error.toString();
       if (error is ApiFailure && error.statusCode == 429) {
@@ -487,6 +488,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             if (active()) _notify();
           },
         );
+        syncCompleted = true;
       } catch (error) {
         handleError(error);
       }
@@ -500,6 +502,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'instruments',
       ]) {
         if (!active()) return;
+        if (resource == 'transactions' &&
+            syncCompleted &&
+            repo.hasTransactionSnapshot) {
+          continue;
+        }
         await loadResource(resource);
       }
       for (final group in repo.rows('groups')) {
@@ -1657,6 +1664,34 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _repo.retryInvestmentTrade(queueId);
     _notify();
     requestAutomaticSync();
+  }
+
+  Future<void> requestInvestmentCancellation(String queueId) async {
+    final repo = _repo;
+    repo.requestInvestmentCancellation(queueId);
+    _notify();
+    try {
+      await repo.sync(
+        onProgress: () {
+          if (repository == repo) _notify();
+        },
+      );
+    } finally {
+      if (repository == repo) _notify();
+    }
+  }
+
+  Future<void> checkInvestmentRecovery() async {
+    final repo = _repo;
+    try {
+      await repo.sync(
+        onProgress: () {
+          if (repository == repo) _notify();
+        },
+      );
+    } finally {
+      if (repository == repo) _notify();
+    }
   }
 
   void recordInvestmentTrade({

@@ -19,9 +19,92 @@ import 'package:vesper_mobile/database/local_store_native.dart';
 
 import '../test/fixtures/security_fakes.dart';
 import '../test/fixtures/login_client.dart';
+import '../test/fixtures/recovery_client.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'approved cancellation reconciles encrypted native rows after a lost response and restart',
+    (tester) async {
+      final user = 'security-test-recovery-${const Uuid().v4()}';
+      final directory = await getApplicationSupportDirectory();
+      const secure = FlutterSecureStorage();
+      const cash = '22222222-2222-4222-8222-222222222222';
+      const portfolio = '11111111-1111-4111-8111-111111111111';
+      final client = RecoveryClient(userId: user)..loseResponse = true;
+      LocalStore? store;
+      try {
+        store = await LocalStore.open(user);
+        var repo = FinanceRepository(client, store, user);
+        repo.atomic(() {
+          repo.entities['accounts'] = {
+            cash: {'id': cash, 'user_id': user, 'balance': '89.99'},
+          };
+          repo.entities['transactions'] = {
+            'leg': {'id': 'leg', 'account_id': cash, 'amount': '10.01'},
+          };
+          repo.entities['investment_transactions'] = {
+            'trade': {'id': 'trade', 'account_id': portfolio},
+          };
+          repo.outbox.add({
+            'id': 'queue',
+            'entity_type': 'investment_transactions',
+            'entity_id': 'trade',
+            'operation': 'CREATE',
+            'client_version': '0',
+            'status': 'rejected',
+            'payload': {
+              'account_id': portfolio,
+              'cash_account_id': cash,
+              'linked_transaction_id': 'leg',
+              'quantity': '1',
+            },
+          });
+        });
+        repo.requestInvestmentCancellation('queue');
+        await expectLater(repo.sync(), throwsA(anything));
+        store.close();
+        store = await LocalStore.open(user);
+        repo = FinanceRepository(client, store, user);
+        expect(repo.outbox.single['recovery_requested'], isTrue);
+        expect(repo.row('accounts', cash)!['balance'], '89.99');
+        client.loseResponse = false;
+        client.decision = 'CANCELLED';
+        await repo.sync();
+        expect(repo.outbox, isEmpty);
+        expect(repo.rows('investment_transactions'), isEmpty);
+        expect(repo.rows('transactions'), isEmpty);
+        expect(repo.row('accounts', cash)!['balance'], '123.45');
+        store.close();
+        store = await LocalStore.open(user);
+        expect(FinanceRepository(client, store, user).outbox, isEmpty);
+        expect(
+          (store.read()['investment_recovery_receipts']
+              as Map)['trade']['status'],
+          'CANCELLED',
+        );
+      } finally {
+        store?.close();
+        await secure.delete(key: 'vesper.snapshot-key.v1.$user');
+        await secure.delete(key: 'vesper.storage-version.v1.$user');
+        for (final version in ['', '.v3']) {
+          for (final suffix in ['', '-wal', '-shm', '-journal']) {
+            final path = p.join(
+              directory.path,
+              'vesper-$user$version.sqlite$suffix',
+            );
+            if (!user.startsWith('security-test-recovery-') ||
+                !p.isWithin(directory.path, path)) {
+              throw StateError('Invalid recovery test cleanup');
+            }
+            final file = File(path);
+            if (file.existsSync()) file.deleteSync();
+          }
+        }
+      }
+    },
+  );
 
   testWidgets(
     'Android login renders server accounts before history and persists completed history',

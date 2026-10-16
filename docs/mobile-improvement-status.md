@@ -1,5 +1,39 @@
 # Mobile improvement status
 
+## Never-applied investment cancellation (2026-10-16)
+
+- [x] Accepted scope is cancellation of commands that never applied. Applied-trade reversal is excluded. Added owner/device-bound recovery requests, canonical wire SHA-256, owner-scoped receipts and final operator approval/denial. Current database permission grants are locked/rechecked; roles from tokens do not authorize review. Reasons/reviewer identity remain in the restricted audit record.
+- [x] Additive recovery migration stores durable decisions and permanently reserves both financial UUIDs. Database guards cover investment, transaction/import and transfer creation, including cross-namespace reuse. Existing or soft-deleted financial records refuse cancellation. Approval publishes authoritative accounts and explicit absence tombstones atomically, with the same global sync lock as execution. No permission is granted automatically.
+- [x] Mobile confirms and saves request intent locally before transport, polls through sync or **Periksa status pembatalan**, and preserves optimistic rows/outbox while waiting. Approved receipts must match owner, command fingerprint and both IDs. Only a complete replay plus one durable commit replaces balances, removes the cancelled optimistic rows and releases that command. Interrupted replay, failed persistence, wrong receipts and missing authoritative rows retain financial state. Unrelated outbox entries survive.
+- [x] Definitive refusal or unsupported older APIs preserve financial rows and permit explicit unchanged retry; lost responses resume by durable identity. Denied reviews permit unchanged retry. A shared fixed Dart/TypeScript vector verifies the wire fingerprint independently of the local queue ID. Support references retain their legacy hash and add `wire_command_sha256`.
+- [x] New focused verification: **17 mobile repository tests** across legacy/v3, **1 widget confirmation test**, **5 backend HTTP/schema/fingerprint/OpenAPI tests**, and **7 PostgreSQL cancellation tests**. Full backend `npm run validate` passes (**237 tests**); full isolated PostgreSQL suite passes **31 tests**. The additive migration was applied only to fresh test containers, retained without cleanup.
+- [x] Android emulator integration passes **4 tests**, including cancellation after a lost response and restart using native encrypted storage and secure keys. Physical-device and iOS certification remain separate.
+- [x] Final Flutter analyzer is clean; all **306 Flutter tests** pass. The final main-entry debug APK builds, installs as an update in the Android emulator and starts with **zero fatal/unhandled startup markers**.
+- [ ] Activate against the local service: migration status confirms that only `20261016000000_add_investment_recovery` is pending on local `vesper` at `localhost:5432`. A specific trusted operator account is still needed before granting `sync.investment-recoveries.review`. No development migration, seed, financial mutation or automatic role grant has been executed for this feature.
+
+Contract and operator steps: `investment-terminal-recovery-contract.md`, `investment-recovery-runbook.md`.
+
+## Backend quality gate completed (2026-10-16)
+
+- [x] Applied Prettier only to the 53 files reported by the backend formatting check. Changes cover indentation, wrapping and line endings; no dependency versions or compiler/security settings changed.
+- [x] Removed the unused empty `seedCategories` declaration and its already-commented seed loop. Active seed account/category/instrument definitions and financial rules remain unchanged; no seed execution or development database migration/reset occurred.
+- [x] Gave the collaboration ownership-update mock explicit Prisma argument types, resolving the unsafe-return lint error while retaining its ownership/privacy assertions. Updated the stale seed-account test expectation to the existing `Reksadana Succorinvest Stable Fund` name, preserving parent exclusion, child order, account type and unique-ID checks.
+- [x] Full backend `npm run validate` passes with its normal configuration: formatting, ESLint, TypeScript, **232 tests across 29 files**, production build and generated OpenAPI validation. No test skipping, timeout increases, serial-only workaround or weakened checks were added.
+- [x] Full PostgreSQL integration suite passes **24 tests across 5 files** after cleanup. Existing migrations were deployed only into a fresh, randomly named test-only container; it was retained without cleanup. Development financial data was not modified.
+
+This supersedes the backend quality-gate failures recorded in the earlier checkpoints below.
+
+## Initial sync speed improvement (2026-10-16)
+
+- [x] Backend adds opt-in compact sync with latest snapshots per identity and batched authorized account/transaction/trade reads. Legacy pagination, persisted events, tombstones, cursor/replay semantics and owner/device authorization remain covered. No migration or dependency added.
+- [x] Mobile negotiates compact mode with same-cursor fallback for older strict servers. A full initial REST transaction baseline is retained for older seed/import data; a durable user-bound marker avoids downloading all history again after successful incremental sync. Failed sync/persistence preserves the REST fallback, outbox and local edits.
+- [x] Real local-API host diagnostic: initial load **130,216 ms -> 16,447 ms**, first accounts **109 ms**, complete **34 accounts / 5,707 transactions**. Subsequent refresh **384 ms**, one pull and no transaction-list requests. One initial 429 was handled using `Retry-After`. These are host measurements, not physical-device certification; no financial records changed. Details: `initial-sync-performance.md`.
+- [x] Five new mobile regressions, two backend schema tests and four new PostgreSQL regressions pass. Full isolated PostgreSQL suite: **24 tests pass**. Backend production build, OpenAPI validation and focused formatting/lint pass. Full backend gates still have 53 unrelated formatting files, unused `seedCategories` and the existing seed naming test failure (**231 pass / 1 fail** with one worker).
+- [x] Corrected transaction/month/date layout overflow at 200% text on a 320px viewport; large amounts get their own row on narrow/scaled layouts. Updated the balance dialog regression to assert its existing Rupiah-formatted value. All seven focused accessibility/balance-dialog tests pass.
+- [x] Final `flutter analyze --no-pub` is clean and the full `flutter test --no-pub` suite passes **288 tests**.
+- [x] Android emulator integration: all **3 tests pass** with current source, covering early account rendering/history persistence, encrypted native outbox/key restart and locked presentation after cancelled/unavailable platform authentication.
+- [x] Main-entry Android debug APK builds, installs as an update in the emulator and stays running. Startup logs contain **zero fatal/unhandled markers**.
+
 ## Dashboard transfer button fix (2026-10-16)
 
 - [x] Removed the stale disabled/gembok state from the dashboard Transfer quick action and connected its existing `onTransfer` callback to the transfer form.
@@ -38,7 +72,7 @@ Items are checked only after implementation and the relevant verification pass.
 - [ ] iOS file protection/backup exclusion and native task-preview shield implemented; compilation and device verification require macOS/iOS, which is unavailable on this host.
 - [x] Large-history benchmark and versioned indexed-storage migration plan: isolated 1k/10k/50k histories measured; results, limitations, migration stages and acceptance gates recorded in `local-storage-performance.md`. Historical full-snapshot edits were slow; indexed v3 implementation and comparative host measurements are now recorded above. Physical-device certification remains incomplete.
 - [x] Investment support-reference UI and operator investigation/retry runbook: immutable command fingerprint and identifiers only, with a passing redaction/retry/restart regression (`investment-recovery-runbook.md`).
-- [ ] Terminal investment cancellation/reversal: concrete API/persistence/reconciliation proposal in `investment-terminal-recovery-contract.md`; product scope clarification requested (never-applied cancellation versus applied-trade reversal). Current support references/retry do not implement cancellation. `AGENTS.md` prohibits silently changing financial rules/models.
+- [x] Terminal cancellation of never-applied investment commands implemented and verified; see the current cancellation checkpoint above for rollout status. Applied-trade reversal remains outside the accepted scope.
 - [x] Household mobile revocation regressions: 403 during management clears old private data/controls; background invalidates in-flight responses and resume reauthorizes; absent actor membership fails closed. All 3 new regressions and the independent-pagination test pass.
 - [x] Backend concurrent-revocation transaction checks: 3 new isolated PostgreSQL tests pass for share/mapping versus removal, ownership transfer versus self-leave, and snapshot reads versus revocation. Fixed sync publication's compound-unique lookup (`findUnique` for single-record writes). Full isolated suite: 20 tests pass; all existing migrations applied only to a fresh test database. No development data changed or test-container cleanup performed.
 - [ ] Household physical-device end-to-end member management; user confirmed no physical device is available in this session.
@@ -131,7 +165,7 @@ Synced category-null derived cash rows cannot be changed through generic transac
 
 ## Remaining implementation and device acceptance
 
-- [ ] Implement terminal recovery after the cancellation/reversal business scope is clarified. Concrete draft: `investment-terminal-recovery-contract.md`; no automatic discard, rebase or balance rollback is allowed.
+- [x] Implement terminal recovery for the accepted never-applied cancellation scope: reviewed server decision, permanently reserved UUIDs and complete authoritative reconciliation. Local-service activation is tracked separately above; applied-trade reversal is excluded.
 - [x] Implement v3 indexed encrypted storage with bounded transaction queries, exact cached totals and row-level durable edits; migration/failure tests and host benchmark pass.
 - [ ] Certify v3 on physical Android/iOS targets, including migration frames/memory, cold summary latency and the proposed save/query targets.
 - [ ] Physical-device household member management end to end. Mobile race regressions and isolated PostgreSQL concurrency coverage are complete; actor-owned sharing/mapping lists still do not expose other members' private relationships.

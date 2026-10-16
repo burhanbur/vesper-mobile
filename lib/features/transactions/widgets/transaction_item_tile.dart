@@ -480,131 +480,147 @@ class TransactionItemTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            // Category Icon with soft background & delicate border
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: color.withValues(alpha: 0.20),
-                  width: 1,
-                ),
-              ),
-              child: Icon(_getCategoryIcon(), color: color, size: 22),
-            ),
-            const SizedBox(width: 12),
-
-            // Title & Subtitle (Expanded to take full space)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          primaryTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.1,
-                          ),
-                        ),
-                      ),
-                      if (transaction.syncStatus == SyncStatus.pending) ...[
-                        const SizedBox(width: 6),
-                        const Icon(
-                          Icons.cloud_upload_outlined,
-                          size: 14,
-                          color: AppColors.warning,
-                        ),
-                      ],
-                    ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked =
+                constraints.maxWidth < 340 ||
+                MediaQuery.textScalerOf(context).scale(14) > 20;
+            final children = <Widget>[
+              // Category Icon with soft background & delicate border
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.20),
+                    width: 1,
                   ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ),
-                      // Shared member badge per PRD 4.4
-                      if (isShared &&
-                          transaction.createdByName.isNotEmpty &&
-                          transaction.createdByName != state.userName) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                ),
+                child: Icon(_getCategoryIcon(), color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+
+              // Title & Subtitle (Expanded to take full space)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
                           child: Text(
-                            transaction.createdByName.split(' ').first,
+                            primaryTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 9,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.accentDark,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.1,
                             ),
                           ),
                         ),
+                        if (transaction.syncStatus == SyncStatus.pending) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.cloud_upload_outlined,
+                            size: 14,
+                            color: AppColors.warning,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ),
+                        // Shared member badge per PRD 4.4
+                        if (isShared &&
+                            transaction.createdByName.isNotEmpty &&
+                            transaction.createdByName != state.userName) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              transaction.createdByName.split(' ').first,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Narrow layouts give the full amount its own row.
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isHidden
+                        ? '••••••'
+                        : CurrencyFormatter.formatRupiah(
+                            transaction.amount,
+                            withSign: true,
+                            isIncome: transaction.isIncoming,
+                            isExpense: !transaction.isIncoming,
+                          ),
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                      color: transaction.type == TransactionType.income
+                          ? AppColors.income
+                          : (transaction.type == TransactionType.expense
+                                ? AppColors.expense
+                                : AppColors.textPrimary),
+                    ),
                   ),
+                  const SizedBox(height: 3),
+                  _buildRightSubLabel(color),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-
-            // Amount & Type/Time badge (Intrinsic width, NO flex greedy crushing)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isHidden
-                      ? '••••••'
-                      : CurrencyFormatter.formatRupiah(
-                          transaction.amount,
-                          withSign: true,
-                          isIncome: transaction.isIncoming,
-                          isExpense: !transaction.isIncoming,
-                        ),
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    color: transaction.type == TransactionType.income
-                        ? AppColors.income
-                        : (transaction.type == TransactionType.expense
-                              ? AppColors.expense
-                              : AppColors.textPrimary),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                _buildRightSubLabel(color),
-              ],
-            ),
-          ],
+            ];
+            return stacked
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(children: children.take(3).toList()),
+                      const SizedBox(height: 8),
+                      children.last,
+                    ],
+                  )
+                : Row(children: children);
+          },
         ),
       ),
     );

@@ -1,13 +1,12 @@
-# Terminal investment recovery contract proposal
+# Terminal investment recovery contract
 
-Status: **draft, not an implemented API or an approved financial rule**.
+Status: **implemented for cancellation of never-applied commands**, the scope accepted on 2026-10-16. Reversal of applied trades is excluded. Verification and rollout status are tracked in `mobile-improvement-status.md`.
 
-The existing application supports retry of the original immutable command and
-read-only support references. It must retain an unresolved command until a
-durable server result and complete authoritative reconciliation establish its
-outcome. This proposal makes the remaining product decision concrete.
+The application retains an unresolved command until a durable server decision
+and complete authoritative reconciliation establish its outcome. The original
+immutable retry and read-only support references remain available.
 
-## Proposed scope: cancel a command that never applied
+## Scope: cancel a command that never applied
 
 Example: a pending BUY was permanently rejected because its instrument cannot
 be used. The server has neither the original trade UUID nor its linked cash
@@ -20,7 +19,7 @@ An applied BUY/SELL requires a separate reversal use case. This proposal does
 not invent reversal quantity, cost basis, price, fee, timestamp or chronology
 rules, and does not delete an applied trade or directly edit account balances.
 
-## Proposed API and durable decision
+## API and durable decision
 
 All paths use `/api/v1`. Existing sync push result statuses remain compatible.
 
@@ -34,25 +33,43 @@ All paths use `/api/v1`. Existing sync push result statuses remain compatible.
 2. Owner `GET /sync/investment-recoveries/:tradeId`: return an owner-scoped
    receipt containing trade/ledger identity, fingerprint and decision. Return
    404 for another owner's request. Never expose another person's portfolio.
-3. Authorized operator review: recheck the original owner/accounts and absence
+3. Operator `POST /sync/investment-recoveries/:tradeId/review` with `decision`
+   (`CANCELLED` or `DENIED`) and a nonempty `reason`. The current permission
+   `sync.investment-recoveries.review` is required; token role claims do not
+   authorize review. Recheck the original owner/accounts and absence
    of both trade and linked ledger under the same database locks used by normal
    sync processing. Record reviewer identity, reason, decision and time in the
    same transaction as durable cancellation reservations. Repeated identical
    approval returns the original receipt. No API call or support screenshot can
    substitute for server authorization.
 
-The persistence migration must add a durable recovery decision and uniqueness
-for both reserved IDs. Approval and command execution must share sync and
-command locks. Investment, generic client-UUID cash transactions and offline
-transfers must all reject a reserved ledger UUID. Soft deletion must not free
-an idempotency identity. No development database migration or seed execution is
-part of implementing or testing this proposal.
+The additive migration `20261016000000_add_investment_recovery` adds durable
+requests/decisions and a permanently reserved UUID table. Approval and command
+execution share the existing global sync writer lock. Database triggers also
+protect investment, generic cash, transfer and direct/import inserts against
+either reserved ID; deleting/updating reservations is refused. Soft deletion
+does not free an identity. Review publishes both current account snapshots and
+explicit trade/ledger tombstones atomically. A denied review reserves nothing.
+
+The migration registers the review permission without granting it to any role.
+Deployment must apply the migration and explicitly grant that permission to
+trusted operators using the existing authorization management. Code generation
+does not deploy a database. Implementation tests deploy only into fresh isolated
+PostgreSQL containers; no development database migration or seed was executed.
 
 ## Mobile reconciliation
 
 Requesting review preserves the original outbox, optimistic trade, cash ledger,
 balance, cursor and investment coverage. Network failures leave the request
 retryable. Approval alone never adds an inverse cash delta locally.
+
+The user confirms **Ajukan pembatalan** in the investment form. Intent is saved
+locally before transport; normal synchronization and **Periksa status pembatalan**
+resume the request/poll. An approved decision resets replay to zero. Review in
+progress blocks unchanged retry; a denied review permits explicit original retry.
+A definitive request conflict (for example an already-applied trade) retains
+money/command rows and permits explicit original retry. Lost responses remain
+durable, without automatically retrying financial execution.
 
 The mobile client must durably validate an approved receipt against current
 user, trade UUID, linked ledger UUID and the exact original command fingerprint.
@@ -63,7 +80,7 @@ Other unresolved commands and reconciliation staging remain intact. Missing
 authoritative rows, an interrupted replay or a failed local commit retain the
 command and block unsafe replacement trades. Restart resumes reconciliation.
 
-## Required verification
+## Verification coverage
 
 - Cancel versus normal execution in both lock orders: exactly one terminal
   outcome; a cancelled command can never subsequently apply.
@@ -76,10 +93,8 @@ command and block unsafe replacement trades. Restart resumes reconciliation.
 - Mobile lost response, interrupted replay, failed commit, restart, exact money,
   unchanged unrelated outbox and authoritative balance/history coverage tests.
 
-## Decision still needed
+## Excluded scope
 
-Choose whether the remaining feature is limited to **cancellation of never-applied
-commands** as proposed above, or must also **reverse already-applied trades**.
-The latter needs explicit rules for historical price, fees, cost basis and later
-BUY/SELL chronology before implementation. Project `AGENTS.md` requires that
-business rules and data models are not silently changed.
+Reversal of already-applied trades requires separate explicit rules for historical
+price, fees, cost basis and later BUY/SELL chronology. This feature never deletes
+or reverses an applied trade and never edits balances to compensate for one.

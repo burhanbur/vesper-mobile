@@ -20,7 +20,7 @@ class InvestmentRecoverySheet extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Jika perintah terus ditolak, hubungi pengelola layanan melalui kanal dukungan yang Anda kenal. Berikan referensi berikut agar status perintah asli dapat diperiksa di server. Tidak ada pesan yang dikirim otomatis.',
+            'Jika perintah terus ditolak, ajukan pembatalan dari formulir investasi dan hubungi pengelola melalui kanal dukungan yang Anda kenal. Pengelola hanya dapat menyetujui pembatalan transaksi yang belum pernah diproses server. Tidak ada pesan dukungan yang dikirim otomatis.',
           ),
           const SizedBox(height: 12),
           const Text(

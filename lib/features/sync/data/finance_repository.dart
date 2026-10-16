@@ -18,6 +18,7 @@ class FinanceRepository {
   final String userId;
   late Map<String, dynamic> state;
   Future<void>? _syncing;
+  bool? _compactPullSupported;
   bool offline = false;
   FinanceRepository(this.client, this.store, this.userId) {
     state = store.read();
@@ -150,9 +151,123 @@ class FinanceRepository {
 
   bool get isSyncing => _syncing != null;
 
+  bool get hasTransactionSnapshot {
+    final coverage = state['transaction_snapshot_coverage'];
+    return coverage is Map &&
+        coverage['schema'] == 1 &&
+        coverage['user_id'] == userId &&
+        coverage['complete'] == true &&
+        entities['transactions'] is Map;
+  }
+
   bool get supportsInvestmentTradeCommands => true;
 
   bool get hasUnresolvedInvestmentTrade => outbox.any(_isTrade);
+
+  Map<String, dynamic> _tradeWire(Map item) => {
+    for (final key in [
+      'entity_type',
+      'entity_id',
+      'operation',
+      'client_version',
+      'payload',
+    ])
+      key: item[key],
+  };
+
+  String _tradeFingerprint(Map item) {
+    dynamic canonical(dynamic value) {
+      if (value is Map) {
+        final keys = value.keys.cast<String>().toList()..sort();
+        return {for (final key in keys) key: canonical(value[key])};
+      }
+      if (value is List) return value.map(canonical).toList();
+      return value;
+    }
+
+    return const DartSha256()
+        .hashSync(utf8.encode(jsonEncode(canonical(_tradeWire(item)))))
+        .bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
+  }
+
+  void requestInvestmentCancellation(String queueId) {
+    if (isSyncing || offline) {
+      throw const ApiFailure('Tunggu sinkronisasi dan sambungkan internet.');
+    }
+    final matches = outbox.where((e) => e['id'] == queueId && _isTrade(e));
+    if (matches.length != 1 ||
+        !['rejected', 'conflict'].contains(matches.single['status'])) {
+      throw const ApiFailure('Hanya perintah yang ditolak dapat diajukan.');
+    }
+    atomic(() {
+      matches.single['recovery_requested'] = true;
+    });
+  }
+
+  Map _validateRecovery(Map item, dynamic value) {
+    final p = item['payload'] as Map;
+    if (value is! Map ||
+        value['user_id'] != userId ||
+        value['trade_id'] != item['entity_id'] ||
+        value['linked_transaction_id'] != p['linked_transaction_id'] ||
+        value['command_sha256'] != _tradeFingerprint(item) ||
+        !['PENDING', 'CANCELLED', 'DENIED'].contains(value['status']) ||
+        DateTime.tryParse('${value['requested_at']}') == null ||
+        (value['status'] != 'PENDING' &&
+            DateTime.tryParse('${value['reviewed_at']}') == null)) {
+      throw const ApiFailure('Identitas keputusan pemulihan tidak valid.');
+    }
+    return value;
+  }
+
+  Future<void> _pollInvestmentRecoveries(String deviceId) async {
+    for (final item
+        in outbox
+            .where((e) => _isTrade(e) && e['recovery_requested'] == true)
+            .toList()) {
+      dynamic response;
+      try {
+        response = await client.request(
+          'GET',
+          '/sync/investment-recoveries/${item['entity_id']}',
+        );
+      } on ApiFailure catch (error) {
+        if (error.statusCode != 404) rethrow;
+        try {
+          response = await client.request(
+            'POST',
+            '/sync/investment-recoveries',
+            body: {
+              'device_id': deviceId,
+              'command': _tradeWire(item as Map),
+              'command_sha256': _tradeFingerprint(item),
+            },
+          );
+        } on ApiFailure catch (rejection) {
+          // A definitive refusal (for example an already-applied command) must
+          // still allow explicit unchanged retry. Never undo optimistic money.
+          if ([403, 404, 409, 422].contains(rejection.statusCode) &&
+              item['status'] != 'cancellation_approved') {
+            atomic(() {
+              item.remove('recovery_requested');
+            });
+          }
+          rethrow;
+        }
+      }
+      final receipt = _validateRecovery(item as Map, response);
+      atomic(() {
+        item['recovery_receipt'] = Map<String, dynamic>.from(receipt);
+        if (receipt['status'] == 'CANCELLED') {
+          item['status'] = 'cancellation_approved';
+          state['cursor'] = '0';
+          state.remove('investment_command_snapshots');
+        }
+      });
+    }
+  }
 
   /// Read-only support references, never a financial export or a recovery
   /// authorization. Status/retry counters are excluded from the fingerprint.
@@ -204,6 +319,7 @@ class FinanceRepository {
       'command_sha256': fingerprint.bytes
           .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
           .join(),
+      'wire_command_sha256': _tradeFingerprint(item),
     });
   }
 
@@ -215,11 +331,15 @@ class FinanceRepository {
     }
     final matches = outbox.where((e) => e['id'] == queueId && _isTrade(e));
     if (matches.length != 1 ||
+        (matches.single['recovery_requested'] == true &&
+            (matches.single['recovery_receipt'] as Map?)?['status'] !=
+                'DENIED') ||
         !['rejected', 'conflict'].contains(matches.single['status'])) {
       throw const ApiFailure('Perintah investasi tidak dapat dicoba ulang.');
     }
     atomic(() {
       final item = matches.single as Map;
+      item.remove('recovery_requested');
       item['status'] = 'pending';
       item.remove('error');
       item.remove('server_data');
@@ -378,6 +498,66 @@ class FinanceRepository {
 
   void _finishTrades() {
     final snapshots = state['investment_command_snapshots'] as Map?;
+    for (final item
+        in outbox
+            .where((e) => _isTrade(e) && e['status'] == 'cancellation_approved')
+            .toList()) {
+      final receipt = _validateRecovery(item as Map, item['recovery_receipt']);
+      if (receipt['status'] != 'CANCELLED') {
+        throw const ApiFailure('Pembatalan belum disetujui.');
+      }
+      final p = item['payload'] as Map;
+      final cashKey = 'accounts:${p['cash_account_id']}';
+      final accountKey = 'accounts:${p['account_id']}';
+      final tradeKey = 'investment_transactions:${item['entity_id']}';
+      final legKey = 'transactions:${p['linked_transaction_id']}';
+      if (snapshots == null ||
+          ![
+            cashKey,
+            accountKey,
+            tradeKey,
+            legKey,
+          ].every(snapshots.containsKey)) {
+        throw const ApiFailure(
+          'Rekonsiliasi pembatalan belum lengkap; antrean tetap disimpan.',
+        );
+      }
+      for (final key in [cashKey, accountKey]) {
+        final payload = snapshots[key]['payload'];
+        if (payload is! Map ||
+            payload['user_id'] != userId ||
+            payload['deleted_at'] != null ||
+            payload['id'] != snapshots[key]['id'] ||
+            payload['balance'] is! String ||
+            !RegExp(r'^-?\d+\.\d{2}$').hasMatch(payload['balance'] as String)) {
+          throw const ApiFailure('Saldo otoritatif pembatalan tidak tersedia.');
+        }
+      }
+      if (snapshots[tradeKey]['payload'] != null ||
+          snapshots[legKey]['payload'] != null) {
+        throw const ApiFailure(
+          'Transaksi masih ada di server; pembatalan tidak diterapkan.',
+        );
+      }
+      for (final key in [cashKey, accountKey, tradeKey, legKey]) {
+        final snapshot = snapshots.remove(key) as Map;
+        _put(
+          snapshot['type'] as String,
+          snapshot['id'] as String,
+          _reconcileBalance(
+            snapshot['type'] as String,
+            snapshot['id'] as String,
+            snapshot['payload'],
+          ),
+        );
+      }
+      final decisions = state.putIfAbsent(
+        'investment_recovery_receipts',
+        () => <String, dynamic>{},
+      ) as Map;
+      decisions[item['entity_id']] = Map<String, dynamic>.from(receipt);
+      outbox.remove(item);
+    }
     for (final item
         in outbox
             .where((e) => _isTrade(e) && e['status'] == 'acknowledged')
@@ -709,7 +889,11 @@ class FinanceRepository {
   Future<void> _runSync({void Function()? onProgress}) async {
     await requireOnline();
     atomic(() {
-      if (outbox.any((e) => _isTrade(e) && e['status'] == 'acknowledged')) {
+      if (outbox.any(
+        (e) =>
+            _isTrade(e) &&
+            ['acknowledged', 'cancellation_approved'].contains(e['status']),
+      )) {
         state['cursor'] = '0';
         state.remove('investment_command_snapshots');
       }
@@ -753,6 +937,7 @@ class FinanceRepository {
         ),
       },
     );
+    await _pollInvestmentRecoveries(deviceId);
     final attempted = <String>{};
     while (true) {
       await requireOnline();
@@ -762,6 +947,7 @@ class FinanceRepository {
               return false;
             }
             if (_isTrade(e)) {
+              if (e['recovery_requested'] == true) return false;
               final p = e['payload'] as Map;
               if (outbox.any(
                 (d) =>
@@ -897,15 +1083,31 @@ class FinanceRepository {
     }
     while (true) {
       await requireOnline();
-      final response = await client.request(
-        'GET',
-        '/sync/pull',
-        query: {
-          'device_id': deviceId,
-          'since_version': state['cursor'],
-          'limit': 100,
-        },
-      );
+      final compact = _compactPullSupported != false;
+      dynamic response;
+      try {
+        response = await client.request(
+          'GET',
+          '/sync/pull',
+          query: {
+            'device_id': deviceId,
+            'since_version': state['cursor'],
+            'limit': 100,
+            if (compact) 'compact': 'true',
+          },
+        );
+        if (compact) _compactPullSupported = true;
+      } on ApiFailure catch (error) {
+        // Older strict servers reject the additive query flag. Retry the same
+        // cursor once in legacy mode; other failures retain normal retry policy.
+        if (compact &&
+            _compactPullSupported == null &&
+            error.statusCode == 422) {
+          _compactPullSupported = false;
+          continue;
+        }
+        rethrow;
+      }
       final next = response['next_version'];
       final more = response['has_more'];
       if (next is! String ||
@@ -1050,6 +1252,13 @@ class FinanceRepository {
         }
       }
       entities[type] = table;
+      if (type == 'transactions') {
+        state['transaction_snapshot_coverage'] = {
+          'schema': 1,
+          'user_id': userId,
+          'complete': true,
+        };
+      }
     });
   }
 
