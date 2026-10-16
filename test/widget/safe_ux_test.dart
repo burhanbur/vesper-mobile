@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
+import 'package:vesper_mobile/features/dashboard/pages/dashboard_page.dart';
 import 'package:vesper_mobile/core/network/api_client.dart';
 import 'package:vesper_mobile/features/household/pages/household_page.dart';
 import 'package:vesper_mobile/features/reports/pages/reports_page.dart';
@@ -206,22 +207,23 @@ void main() {
       await tester.pumpWidget(
         host(
           state,
-          Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () => AddTransactionModal.show(
-                  context,
-                  initialType: TransactionType.transfer,
-                ),
-                child: const Text('Open transfer'),
-              ),
-            ),
+          DashboardPage(
+            onNavigateToTransactions: () {},
+            onNavigateToInvestments: () {},
+            onNavigateToReports: () {},
+            onNavigateToHousehold: () {},
           ),
         ),
       );
-      await tester.tap(find.text('Open transfer'));
+      await tester.tap(find.text('Transfer'));
       await tester.pumpAndSettle();
       expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(
+        tester
+            .widget<AddTransactionModal>(find.byType(AddTransactionModal))
+            .initialType,
+        TransactionType.transfer,
+      );
       expect(find.byType(TextField), findsWidgets);
       expect(state.repository!.outbox, isEmpty);
       await tester.enterText(find.byType(TextField).first, '25000');

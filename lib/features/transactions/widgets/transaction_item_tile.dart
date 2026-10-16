@@ -11,8 +11,14 @@ import 'add_transaction_modal.dart';
 class TransactionItemTile extends StatelessWidget {
   final TransactionItem transaction;
   final VoidCallback? onTap;
+  final bool showDate;
 
-  const TransactionItemTile({super.key, required this.transaction, this.onTap});
+  const TransactionItemTile({
+    super.key,
+    required this.transaction,
+    this.onTap,
+    this.showDate = true,
+  });
 
   IconData _getCategoryIcon() {
     final cat = transaction.categoryName.toLowerCase();
@@ -372,6 +378,78 @@ class TransactionItemTile extends StatelessWidget {
     );
   }
 
+  Widget _buildRightSubLabel(Color color) {
+    if (transaction.type == TransactionType.transfer) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          transaction.typeLabel,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      );
+    }
+
+    if (transaction.type == TransactionType.investmentBuy ||
+        transaction.type == TransactionType.investmentSell) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          transaction.typeLabel,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+      );
+    }
+
+    if (transaction.isDebt || transaction.isReceivable) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          transaction.isDebt ? 'Utang' : 'Piutang',
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      );
+    }
+
+    // For regular income/expense, display time if available
+    final local = transaction.date.toLocal();
+    if (local.hour != 0 || local.minute != 0) {
+      return Text(
+        DateFormatter.formatTime(transaction.date),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textMuted,
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
@@ -381,42 +459,56 @@ class TransactionItemTile extends StatelessWidget {
     final color = _getCategoryColor();
     final isHidden = state.isBalanceHidden;
 
+    final hasNote =
+        transaction.note != null && transaction.note!.trim().isNotEmpty;
+    final primaryTitle = hasNote
+        ? transaction.note!.trim()
+        : transaction.categoryName;
+
+    final subtitleParts = <String>[];
+    if (hasNote && transaction.categoryName.isNotEmpty) {
+      subtitleParts.add(transaction.categoryName);
+    }
+    subtitleParts.add(accountName);
+    if (showDate) {
+      subtitleParts.add(DateFormatter.formatRelativeOrDate(transaction.date));
+    }
+    final subtitle = subtitleParts.join(' • ');
+
     return InkWell(
       onTap: onTap ?? () => _showTransactionDetails(context),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
             // Category Icon with soft background & delicate border
             Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: color.withValues(alpha: 0.18),
+                  color: color.withValues(alpha: 0.20),
                   width: 1,
                 ),
               ),
-              child: Icon(_getCategoryIcon(), color: color, size: 21),
+              child: Icon(_getCategoryIcon(), color: color, size: 22),
             ),
-            const SizedBox(width: 13),
+            const SizedBox(width: 12),
 
-            // Title & Account / Date / Creator (PRD 4.4)
+            // Title & Subtitle (Expanded to take full space)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
                       Flexible(
                         child: Text(
-                          transaction.note != null &&
-                                  transaction.note!.isNotEmpty
-                              ? transaction.note!
-                              : transaction.categoryName,
+                          primaryTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -442,11 +534,11 @@ class TransactionItemTile extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          '$accountName • ${DateFormatter.formatRelativeOrDate(transaction.date)}',
+                          subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                             color: AppColors.textMuted,
                           ),
@@ -454,6 +546,7 @@ class TransactionItemTile extends StatelessWidget {
                       ),
                       // Shared member badge per PRD 4.4
                       if (isShared &&
+                          transaction.createdByName.isNotEmpty &&
                           transaction.createdByName != state.userName) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -480,56 +573,36 @@ class TransactionItemTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
 
-            // Constrain long amounts at large text sizes instead of pushing
-            // the title column outside the card.
-            Flexible(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    isHidden
-                        ? '••••••'
-                        : CurrencyFormatter.formatRupiah(
-                            transaction.amount,
-                            withSign: true,
-                            isIncome: transaction.isIncoming,
-                            isExpense: !transaction.isIncoming,
-                          ),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                      color: transaction.type == TransactionType.income
-                          ? AppColors.income
-                          : (transaction.type == TransactionType.expense
-                                ? AppColors.expense
-                                : AppColors.textPrimary),
-                    ),
+            // Amount & Type/Time badge (Intrinsic width, NO flex greedy crushing)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isHidden
+                      ? '••••••'
+                      : CurrencyFormatter.formatRupiah(
+                          transaction.amount,
+                          withSign: true,
+                          isIncome: transaction.isIncoming,
+                          isExpense: !transaction.isIncoming,
+                        ),
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: transaction.type == TransactionType.income
+                        ? AppColors.income
+                        : (transaction.type == TransactionType.expense
+                              ? AppColors.expense
+                              : AppColors.textPrimary),
                   ),
-                  const SizedBox(height: 3),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      transaction.typeLabel,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: color,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 3),
+                _buildRightSubLabel(color),
+              ],
             ),
           ],
         ),

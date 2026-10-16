@@ -697,16 +697,16 @@ class FinanceRepository {
     return client.request(method, path, body: body);
   }
 
-  Future<void> sync() {
+  Future<void> sync({void Function()? onProgress}) {
     if (_syncing != null) return _syncing!;
-    final future = _runSync();
+    final future = _runSync(onProgress: onProgress);
     _syncing = future;
     return future.whenComplete(() {
       _syncing = null;
     });
   }
 
-  Future<void> _runSync() async {
+  Future<void> _runSync({void Function()? onProgress}) async {
     await requireOnline();
     atomic(() {
       if (outbox.any((e) => _isTrade(e) && e['status'] == 'acknowledged')) {
@@ -970,6 +970,7 @@ class FinanceRepository {
           'cursor': next,
         };
       });
+      onProgress?.call();
       if (!more) break;
     }
   }

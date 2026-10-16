@@ -9,7 +9,13 @@ class ApiFailure implements Exception {
   final String message;
   final int? statusCode;
   final bool isTransient;
-  const ApiFailure(this.message, {this.statusCode, this.isTransient = false});
+  final Duration? retryAfter;
+  const ApiFailure(
+    this.message, {
+    this.statusCode,
+    this.isTransient = false,
+    this.retryAfter,
+  });
   @override
   String toString() => message;
 }
@@ -204,10 +210,21 @@ class ApiClient {
           401 => 'Email atau kata sandi salah, atau sesi telah berakhir.',
           403 => 'Anda tidak memiliki akses untuk tindakan ini.',
           409 => 'Data sudah digunakan atau bertentangan dengan data yang ada.',
-          429 => 'Terlalu banyak percobaan. Silakan coba lagi nanti.',
+          429 => 'Server sedang membatasi permintaan. Silakan coba lagi nanti.',
           _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
         },
         statusCode: status,
+        retryAfter: status == 429
+            ? Duration(
+                seconds:
+                    (int.tryParse(
+                              error.response?.headers.value('retry-after') ??
+                                  '',
+                            ) ??
+                            60)
+                        .clamp(1, 604800),
+              )
+            : null,
         isTransient:
             status == 408 ||
             status == 429 ||

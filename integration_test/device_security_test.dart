@@ -10,14 +10,86 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vesper_mobile/app/widgets/app_lock_gate.dart';
+import 'package:vesper_mobile/app/app_state.dart';
+import 'package:vesper_mobile/features/dashboard/pages/dashboard_page.dart';
+import 'package:vesper_mobile/features/sync/data/finance_repository.dart';
 import 'package:vesper_mobile/core/security/app_lock_controller.dart';
 import 'package:vesper_mobile/core/security/local_data_failure.dart';
 import 'package:vesper_mobile/database/local_store_native.dart';
 
 import '../test/fixtures/security_fakes.dart';
+import '../test/fixtures/login_client.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'Android login renders server accounts before history and persists completed history',
+    (tester) async {
+      final user = 'security-test-login-${const Uuid().v4()}';
+      final directory = await getApplicationSupportDirectory();
+      const secure = FlutterSecureStorage();
+      final client = LoginClient()..limited = false;
+      final store = await LocalStore.open(user);
+      final repo = FinanceRepository(client, store, user);
+      final state = AppState(repository: repo);
+      Future<void>? login;
+      try {
+        await tester.pumpWidget(
+          AppStateScope(
+            state: state,
+            child: MaterialApp(
+              home: DashboardPage(
+                onNavigateToTransactions: () {},
+                onNavigateToInvestments: () {},
+                onNavigateToReports: () {},
+                onNavigateToHousehold: () {},
+              ),
+            ),
+          ),
+        );
+        login = state.login(userId: user);
+        await client.coreReady.future.timeout(const Duration(seconds: 15));
+        await tester.pump();
+        expect(state.loading, isTrue);
+        expect(state.accounts.single.name, 'Server cash');
+        expect(find.text('Memuat data dari server'), findsOneWidget);
+        expect(find.text('Server cash'), findsOneWidget);
+        client.releaseSync.complete();
+        await login;
+        await tester.pumpAndSettle();
+        expect(state.loading, isFalse);
+        expect(state.dataError, isNull);
+        expect(repo.rows('transactions'), hasLength(2));
+        expect(find.text('Memuat data dari server'), findsNothing);
+      } finally {
+        if (!client.releaseSync.isCompleted) client.releaseSync.complete();
+        await login;
+        await tester.pumpWidget(const SizedBox());
+        state.dispose();
+        await Future<void>.delayed(Duration.zero);
+        final restarted = await LocalStore.open(user);
+        expect((restarted.read()['entities']['transactions'] as Map).length, 2);
+        restarted.close();
+        await secure.delete(key: 'vesper.snapshot-key.v1.$user');
+        await secure.delete(key: 'vesper.storage-version.v1.$user');
+        for (final version in ['', '.v3']) {
+          for (final suffix in ['', '-wal', '-shm', '-journal']) {
+            final path = p.join(
+              directory.path,
+              'vesper-$user$version.sqlite$suffix',
+            );
+            if (!user.startsWith('security-test-login-') ||
+                !p.isWithin(directory.path, path)) {
+              throw StateError('Invalid test cleanup path');
+            }
+            final file = File(path);
+            if (file.existsSync()) file.deleteSync();
+          }
+        }
+      }
+    },
+  );
 
   testWidgets(
     'native secure key and encrypted outbox survive restart and missing key fails closed',

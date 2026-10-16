@@ -289,7 +289,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _retryAttempt = 0;
   }
 
-  void _scheduleRetry(int generation) {
+  void _scheduleRetry(int generation, {Duration? retryAfter}) {
     if (_disposed ||
         !_authenticated ||
         _offline ||
@@ -298,7 +298,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _retryTimer?.cancel();
-    _retryTimer = Timer(retryDelays[_retryAttempt++], () {
+    final backoff = retryDelays[_retryAttempt++];
+    final delay = retryAfter != null && retryAfter > backoff
+        ? retryAfter
+        : backoff;
+    _retryTimer = Timer(delay, () {
       _retryTimer = null;
       if (!_disposed && !_offline && generation == _generation) {
         unawaited(refresh());
@@ -444,33 +448,59 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     loading = true;
     dataError = null;
     _notify();
-    try {
-      // A sync failure must not prevent reading unrelated server resources.
-      // refreshList preserves locally queued mutations over server snapshots.
-      try {
-        await repo.sync();
-      } catch (error) {
-        if (active()) dataError = error.toString();
+    Duration? retryAfter;
+    void handleError(Object error) {
+      if (active()) dataError ??= error.toString();
+      if (error is ApiFailure && error.statusCode == 429) {
+        retryAfter = error.retryAfter;
+        throw error;
       }
+    }
+
+    Future<void> loadResource(String resource) async {
       if (!active()) return;
+      try {
+        await repo.refreshList(resource, '/${resource.replaceAll('_', '-')}');
+      } catch (error) {
+        handleError(error);
+      }
+      if (active()) _notify();
+    }
+
+    try {
+      // Show the account snapshot before replaying a potentially long history.
+      // The repository retains pending edits and command-owned balances/rows.
       for (final resource in [
         'account_types',
         'accounts',
         'categories',
+        'groups',
+      ]) {
+        await loadResource(resource);
+      }
+      if (!active()) return;
+      // A sync failure must not prevent reading unrelated server resources.
+      // refreshList preserves locally queued mutations over server snapshots.
+      try {
+        await repo.sync(
+          onProgress: () {
+            if (active()) _notify();
+          },
+        );
+      } catch (error) {
+        handleError(error);
+      }
+      if (!active()) return;
+      for (final resource in [
         'transactions',
         'ref_account_types',
         'ref_categories',
-        'groups',
         'budgets',
         'notifications',
         'instruments',
       ]) {
         if (!active()) return;
-        try {
-          await repo.refreshList(resource, '/${resource.replaceAll('_', '-')}');
-        } catch (error) {
-          if (active()) dataError ??= error.toString();
-        }
+        await loadResource(resource);
       }
       for (final group in repo.rows('groups')) {
         if (!active()) return;
@@ -484,7 +514,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             '/groups/${group['id']}/categories',
           );
         } catch (error) {
-          if (active()) dataError ??= error.toString();
+          handleError(error);
         }
       }
       if (active() && activeHouseholdId.isNotEmpty) {
@@ -516,7 +546,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             ),
           );
         } catch (error) {
-          if (active()) dataError ??= error.toString();
+          handleError(error);
         }
       }
     } catch (error) {
@@ -528,7 +558,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           if (dataError == null) {
             _cancelRetries();
           } else {
-            _scheduleRetry(generation);
+            _scheduleRetry(generation, retryAfter: retryAfter);
           }
         }
         _notify();
@@ -1727,9 +1757,30 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int get totalLiquidCash => accounts
       .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
       .fold(0, (sum, a) => sum + a.balance);
-  int get totalInvestmentValue =>
-      investments.fold(0, (sum, a) => sum + a.totalCurrentValue);
+  int get totalInvestmentValue {
+    final fromHoldings = investments.fold(
+      0,
+      (sum, a) => sum + a.totalCurrentValue,
+    );
+    if (fromHoldings > 0) return fromHoldings;
+    return accounts
+        .where((a) => a.isIncludeTotal && a.type == AccountType.investment)
+        .fold(0, (sum, a) => sum + a.balance);
+  }
+
+  int get totalDebt => accounts
+      .where((a) => a.type == AccountType.creditCard)
+      .fold(0, (sum, a) => sum + a.balance.abs());
   int get totalNetWorth => totalLiquidCash + totalInvestmentValue;
+  int get totalBankBalance => accounts
+      .where((a) => a.isIncludeTotal && a.type == AccountType.bank)
+      .fold(0, (sum, a) => sum + a.balance);
+  int get totalWalletBalance => accounts
+      .where((a) => a.isIncludeTotal && a.type == AccountType.wallet)
+      .fold(0, (sum, a) => sum + a.balance);
+  int get totalCashBalance => accounts
+      .where((a) => a.isIncludeTotal && a.type == AccountType.cash)
+      .fold(0, (sum, a) => sum + a.balance);
   bool _thisMonth(DateTime date) {
     final now = DateTime.now();
     final local = date.toLocal();

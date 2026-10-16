@@ -107,10 +107,10 @@ class QuickActionsBar extends StatelessWidget {
             Expanded(
               child: _buildActionButton(
                 icon: Icons.swap_horiz_rounded,
-                label: 'Transfer 🔒',
-                color: AppColors.textMuted,
-                bg: AppColors.surfaceVariant,
-                onTap: null,
+                label: 'Transfer',
+                color: AppColors.transfer,
+                bg: AppColors.transferLight,
+                onTap: onTransfer,
               ),
             ),
             Expanded(

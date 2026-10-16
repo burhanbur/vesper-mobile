@@ -26,6 +26,8 @@ class AccountsPage extends StatefulWidget {
 class _AccountsPageState extends State<AccountsPage> {
   // Filter mode: 'all' = semua akun, 'personal' = akun pribadi, or household.id = grup spesifik
   String _activeFilter = 'all';
+  // Perspective mode: 'all' = semua aset, 'liquid' = dana likuid, 'investment' = portofolio investasi, 'debt' = kewajiban
+  String _assetPerspective = 'all';
   final Set<String> _expandedParents = <String>{};
 
   static IconData _getAccountIcon(AccountType type) {
@@ -946,16 +948,61 @@ class _AccountsPageState extends State<AccountsPage> {
       heroTitle = 'Saldo Bersama: ${selectedGroup.name}';
     }
 
+    // Web-parity financial calculations
+    final totalLiquid = filteredAccounts
+        .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+        .fold(0, (sum, a) => sum + a.balance);
+
+    final totalInvest = filteredAccounts
+        .where((a) => a.isIncludeTotal && a.type == AccountType.investment)
+        .fold(0, (sum, a) => sum + a.balance);
+
+    final totalDebt = filteredAccounts
+        .where((a) => a.type == AccountType.creditCard)
+        .fold(0, (sum, a) => sum + a.balance.abs());
+
+    final totalNetWorth = totalLiquid + totalInvest - totalDebt;
+
+    final totalAssets = (totalLiquid + totalInvest) > 0
+        ? (totalLiquid + totalInvest)
+        : 1;
+    final liquidPercent = ((totalLiquid / totalAssets) * 100).clamp(0.0, 100.0);
+    final investPercent = ((totalInvest / totalAssets) * 100).clamp(0.0, 100.0);
+
     // Top-level / Root accounts for display
     final rootAccounts = filteredAccounts
         .where((a) => a.parentAccountId == null && a.isVisible)
         .toList();
+
+    final displayedRootAccounts = rootAccounts.where((a) {
+      if (_assetPerspective == 'liquid') {
+        return a.isCashBankOrWallet;
+      } else if (_assetPerspective == 'investment') {
+        return a.type == AccountType.investment;
+      } else if (_assetPerspective == 'debt') {
+        return a.type == AccountType.creditCard;
+      }
+      return true;
+    }).toList();
+
     final sections = buildAccountPickerSections(
       buildAccountPickerGroups(
-        selectableAccounts: rootAccounts,
+        selectableAccounts: displayedRootAccounts,
         accountUniverse: allAccounts,
       ),
     );
+
+    final Map<String, int> categorySubtotals = {};
+    for (final section in sections) {
+      int subtotal = 0;
+      for (final group in section.groups) {
+        for (final entry in group.entries) {
+          subtotal += entry.account.balance;
+        }
+      }
+      categorySubtotals[section.category] =
+          (categorySubtotals[section.category] ?? 0) + subtotal;
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1124,9 +1171,222 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // 2. MODERN HORIZONTAL PILL SELECTOR (Semua, Pribadi, & Semua Grup Pengguna)
+              // 2. WEB-PARITY 4 CORE METRIC CARDS (Multi-Perspective Carousel)
+              SizedBox(
+                height: 122,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildMetricCard(
+                      id: 'all',
+                      title: 'Total Kekayaan Bersih',
+                      value: totalNetWorth,
+                      subtitle: 'Dana Likuid + Investasi - Hutang',
+                      badge: 'Net Worth',
+                      icon: Icons.account_balance_rounded,
+                      accentColor: AppColors.primary,
+                      isSelected: _assetPerspective == 'all',
+                      isHidden: isHidden,
+                      onTap: () => setState(() => _assetPerspective = 'all'),
+                    ),
+                    const SizedBox(width: 10),
+                    _buildMetricCard(
+                      id: 'liquid',
+                      title: 'Dana Likuid',
+                      value: totalLiquid,
+                      subtitle: 'Kas, Bank & Dompet Digital',
+                      badge: 'Siap Pakai',
+                      icon: Icons.wallet_rounded,
+                      accentColor: const Color(0xFF10B981),
+                      isSelected: _assetPerspective == 'liquid',
+                      isHidden: isHidden,
+                      onTap: () => setState(() {
+                        _assetPerspective = _assetPerspective == 'liquid'
+                            ? 'all'
+                            : 'liquid';
+                      }),
+                    ),
+                    const SizedBox(width: 10),
+                    _buildMetricCard(
+                      id: 'investment',
+                      title: 'Portofolio Investasi',
+                      value: totalInvest,
+                      subtitle: 'Saham, Reksadana & Aset',
+                      badge: 'Investasi Aktif',
+                      icon: Icons.trending_up_rounded,
+                      accentColor: const Color(0xFF8B5CF6),
+                      isSelected: _assetPerspective == 'investment',
+                      isHidden: isHidden,
+                      onTap: () => setState(() {
+                        _assetPerspective = _assetPerspective == 'investment'
+                            ? 'all'
+                            : 'investment';
+                      }),
+                    ),
+                    const SizedBox(width: 10),
+                    _buildMetricCard(
+                      id: 'debt',
+                      title: 'Hutang & Kewajiban',
+                      value: totalDebt,
+                      subtitle: 'Kartu Kredit & Pinjaman',
+                      badge: totalDebt > 0 ? 'Perlu Dilunasi' : 'Bebas Hutang',
+                      icon: Icons.credit_card_rounded,
+                      accentColor: const Color(0xFFF43F5E),
+                      isSelected: _assetPerspective == 'debt',
+                      isHidden: isHidden,
+                      onTap: () => setState(() {
+                        _assetPerspective = _assetPerspective == 'debt'
+                            ? 'all'
+                            : 'debt';
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 3. WEALTH ALLOCATION PROGRESS BAR
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Alokasi Kekayaan (Wealth Allocation)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: SizedBox(
+                        height: 8,
+                        child: Row(
+                          children: [
+                            if (liquidPercent > 0)
+                              Expanded(
+                                flex: liquidPercent.toInt().clamp(1, 100),
+                                child: Container(
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                            if (investPercent > 0)
+                              Expanded(
+                                flex: investPercent.toInt().clamp(1, 100),
+                                child: Container(
+                                  color: const Color(0xFF8B5CF6),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 4,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF10B981),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Dana Likuid: ${liquidPercent.toStringAsFixed(1)}%',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF8B5CF6),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Portofolio Investasi: ${investPercent.toStringAsFixed(1)}%',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // 4. PERSPECTIVE FILTER CHIPS ("Mau liat dari sisi apa?")
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildPerspectiveFilterChip(
+                      id: 'all',
+                      label: 'Semua Aset',
+                      icon: Icons.dashboard_outlined,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPerspectiveFilterChip(
+                      id: 'liquid',
+                      label: 'Dana Likuid',
+                      icon: Icons.wallet_outlined,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPerspectiveFilterChip(
+                      id: 'investment',
+                      label: 'Aset Portofolio',
+                      icon: Icons.trending_up_rounded,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildPerspectiveFilterChip(
+                      id: 'debt',
+                      label: 'Kewajiban',
+                      icon: Icons.credit_card_outlined,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // 5. MODERN HORIZONTAL PILL SELECTOR (Semua, Pribadi, & Semua Grup Pengguna)
               SizedBox(
                 height: 40,
                 child: ListView(
@@ -1201,7 +1461,7 @@ class _AccountsPageState extends State<AccountsPage> {
 
               const SizedBox(height: 20),
 
-              // 3. DAFTAR REKENING HEADER
+              // 6. DAFTAR REKENING HEADER
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1221,7 +1481,7 @@ class _AccountsPageState extends State<AccountsPage> {
                     ),
                   ),
                   Text(
-                    '${rootAccounts.length} Rekening',
+                    '${displayedRootAccounts.length} Rekening',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1232,8 +1492,8 @@ class _AccountsPageState extends State<AccountsPage> {
               ),
               const SizedBox(height: 12),
 
-              // 4. ACCOUNTS LIST ATAU EMPTY STATE
-              if (rootAccounts.isEmpty) ...[
+              // 7. ACCOUNTS LIST ATAU EMPTY STATE
+              if (displayedRootAccounts.isEmpty) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -1264,6 +1524,8 @@ class _AccountsPageState extends State<AccountsPage> {
                       Text(
                         _activeFilter == 'personal'
                             ? 'Belum Ada Akun Pribadi'
+                            : _assetPerspective != 'all'
+                            ? 'Tidak Ada Akun di Kategori Ini'
                             : 'Belum Ada Rekening di Grup Ini',
                         style: const TextStyle(
                           fontSize: 15,
@@ -1276,6 +1538,8 @@ class _AccountsPageState extends State<AccountsPage> {
                       Text(
                         _activeFilter == 'personal'
                             ? 'Semua rekening Anda saat ini telah dibagikan ke grup bersama.'
+                            : _assetPerspective != 'all'
+                            ? 'Gunakan filter "Semua Aset" untuk melihat seluruh portofolio dan kas Anda.'
                             : 'Bagikan rekening pribadi atau buat kantong khusus untuk grup ini agar pengeluaran bersama tercatat rapi.',
                         style: const TextStyle(
                           fontSize: 12,
@@ -1289,7 +1553,7 @@ class _AccountsPageState extends State<AccountsPage> {
                         label: Text(
                           _activeFilter == 'personal'
                               ? 'Tambah Akun Pribadi'
-                              : 'Tambah Rekening Grup',
+                              : 'Tambah Rekening',
                         ),
                         onPressed: () => _showAddAccountModal(context),
                       ),
@@ -1310,13 +1574,32 @@ class _AccountsPageState extends State<AccountsPage> {
                         top: sectionIndex == 0 ? 0 : 20,
                         bottom: 12,
                       ),
-                      child: Text(
-                        sections[sectionIndex].category,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            sections[sectionIndex].category,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            isHidden
+                                ? '••••••'
+                                : CurrencyFormatter.formatRupiah(
+                                    categorySubtotals[sections[sectionIndex]
+                                            .category] ??
+                                        0,
+                                  ),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   Padding(
@@ -1632,6 +1915,149 @@ class _AccountsPageState extends State<AccountsPage> {
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricCard({
+    required String id,
+    required String title,
+    required int value,
+    required String subtitle,
+    required String badge,
+    required IconData icon,
+    required Color accentColor,
+    required bool isSelected,
+    required bool isHidden,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 215,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accentColor.withValues(alpha: 0.08)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected ? accentColor : AppColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? accentColor.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 16, color: accentColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? accentColor : AppColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badge,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isHidden ? '••••••' : CurrencyFormatter.formatRupiah(value),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: isSelected ? accentColor : AppColors.textPrimary,
+                letterSpacing: -0.3,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              subtitle,
+              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPerspectiveFilterChip({
+    required String id,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = _assetPerspective == id;
+    return GestureDetector(
+      onTap: () => setState(() => _assetPerspective = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+          ],
         ),
       ),
     );

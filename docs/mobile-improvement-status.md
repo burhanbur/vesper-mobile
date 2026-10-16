@@ -1,5 +1,21 @@
 # Mobile improvement status
 
+## Dashboard transfer button fix (2026-10-16)
+
+- [x] Removed the stale disabled/gembok state from the dashboard Transfer quick action and connected its existing `onTransfer` callback to the transfer form.
+- [x] Regression now taps the actual dashboard button, verifies the transfer form and no premature writes, then submits an isolated offline fixture and verifies one durable command, two ledger rows and both balances. Focused UX/accessibility checks: **10 tests pass**.
+- [x] Final analyzer is clean, all **283 Flutter tests pass**, and the updated main-entry debug APK builds, installs as an update and starts in the Android emulator.
+
+## Android login data-loading fix (2026-10-16)
+
+- [x] Reproduced the empty-dashboard failure against the local API: login succeeds and account/transaction endpoints contain data, but initial sync replays hundreds of pages, hits HTTP 429, and the old short retry delays exhaust before the rate-limit window resets. Loading/error presentation was hidden when the outbox was empty.
+- [x] Load and publish account types, accounts, categories and groups before the long history replay. Publish each committed sync page so cached data appears during loading. Existing repository guards retain pending edits, transfer/investment rows and command-owned balances.
+- [x] Preserve the server's numeric `Retry-After` on 429, stop further requests in that refresh attempt, and schedule bounded retry after that delay. Continue from the last committed cursor; keep partial history and outbox intact.
+- [x] Dashboard shows loading/error status even with an empty outbox. Manual retry awaits completion and reports success only after a successful refresh. Five new automated regressions pass across legacy/v3 storage, transport retry metadata and the loading/error UI.
+- [x] Live local-API verification with an isolated encrypted cache: all **34 accounts** became available after **232 ms**; all **5,707 transactions** loaded successfully with no final error after approximately **130 seconds**, including server-required waiting. This is a host diagnostic, not an Android timing guarantee. No financial records were changed. The temporary diagnostic source/cache was removed.
+- [x] Android emulator integration: **3 tests pass**, including account rendering while history is gated, complete history persistence/restart, native encrypted storage and locked presentation after cancelled/unavailable authentication.
+- [x] Final analyzer is clean and the full Flutter suite passes **283 tests**. Main-entry Android debug APK builds, installs as an update and starts in the emulator. Startup logs contain zero fatal/unhandled markers.
+
 ## Reconnection continuation (2026-10-15)
 
 The interrupted Codex transport did not remove working-tree changes. Current source has been revalidated; earlier results below are retained as historical checkpoints.

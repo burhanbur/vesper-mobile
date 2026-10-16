@@ -55,6 +55,13 @@ class DateFormatter {
     return '$month ${date.year}';
   }
 
+  static String formatTime(DateTime date) {
+    final wib = date.toUtc().add(const Duration(hours: 7));
+    final hour = wib.hour.toString().padLeft(2, '0');
+    final minute = wib.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
   static String formatRelativeOrDate(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);

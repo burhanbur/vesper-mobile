@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/transaction_period.dart';
 import '../../../core/widgets/month_selector.dart';
@@ -65,6 +66,20 @@ class _TransactionsPageState extends State<TransactionsPage> {
       ),
     );
     final filtered = page.items;
+    final periodTransactions = state.transactionsInPeriod(
+      _period.start,
+      _period.end,
+    );
+    final periodIncome = _period.total(
+      periodTransactions,
+      TransactionType.income,
+    );
+    final periodExpense = _period.total(
+      periodTransactions,
+      TransactionType.expense,
+    );
+    final isHidden = state.isBalanceHidden;
+
     // Each header and transaction is a separate lazy row, not a nested list.
     final rows = <Object>[];
     DateTime? previousDay;
@@ -154,7 +169,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     ),
                   ),
 
-                // Filter Chips matching contoh-1.png & contoh-2.png
+                // Filter Chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(
@@ -174,73 +189,181 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   ),
                 ),
 
-                MonthSelector(
-                  period: _period,
-                  onChanged: (period) => setState(() {
-                    _period = period;
-                    _resetPages();
-                  }),
-                ),
-                // Month Header Bar
+                // Month Selector & Monthly Summary Card
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
-                    vertical: 4,
+                    vertical: 6,
                   ),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.6),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      children: [
+                        MonthSelector(
+                          period: _period,
+                          onChanged: (period) => setState(() {
+                            _period = period;
+                            _resetPages();
+                          }),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Divider(
+                            height: 16,
+                            thickness: 1,
+                            color: AppColors.border.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildPeriodStat(
+                                  title: 'Pemasukan',
+                                  amount: periodIncome,
+                                  icon: Icons.arrow_downward_rounded,
+                                  color: AppColors.income,
+                                  bgLight: AppColors.incomeLight,
+                                  isIncome: true,
+                                  isHidden: isHidden,
+                                ),
+                              ),
+                              Container(
+                                height: 32,
+                                width: 1,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                color: AppColors.border.withValues(alpha: 0.6),
+                              ),
+                              Expanded(
+                                child: _buildPeriodStat(
+                                  title: 'Pengeluaran',
+                                  amount: periodExpense,
+                                  icon: Icons.arrow_upward_rounded,
+                                  color: AppColors.expense,
+                                  bgLight: AppColors.expenseLight,
+                                  isIncome: false,
+                                  isHidden: isHidden,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Transaction count & title row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Transaksi lokal pada periode ini',
+                        'Daftar Transaksi',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      Text(
-                        '${filtered.length} Transaksi',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textMuted,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${filtered.length} Transaksi',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
               ],
             ),
           ),
 
-          // Transactions List Grouped by Date (contoh-1.png & contoh-2.png)
+          // Transactions List Grouped by Date
           if (filtered.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.receipt_long_outlined,
-                      size: 56,
-                      color: AppColors.textMuted.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Tidak ada transaksi yang sesuai.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 40,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.receipt_long_outlined,
+                          size: 36,
+                          color: AppColors.textMuted.withValues(alpha: 0.8),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Belum Ada Transaksi',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Tidak ada transaksi pada filter dan periode ini.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             )
@@ -255,24 +378,69 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     return Padding(
                       padding: const EdgeInsets.only(
                         top: 14,
-                        bottom: 6,
-                        left: 4,
+                        bottom: 8,
+                        left: 2,
+                        right: 2,
                       ),
-                      child: Text(
-                        DateFormatter.formatShort(row),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textSecondary,
-                        ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_rounded,
+                                  size: 13,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  DateFormatter.formatShort(row),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }
                   final tx = row as TransactionItem;
-                  return Material(
+                  return Container(
                     key: ValueKey(tx.id),
-                    color: Colors.white,
-                    child: TransactionItemTile(transaction: tx),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.6),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: TransactionItemTile(
+                      transaction: tx,
+                      showDate: false,
+                    ),
                   );
                 },
               ),
@@ -280,35 +448,60 @@ class _TransactionsPageState extends State<TransactionsPage> {
           SliverToBoxAdapter(
             child: SafeArea(
               top: false,
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Halaman transaksi sebelumnya',
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: _page == 0
-                        ? null
-                        : () => setState(() => _page--),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
                   ),
-                  Expanded(
-                    child: Text(
-                      'Halaman ${_page + 1} · ${filtered.length} ditampilkan',
-                      textAlign: TextAlign.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.6),
+                      width: 1,
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Halaman transaksi berikutnya',
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: page.next == null
-                        ? null
-                        : () => setState(() {
-                            if (_pages.length > _page + 1) {
-                              _pages.removeRange(_page + 1, _pages.length);
-                            }
-                            _pages.add(page.next);
-                            _page++;
-                          }),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Halaman transaksi sebelumnya',
+                        icon: const Icon(Icons.chevron_left_rounded),
+                        onPressed: _page == 0
+                            ? null
+                            : () => setState(() => _page--),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Halaman ${_page + 1} · ${filtered.length} ditampilkan',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Halaman transaksi berikutnya',
+                        icon: const Icon(Icons.chevron_right_rounded),
+                        onPressed: page.next == null
+                            ? null
+                            : () => setState(() {
+                                if (_pages.length > _page + 1) {
+                                  _pages.removeRange(_page + 1, _pages.length);
+                                }
+                                _pages.add(page.next);
+                                _page++;
+                              }),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -317,16 +510,86 @@ class _TransactionsPageState extends State<TransactionsPage> {
     );
   }
 
+  Widget _buildPeriodStat({
+    required String title,
+    required int amount,
+    required IconData icon,
+    required Color color,
+    required Color bgLight,
+    required bool isIncome,
+    required bool isHidden,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: bgLight,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                isHidden
+                    ? '••••••'
+                    : CurrencyFormatter.formatRupiah(
+                        amount,
+                        withSign: true,
+                        isIncome: isIncome,
+                        isExpense: !isIncome,
+                      ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFilterChip(String label) {
     final isSelected = _selectedFilter == label;
     return ChoiceChip(
+      showCheckmark: false,
       label: Text(label),
       selected: isSelected,
       selectedColor: AppColors.primary,
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: isSelected
+            ? AppColors.primary
+            : AppColors.border.withValues(alpha: 0.7),
+        width: 1,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-        color: isSelected ? Colors.white : AppColors.textPrimary,
+        fontSize: 12.5,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+        color: isSelected ? Colors.white : AppColors.textSecondary,
       ),
       onSelected: (val) {
         if (val) {
