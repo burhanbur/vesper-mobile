@@ -1,5 +1,14 @@
 # Mobile improvement status
 
+## Local cancellation activation completed (2026-10-17)
+
+- [x] Verified the target is **development**, PostgreSQL `vesper` on `localhost:5432`, and the only pending migration was `20261016000000_add_investment_recovery`. Applied that additive migration with `prisma migrate deploy`; all 21 migrations are now applied and all four cancellation guards are installed. No seed, reset or destructive operation was performed.
+- [x] Selected `bmafazi` (Burhan Mafazi), the sole active account and an existing Super Admin, as the local operator. Explicitly assigned the dedicated `INVESTMENT_RECOVERY_REVIEWER` role containing only `sync.investment-recoveries.review`. Verified that this permission has exactly one member; existing shared roles were not broadened.
+- [x] Compared counts and complete-row checksums before/after activation across **11 financial tables**. All match, including **34 accounts, 5,707 transactions and 690 transfers**. Recovery requests and permanently cancelled IDs remain empty; no actual financial command was reviewed or cancelled.
+- [x] Revalidated the unchanged backend before activation: full `npm run validate` passes (**237 tests**, formatting, lint, types, build and OpenAPI); fresh isolated PostgreSQL suite passes **31 tests**. Isolated test containers were retained. Financial-data preservation above is a read-only deployment verification, not a test suite against development data.
+- [x] Local API remains ready after activation (`/health/ready`: **200**), serves all **3 recovery OpenAPI paths**, and rejects an unauthenticated recovery read with **401**. The current database authorization lookup confirms the intended operator permission.
+- [x] Flutter revalidation after activation: `flutter analyze --no-pub` is clean and all **306 Flutter tests** pass. Application source and the previously verified Android APK were unchanged during this deployment.
+
 ## Never-applied investment cancellation (2026-10-16)
 
 - [x] Accepted scope is cancellation of commands that never applied. Applied-trade reversal is excluded. Added owner/device-bound recovery requests, canonical wire SHA-256, owner-scoped receipts and final operator approval/denial. Current database permission grants are locked/rechecked; roles from tokens do not authorize review. Reasons/reviewer identity remain in the restricted audit record.
@@ -9,7 +18,7 @@
 - [x] New focused verification: **17 mobile repository tests** across legacy/v3, **1 widget confirmation test**, **5 backend HTTP/schema/fingerprint/OpenAPI tests**, and **7 PostgreSQL cancellation tests**. Full backend `npm run validate` passes (**237 tests**); full isolated PostgreSQL suite passes **31 tests**. The additive migration was applied only to fresh test containers, retained without cleanup.
 - [x] Android emulator integration passes **4 tests**, including cancellation after a lost response and restart using native encrypted storage and secure keys. Physical-device and iOS certification remain separate.
 - [x] Final Flutter analyzer is clean; all **306 Flutter tests** pass. The final main-entry debug APK builds, installs as an update in the Android emulator and starts with **zero fatal/unhandled startup markers**.
-- [ ] Activate against the local service: migration status confirms that only `20261016000000_add_investment_recovery` is pending on local `vesper` at `localhost:5432`. A specific trusted operator account is still needed before granting `sync.investment-recoveries.review`. No development migration, seed, financial mutation or automatic role grant has been executed for this feature.
+- [x] Activated against the local service on **2026-10-17**: additive migration applied and the dedicated review permission explicitly assigned to existing administrator `bmafazi`. See the activation checkpoint above. No financial records were modified.
 
 Contract and operator steps: `investment-terminal-recovery-contract.md`, `investment-recovery-runbook.md`.
 
@@ -172,4 +181,4 @@ Synced category-null derived cash rows cannot be changed through generic transac
 - [ ] Compile and test iOS protection on macOS/iOS; verify native backup/transfer behavior, successful biometrics, enrollment changes and lifecycle behavior on physical target devices. Windows-host tests and an Android emulator do not certify these cases.
 - [ ] Physical TalkBack/VoiceOver and complete accessibility/device audit. Automated contrast, 200% text, tap-target, semantics and overflow checks are implemented and passing.
 
-Unchecked items are not complete merely because tests pass. No development/production database was migrated, reset or deleted. Existing backend migrations were deployed only into fresh test-only PostgreSQL containers, which were retained without stop/down/drop/volume cleanup.
+Unchecked items are not complete merely because tests pass. Development activation on 2026-10-17 applied the one additive recovery migration described above; no financial rows changed. Production was not migrated and no database was reset or deleted. Automated PostgreSQL suites use fresh isolated containers, retained without stop/down/drop/volume cleanup.

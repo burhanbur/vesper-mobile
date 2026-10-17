@@ -55,7 +55,10 @@ The migration registers the review permission without granting it to any role.
 Deployment must apply the migration and explicitly grant that permission to
 trusted operators using the existing authorization management. Code generation
 does not deploy a database. Implementation tests deploy only into fresh isolated
-PostgreSQL containers; no development database migration or seed was executed.
+PostgreSQL containers. Local activation on 2026-10-17 applied this migration to
+development `localhost:5432/vesper` and explicitly granted the dedicated review
+role to the existing administrator `bmafazi`. Before/after checksums confirm all
+11 financial tables were preserved; no seed or real cancellation was executed.
 
 ## Mobile reconciliation
 

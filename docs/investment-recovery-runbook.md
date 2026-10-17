@@ -19,4 +19,6 @@ The legacy `command_sha256` support fingerprint includes the local queue `id` an
 
 Cancellation is implemented by the contract in `investment-terminal-recovery-contract.md`. Deploy backend migration `20261016000000_add_investment_recovery` and explicitly grant the review permission to trusted operators before using it against a live service. Tests apply the migration only to fresh isolated PostgreSQL containers. No permission is granted automatically. Older/unmigrated services cannot approve this recovery and failures retain local financial data.
 
+Local deployment is active as of 2026-10-17 on development `localhost:5432/vesper`. The existing administrator `bmafazi` has the dedicated `INVESTMENT_RECOVERY_REVIEWER` role with only the review permission. All financial tables matched their before-deployment checksums; no real command was reviewed or cancelled during activation. Other environments still require their own migration and explicit operator provisioning.
+
 Applied-trade reversal remains outside the accepted scope. Device reinstall, clearing app data, browser storage reset and manual local rollback are not recovery procedures.
