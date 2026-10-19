@@ -8,6 +8,7 @@ import '../database/transaction_query.dart';
 import '../core/security/local_data_failure.dart';
 import '../features/accounts/models/account.dart';
 import '../features/accounts/models/balance_adjustment.dart';
+import '../features/dashboard/models/dashboard_balance_view.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/categories/models/category.dart';
 import '../features/household/models/category_report.dart';
@@ -1804,9 +1805,32 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int get totalDebt => accounts
-      .where((a) => a.type == AccountType.creditCard)
+      .where((a) => a.isIncludeTotal && a.type == AccountType.creditCard)
       .fold(0, (sum, a) => sum + a.balance.abs());
-  int get totalNetWorth => totalLiquidCash + totalInvestmentValue;
+  int get totalNetWorth => totalLiquidCash + totalInvestmentValue - totalDebt;
+
+  DashboardBalanceView get dashboardBalanceView {
+    final saved = repository?.state['dashboard_balance_view'];
+    return DashboardBalanceView.values.firstWhere(
+      (view) => view.name == saved,
+      orElse: () => DashboardBalanceView.netWorth,
+    );
+  }
+
+  int get dashboardBalance => switch (dashboardBalanceView) {
+    DashboardBalanceView.netWorth => totalNetWorth,
+    DashboardBalanceView.cash => totalLiquidCash,
+    DashboardBalanceView.investments => totalInvestmentValue,
+    DashboardBalanceView.debt => totalDebt,
+  };
+
+  void selectDashboardBalanceView(DashboardBalanceView view) {
+    final repo = repository;
+    if (repo == null || view == dashboardBalanceView) return;
+    repo.atomic(() => repo.state['dashboard_balance_view'] = view.name);
+    _notify();
+  }
+
   int get totalBankBalance => accounts
       .where((a) => a.isIncludeTotal && a.type == AccountType.bank)
       .fold(0, (sum, a) => sum + a.balance);

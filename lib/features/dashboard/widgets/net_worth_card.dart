@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../accounts/pages/accounts_page.dart';
+import '../models/dashboard_balance_view.dart';
 
 class NetWorthCard extends StatelessWidget {
   const NetWorthCard({super.key});
@@ -12,8 +13,8 @@ class NetWorthCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final isHidden = state.isBalanceHidden;
-    final netWorth = state.totalNetWorth;
-    final hasInvestments = state.totalInvestmentValue > 0;
+    final view = state.dashboardBalanceView;
+    final balance = state.dashboardBalance;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -86,14 +87,27 @@ class NetWorthCard extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Flexible(
-                                child: Text(
-                                  'Total Kekayaan Bersih',
-                                  style: TextStyle(
-                                    color: AppColors.sageMuted,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.2,
+                              Flexible(
+                                child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.sageMuted,
+                                    minimumSize: const Size(48, 48),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                  ),
+                                  onPressed: () => _selectView(context, state),
+                                  child: Wrap(
+                                    spacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(view.label),
+                                      const Icon(
+                                        Icons.expand_more_rounded,
+                                        size: 20,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -120,9 +134,7 @@ class NetWorthCard extends StatelessWidget {
                             ],
                           ),
                           Text(
-                            hasInvestments
-                                ? 'Likuid + Investasi'
-                                : 'Hanya aset likuid',
+                            view.description,
                             style: const TextStyle(
                               color: AppColors.sageMuted,
                               fontSize: 11,
@@ -145,7 +157,7 @@ class NetWorthCard extends StatelessWidget {
                           Text(
                             isHidden
                                 ? 'Rp •••••••••'
-                                : CurrencyFormatter.formatRupiah(netWorth),
+                                : CurrencyFormatter.formatRupiah(balance),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 26,
@@ -295,5 +307,66 @@ class NetWorthCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _selectView(BuildContext context, AppState state) async {
+    final selected = await showModalBottomSheet<DashboardBalanceView>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tampilan saldo utama',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Pilih ringkasan untuk dashboard. Pilihan disimpan di perangkat ini.',
+              ),
+              const SizedBox(height: 16),
+              for (final view in DashboardBalanceView.values)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  leading: Icon(view.icon),
+                  title: Text(view.label),
+                  subtitle: Text(view.description),
+                  selected: view == state.dashboardBalanceView,
+                  trailing: view == state.dashboardBalanceView
+                      ? const Icon(
+                          Icons.check_circle_rounded,
+                          color: AppColors.primary,
+                        )
+                      : const Icon(Icons.radio_button_unchecked_rounded),
+                  onTap: () => Navigator.pop(context, view),
+                ),
+              const SizedBox(height: 12),
+              const Text(
+                'Pemasukan dan pengeluaran tetap menunjukkan arus kas bulan berjalan. Utang ditampilkan sebagai jumlah kewajiban.',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected == null || !context.mounted) return;
+    try {
+      state.selectDashboardBalanceView(selected);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilihan belum berhasil disimpan. Silakan coba lagi.'),
+        ),
+      );
+    }
   }
 }
