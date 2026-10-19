@@ -6,7 +6,7 @@ class TransactionCursor {
 
 class TransactionQuery {
   final DateTime? start, end;
-  final String? accountId, type;
+  final String? accountId, type, categoryId;
   final String search, actorId, actorName;
   final int limit;
   final TransactionCursor? after;
@@ -15,6 +15,7 @@ class TransactionQuery {
     this.end,
     this.accountId,
     this.type,
+    this.categoryId,
     this.search = '',
     this.actorId = '',
     this.actorName = '',

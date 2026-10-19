@@ -121,8 +121,8 @@ void main() {
     tester,
   ) async {
     final state = await _pump(tester);
-    expect(find.text('Total Saldo Non-Investasi'), findsOneWidget);
-    expect(find.text('Tidak termasuk nilai investasi'), findsOneWidget);
+    expect(find.text('Total Kekayaan Bersih'), findsOneWidget);
+    expect(find.text('Hanya aset likuid'), findsOneWidget);
     expect(find.text('Total Kekayaan'), findsNothing);
     expect(find.textContaining('% bulan ini'), findsNothing);
     expect(find.byTooltip('Notifikasi'), findsOneWidget);

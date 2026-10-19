@@ -7,6 +7,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/transaction_period.dart';
 import '../../../core/widgets/month_selector.dart';
 import '../../../database/transaction_query.dart';
+import '../../categories/models/category.dart';
 import '../models/transaction.dart';
 import '../widgets/transaction_item_tile.dart';
 
@@ -19,6 +20,7 @@ class TransactionsPage extends StatefulWidget {
 
 class _TransactionsPageState extends State<TransactionsPage> {
   String _selectedFilter = 'Semua'; // Semua, Pemasukan, Pengeluaran, Transfer
+  String? _selectedCategoryId;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchVisible = false;
@@ -49,6 +51,16 @@ class _TransactionsPageState extends State<TransactionsPage> {
       _revision = state.localDataRevision;
       _resetPages();
     }
+    final categoryOptions = switch (_selectedFilter) {
+      'Pemasukan' => state.incomeCategories,
+      'Pengeluaran' => state.expenseCategories,
+      'Transfer' => const <Category>[],
+      _ => state.categories,
+    };
+    final activeCategoryId =
+        categoryOptions.any((c) => c.id == _selectedCategoryId)
+        ? _selectedCategoryId
+        : null;
     final page = state.transactionPage(
       TransactionQuery(
         start: _period.start,
@@ -60,6 +72,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           'Transfer' => 'TRANSFER',
           _ => null,
         },
+        categoryId: activeCategoryId,
         search: _searchQuery,
         actorId: state.currentUserId,
         actorName: state.userName,
@@ -123,6 +136,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           _revision,
           _page,
           _selectedFilter,
+          activeCategoryId,
           _searchQuery,
           _period.start,
         )),
@@ -188,6 +202,47 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     ],
                   ),
                 ),
+
+                // Category Filter Chips
+                if (_selectedFilter != 'Transfer' && categoryOptions.isNotEmpty)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      bottom: 6,
+                    ),
+                    child: Row(
+                      children: [
+                        _buildCategoryChip(
+                          label: 'Semua Kategori',
+                          isSelected: activeCategoryId == null,
+                          onSelected: () {
+                            setState(() {
+                              _selectedCategoryId = null;
+                              _resetPages();
+                            });
+                          },
+                        ),
+                        for (final cat in categoryOptions) ...[
+                          const SizedBox(width: 8),
+                          _buildCategoryChip(
+                            label: cat.name,
+                            icon: cat.icon,
+                            isSelected: activeCategoryId == cat.id,
+                            onSelected: () {
+                              setState(() {
+                                _selectedCategoryId = activeCategoryId == cat.id
+                                    ? null
+                                    : cat.id;
+                                _resetPages();
+                              });
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
 
                 // Month Selector & Monthly Summary Card
                 Padding(
@@ -602,10 +657,47 @@ class _TransactionsPageState extends State<TransactionsPage> {
         if (val) {
           setState(() {
             _selectedFilter = label;
+            _selectedCategoryId = null;
             _resetPages();
           });
         }
       },
+    );
+  }
+
+  Widget _buildCategoryChip({
+    required String label,
+    IconData? icon,
+    required bool isSelected,
+    required VoidCallback onSelected,
+  }) {
+    return ChoiceChip(
+      showCheckmark: false,
+      avatar: icon != null
+          ? Icon(
+              icon,
+              size: 14,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
+            )
+          : null,
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.primary,
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: isSelected
+            ? AppColors.primary
+            : AppColors.border.withValues(alpha: 0.7),
+        width: 1,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+        color: isSelected ? Colors.white : AppColors.textSecondary,
+      ),
+      onSelected: (_) => onSelected(),
     );
   }
 }

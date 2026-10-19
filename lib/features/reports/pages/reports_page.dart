@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
@@ -110,6 +111,12 @@ class _ReportsPageState extends State<ReportsPage> {
     final transactions = state.transactionsInPeriod(_period.start, _period.end);
     final income = _period.total(transactions, TransactionType.income);
     final expense = _period.total(transactions, TransactionType.expense);
+
+    // Previous month for delta comparison
+    final prevPeriod = _period.shift(-1);
+    final prevTx = state.transactionsInPeriod(prevPeriod.start, prevPeriod.end);
+    final prevIncome = prevPeriod.total(prevTx, TransactionType.income);
+    final prevExpense = prevPeriod.total(prevTx, TransactionType.expense);
     final totals = <String, int>{};
     for (final tx in transactions) {
       final type = _selectedTab == 2
@@ -349,122 +356,34 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
             const SizedBox(height: 12),
 
-            // Pemasukan & Pengeluaran Grid Cards
+            // Pemasukan & Pengeluaran Grid Cards with prev-month delta
             Row(
               children: [
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: AppColors.incomeLight,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.arrow_downward_rounded,
-                                size: 14,
-                                color: AppColors.income,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Pemasukan',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          money(income),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.income,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: _SummaryCard(
+                    label: 'Pemasukan',
+                    amount: income,
+                    prevAmount: prevIncome,
+                    icon: Icons.arrow_downward_rounded,
+                    iconBg: AppColors.incomeLight,
+                    iconColor: AppColors.income,
+                    amountColor: AppColors.income,
+                    money: money,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBg,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: AppColors.expenseLight,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.arrow_upward_rounded,
-                                size: 14,
-                                color: AppColors.expense,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Pengeluaran',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          money(expense),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.expense,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: _SummaryCard(
+                    label: 'Pengeluaran',
+                    amount: expense,
+                    prevAmount: prevExpense,
+                    icon: Icons.arrow_upward_rounded,
+                    iconBg: AppColors.expenseLight,
+                    iconColor: AppColors.expense,
+                    amountColor: AppColors.expense,
+                    money: money,
+                    // Higher expense is worse, so invert the delta sentiment
+                    invertDelta: true,
                   ),
                 ),
               ],
@@ -585,6 +504,19 @@ class _ReportsPageState extends State<ReportsPage> {
             ],
           ),
           const SizedBox(height: 12),
+
+          // Donut chart — only shown on Pengeluaran / Pemasukan tabs
+          if (_selectedTab != 0 && sorted.isNotEmpty)
+            _DonutChart(
+              sorted: sorted,
+              breakdownTotal: breakdownTotal,
+              isIncome: _selectedTab == 2,
+              getCategoryColor: _getCategoryColor,
+              isHidden: state.isBalanceHidden,
+            ),
+
+          if (_selectedTab != 0 && sorted.isNotEmpty)
+            const SizedBox(height: 12),
 
           // Empty state or Category Breakdown Cards
           if (sorted.isEmpty)
@@ -786,6 +718,331 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
           ),
           const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final int amount;
+  final int prevAmount;
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final Color amountColor;
+  final String Function(int) money;
+  final bool invertDelta;
+
+  const _SummaryCard({
+    required this.label,
+    required this.amount,
+    required this.prevAmount,
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.amountColor,
+    required this.money,
+    this.invertDelta = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPrev = prevAmount > 0;
+    final delta = hasPrev ? (amount - prevAmount) / prevAmount : 0.0;
+    final isPositiveSentiment = invertDelta ? delta <= 0 : delta >= 0;
+    final deltaLabel = hasPrev
+        ? '${delta >= 0 ? '+' : ''}${(delta * 100).toStringAsFixed(0)}% vs bln lalu'
+        : 'Bln lalu: -';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 14, color: iconColor),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            money(amount),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: amountColor,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            deltaLabel,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: hasPrev
+                  ? (isPositiveSentiment ? AppColors.income : AppColors.expense)
+                  : AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DonutChart extends StatefulWidget {
+  final List<MapEntry<String, int>> sorted;
+  final int breakdownTotal;
+  final bool isIncome;
+  final Color Function(int index, bool isIncome) getCategoryColor;
+  final bool isHidden;
+
+  const _DonutChart({
+    required this.sorted,
+    required this.breakdownTotal,
+    required this.isIncome,
+    required this.getCategoryColor,
+    required this.isHidden,
+  });
+
+  @override
+  State<_DonutChart> createState() => _DonutChartState();
+}
+
+class _DonutChartState extends State<_DonutChart> {
+  int _touchedIndex = -1;
+
+  @override
+  Widget build(BuildContext context) {
+    final sections = <PieChartSectionData>[];
+    final maxSlices = widget.sorted.length > 6 ? 6 : widget.sorted.length;
+    int otherTotal = 0;
+    for (var i = 0; i < widget.sorted.length; i++) {
+      if (i < maxSlices) {
+        final entry = widget.sorted[i];
+        final pct = widget.breakdownTotal > 0
+            ? entry.value / widget.breakdownTotal
+            : 0.0;
+        final isTouched = i == _touchedIndex;
+        sections.add(
+          PieChartSectionData(
+            value: entry.value.toDouble(),
+            color: widget.getCategoryColor(i, widget.isIncome),
+            radius: isTouched ? 56 : 48,
+            title: '${(pct * 100).toStringAsFixed(0)}%',
+            titleStyle: TextStyle(
+              fontSize: isTouched ? 13 : 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
+            ),
+            showTitle: pct >= 0.05,
+          ),
+        );
+      } else {
+        otherTotal += widget.sorted[i].value;
+      }
+    }
+    if (otherTotal > 0) {
+      sections.add(
+        PieChartSectionData(
+          value: otherTotal.toDouble(),
+          color: AppColors.textMuted.withValues(alpha: 0.4),
+          radius: 48,
+          title: 'Lainnya',
+          titleStyle: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+          showTitle: false,
+        ),
+      );
+    }
+
+    final touched = _touchedIndex >= 0 && _touchedIndex < widget.sorted.length
+        ? widget.sorted[_touchedIndex]
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.isIncome ? 'Distribusi Pemasukan' : 'Distribusi Pengeluaran',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: Row(
+              children: [
+                Expanded(
+                  child: PieChart(
+                    PieChartData(
+                      sections: sections,
+                      centerSpaceRadius: 52,
+                      sectionsSpace: 2,
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          setState(() {
+                            if (!event.isInterestedForInteractions ||
+                                response == null ||
+                                response.touchedSection == null) {
+                              _touchedIndex = -1;
+                              return;
+                            }
+                            _touchedIndex =
+                                response.touchedSection!.touchedSectionIndex;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Center label overlay
+                SizedBox(
+                  width: 130,
+                  child: touched != null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              touched.key.isEmpty
+                                  ? 'Tanpa kategori'
+                                  : touched.key,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.isHidden
+                                  ? 'Rp •••••'
+                                  : CurrencyFormatter.formatRupiah(
+                                      touched.value,
+                                    ),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: widget.isIncome
+                                    ? AppColors.income
+                                    : AppColors.expense,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.breakdownTotal > 0
+                                  ? '${(touched.value / widget.breakdownTotal * 100).toStringAsFixed(1)}%'
+                                  : '0%',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: List.generate(
+                            maxSlices > 5 ? 5 : maxSlices,
+                            (i) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: widget.getCategoryColor(
+                                        i,
+                                        widget.isIncome,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      widget.sorted[i].key.isEmpty
+                                          ? 'Tanpa kategori'
+                                          : widget.sorted[i].key,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

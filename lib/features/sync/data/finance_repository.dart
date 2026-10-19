@@ -50,6 +50,10 @@ class FinanceRepository {
             return false;
           }
           if (query.type != null && record['type'] != query.type) return false;
+          if (query.categoryId != null &&
+              record['category_id'] != query.categoryId) {
+            return false;
+          }
           if (search.isNotEmpty) {
             final category =
                 row('categories', '${record['category_id']}')?['name'] ?? '';

@@ -314,6 +314,10 @@ class IndexedStore {
       clauses.add('t.transaction_type=?');
       parameters.add(query.type);
     }
+    if (query.categoryId != null) {
+      clauses.add("json_extract(t.payload,'\$.category_id')=?");
+      parameters.add(query.categoryId);
+    }
     if (query.after != null) {
       final stamp = int.parse(query.after!.microseconds);
       clauses.add('(t.date_us<? OR(t.date_us=? AND t.id>?))');

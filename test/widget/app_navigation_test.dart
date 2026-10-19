@@ -30,7 +30,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Verify Home elements
-    expect(find.text('Total Saldo Non-Investasi'), findsOneWidget);
+    expect(find.text('Total Kekayaan Bersih'), findsOneWidget);
     expect(find.text('Neraca Bulan Berjalan'), findsOneWidget);
 
     // 2. Tap Transaksi Tab

@@ -61,7 +61,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Total Pengeluaran Periode'), findsOneWidget);
-      expect(find.text('Food'), findsOneWidget);
+      expect(find.text('Food'), findsNWidgets(2));
       expect(find.text('Rp 123'), findsNWidgets(2));
       expect(find.text('Rincian Kategori Pengeluaran'), findsOneWidget);
       expect(find.text('Surplus / Neraca Periode'), findsNothing);
@@ -72,7 +72,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Total Pemasukan Periode'), findsOneWidget);
-      expect(find.text('Salary'), findsOneWidget);
+      expect(find.text('Salary'), findsNWidgets(2));
       expect(find.text('Rp 456'), findsNWidgets(2));
       expect(find.text('Food'), findsNothing);
       expect(find.text('Rp 999'), findsNothing);
