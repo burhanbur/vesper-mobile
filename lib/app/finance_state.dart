@@ -20,6 +20,8 @@ import '../features/household/models/category_report.dart';
 import '../features/household/models/group_category.dart';
 import '../features/household/models/household.dart';
 import '../features/investments/models/investment.dart';
+import '../features/investments/data/investment_lifecycle_repository.dart';
+import '../features/obligations/data/obligations_repository.dart';
 import '../features/notifications/models/notification_item.dart';
 import '../features/reports/models/budget.dart';
 import '../features/sync/data/finance_repository.dart';
@@ -2014,7 +2016,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   int get totalLiquidCash => accounts
-      .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+      .where(
+        (a) =>
+            a.isIncludeTotal &&
+            a.isCashBankOrWallet &&
+            !(repository?.isMappedObligationAccount(a.id) ?? false),
+      )
       .fold(0, (sum, a) => sum + a.balance);
   int get totalInvestmentValue {
     final fromHoldings = investments.fold(
@@ -2027,10 +2034,89 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         .fold(0, (sum, a) => sum + a.balance);
   }
 
-  int get totalDebt => accounts
-      .where((a) => a.isIncludeTotal && a.type == AccountType.creditCard)
-      .fold(0, (sum, a) => sum + a.balance.abs());
-  int get totalNetWorth => totalLiquidCash + totalInvestmentValue - totalDebt;
+  int get totalDebt {
+    final repo = repository;
+    if (repo == null || !repo.hasObligationModel) {
+      return accounts
+          .where((a) => a.isIncludeTotal && a.type == AccountType.creditCard)
+          .fold(0, (sum, a) => sum + a.balance.abs());
+    }
+    var minor = BigInt.zero;
+    for (final account in repo.rows('accounts')) {
+      if (account['user_id'] != repo.userId ||
+          account['deleted_at'] != null ||
+          account['currency'] != 'IDR' ||
+          account['is_include_total'] == false ||
+          repo.isMappedObligationAccount('${account['id']}') ||
+          repo
+              .rows('accounts')
+              .any(
+                (r) =>
+                    r['parent_account_id'] == account['id'] &&
+                    r['deleted_at'] == null,
+              )) {
+        continue;
+      }
+      final balance = obligationMinor('${account['balance']}', signed: true);
+      if (balance.isNegative) minor -= balance;
+    }
+    for (final debt in ObligationsRepository(
+      repo,
+    ).records.where((r) => r['kind'] == 'PAYABLE')) {
+      final linked = debt['linked_account_id'] as String?;
+      if (linked != null &&
+          repo.row('accounts', linked)?['is_include_total'] == false) {
+        continue;
+      }
+      minor += obligationMinor('${debt['outstanding']}');
+    }
+    return (minor ~/ BigInt.from(100)).toInt();
+  }
+
+  int get totalNetWorth {
+    final repo = repository;
+    if (repo == null || !repo.hasObligationModel) {
+      return totalLiquidCash + totalInvestmentValue - totalDebt;
+    }
+    var minor = BigInt.zero;
+    for (final account in repo.rows('accounts')) {
+      final id = account['id'] as String;
+      if (account['user_id'] != repo.userId ||
+          account['deleted_at'] != null ||
+          account['currency'] != 'IDR' ||
+          account['is_include_total'] == false ||
+          repo.isMappedObligationAccount(id) ||
+          repo
+              .rows('accounts')
+              .any(
+                (r) => r['parent_account_id'] == id && r['deleted_at'] == null,
+              )) {
+        continue;
+      }
+      minor += obligationMinor('${account['balance']}', signed: true);
+    }
+    for (final debt in ObligationsRepository(repo).records) {
+      final linkedId = debt['linked_account_id'] as String?;
+      if (linkedId != null &&
+          repo.row('accounts', linkedId)?['is_include_total'] == false) {
+        continue;
+      }
+      final amount = obligationMinor('${debt['outstanding']}');
+      minor += debt['kind'] == 'PAYABLE' ? -amount : amount;
+    }
+    try {
+      final value = InvestmentLifecycleRepository(repo).overview().marketValue;
+      if (value != null) minor += obligationMinor(value);
+    } catch (_) {
+      /* Dashboard remains explicitly labelled a partial local estimate. */
+    }
+    return (minor ~/ BigInt.from(100)).toInt(); // Whole-Rupiah display only.
+  }
+
+  void obligationSaved() {
+    _notify();
+    requestAutomaticSync();
+  }
 
   DashboardBalanceView get dashboardBalanceView {
     final saved = repository?.state['dashboard_balance_view'];

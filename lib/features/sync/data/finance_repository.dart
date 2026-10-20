@@ -167,6 +167,86 @@ class FinanceRepository {
   bool get supportsInvestmentTradeCommands => true;
 
   bool get hasUnresolvedInvestmentTrade => outbox.any(_isTrade);
+  bool _isObligation(dynamic item) =>
+      item['entity_type'] == 'obligation_commands';
+  bool get hasObligationModel {
+    final coverage = state['obligation_history_coverage'];
+    return coverage is Map &&
+        coverage['schema'] == 1 &&
+        coverage['user_id'] == userId;
+  }
+
+  bool get hasCompleteObligationHistory {
+    final coverage = state['obligation_history_coverage'];
+    return coverage is Map &&
+        coverage['schema'] == 1 &&
+        coverage['user_id'] == userId &&
+        coverage['complete'] == true &&
+        coverage['cursor'] == state['cursor'];
+  }
+
+  bool isMappedObligationAccount(String id) => rows('obligations').any(
+    (r) =>
+        r['user_id'] == userId &&
+        r['deleted_at'] == null &&
+        r['linked_account_id'] == id,
+  );
+
+  void requireObligationReady() {
+    if (!hasCompleteObligationHistory ||
+        isSyncing ||
+        outbox.any((e) => _isTrade(e) || _isObligation(e))) {
+      throw const ApiFailure(
+        'Selesaikan sinkronisasi awal dan rekonsiliasi perintah keuangan sebelumnya.',
+      );
+    }
+  }
+
+  void commitObligationCommand(
+    String id,
+    Map<String, dynamic> payload,
+    Map<String, Map<String, dynamic>?> changes,
+  ) {
+    requireObligationReady();
+    atomic(() {
+      outbox.add({
+        'id': const Uuid().v4(),
+        'entity_id': id,
+        'entity_type': 'obligation_commands',
+        'operation': 'CREATE',
+        'client_version': '0',
+        'payload': payload,
+        'status': 'pending',
+        'attempts': 0,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'required_snapshots': changes.keys.toList(),
+      });
+      for (final entry in changes.entries) {
+        final split = entry.key.indexOf(':');
+        _put(
+          entry.key.substring(0, split),
+          entry.key.substring(split + 1),
+          entry.value,
+        );
+      }
+    });
+  }
+
+  void retryObligationCommand(String queueId, {bool cancel = false}) {
+    if (isSyncing) throw const ApiFailure('Tunggu sinkronisasi selesai.');
+    final item = outbox
+        .where((e) => e['id'] == queueId && _isObligation(e))
+        .firstOrNull;
+    if (item == null ||
+        !['pending', 'rejected', 'conflict'].contains(item['status'])) {
+      throw const ApiFailure('Perintah tidak tersedia.');
+    }
+    atomic(() {
+      if (cancel) item['cancellation_requested'] = true;
+      item['status'] = 'pending';
+      item.remove('error');
+    });
+  }
 
   List<Map<String, dynamic>> get pendingInvestmentCatalog =>
       (state['investment_catalog_queue'] as List? ?? [])
@@ -529,6 +609,25 @@ class FinanceRepository {
       item['entity_type'] == 'investment_transactions';
 
   bool _tradeTouches(String type, String id) => outbox.any((item) {
+    if (_isObligation(item)) {
+      final keys = item['required_snapshots'] as List;
+      if (keys.contains('$type:$id')) return true;
+      if (type == 'account_types') {
+        return keys
+            .whereType<String>()
+            .where((k) => k.startsWith('accounts:'))
+            .any(
+              (k) => row('accounts', k.substring(9))?['account_type_id'] == id,
+            );
+      }
+      if (type == 'categories') {
+        return [
+          item['payload']['interest_category_id'],
+          item['payload']['fee_category_id'],
+        ].contains(id);
+      }
+      return false;
+    }
     if (!_isTrade(item)) return false;
     final p = item['payload'] as Map;
     return (type == 'accounts' &&
@@ -555,7 +654,8 @@ class FinanceRepository {
         type != null &&
         type['user_id'] == userId &&
         type['deleted_at'] == null &&
-        type['category'] == category;
+        type['category'] == category &&
+        !isMappedObligationAccount(id);
   }
 
   InvestmentTradeCommand previewInvestmentTrade({
@@ -577,6 +677,7 @@ class FinanceRepository {
         instrument['currency'] != 'IDR' ||
         instrument['pending_catalog'] == true ||
         isSyncing ||
+        outbox.any(_isObligation) ||
         outbox.any((e) {
           final p = e['payload'] as Map?;
           return _isTrade(e) ||
@@ -740,6 +841,22 @@ class FinanceRepository {
     }
     for (final item
         in outbox
+            .where((e) => _isObligation(e) && e['status'] == 'acknowledged')
+            .toList()) {
+      final keys = (item['required_snapshots'] as List).cast<String>();
+      if (snapshots == null || !keys.every(snapshots.containsKey)) continue;
+      for (final key in snapshots.keys.toList()) {
+        final snapshot = snapshots.remove(key) as Map;
+        _put(
+          snapshot['type'] as String,
+          snapshot['id'] as String,
+          snapshot['payload'],
+        );
+      }
+      outbox.remove(item);
+    }
+    for (final item
+        in outbox
             .where((e) => _isTrade(e) && e['status'] == 'acknowledged')
             .toList()) {
       final p = item['payload'] as Map;
@@ -813,6 +930,26 @@ class FinanceRepository {
   }) {
     final entityId = id ?? const Uuid().v4();
     final old = row(type, entityId);
+    if ([
+          'obligations',
+          'obligation_events',
+          'obligation_commands',
+        ].contains(type) ||
+        (type == 'transactions' && old?['is_obligation_settlement'] == true) ||
+        (type == 'accounts' &&
+            (isMappedObligationAccount(entityId) ||
+                isMappedObligationAccount(
+                  '${payload?['parent_account_id']}',
+                ))) ||
+        (type == 'transactions' &&
+            [
+              old?['account_id'],
+              payload?['account_id'],
+            ].whereType<String>().any(isMappedObligationAccount))) {
+      throw const ApiFailure(
+        'Gunakan modul Utang / Piutang untuk penyelesaian ini.',
+      );
+    }
     if (_tradeTouches(type, entityId) ||
         (type == 'transactions' &&
             [payload?['account_id'], old?['account_id']].any(
@@ -913,6 +1050,12 @@ class FinanceRepository {
     final from = row('accounts', fromAccountId);
     final to = row('accounts', toAccountId);
     final note = description?.trim();
+    if (isMappedObligationAccount(fromAccountId) ||
+        isMappedObligationAccount(toAccountId)) {
+      throw const ApiFailure(
+        'Akun terikat pinjaman; gunakan modul Utang / Piutang.',
+      );
+    }
     if (_tradeTouches('accounts', fromAccountId) ||
         _tradeTouches('accounts', toAccountId) ||
         fromAccountId == toAccountId ||
@@ -1162,13 +1305,20 @@ class FinanceRepository {
     atomic(() {
       if (outbox.any(
         (e) =>
-            _isTrade(e) &&
+            (_isTrade(e) || _isObligation(e)) &&
             ['acknowledged', 'cancellation_approved'].contains(e['status']),
       )) {
         state['cursor'] = '0';
         state.remove('investment_command_snapshots');
       }
       final coverage = state['investment_history_coverage'];
+      final debtCoverage = state['obligation_history_coverage'];
+      if (debtCoverage is! Map ||
+          debtCoverage['schema'] != 1 ||
+          debtCoverage['user_id'] != userId ||
+          debtCoverage['cursor'] != state['cursor']) {
+        state['cursor'] = '0';
+      }
       // Legacy cursors do not prove the investment feed was ever bootstrapped.
       if (coverage is! Map ||
           coverage['schema'] != 1 ||
@@ -1177,6 +1327,12 @@ class FinanceRepository {
         state['cursor'] = '0';
       }
       state['investment_history_coverage'] = {
+        'schema': 1,
+        'user_id': userId,
+        'complete': false,
+        'cursor': state['cursor'],
+      };
+      state['obligation_history_coverage'] = {
         'schema': 1,
         'user_id': userId,
         'complete': false,
@@ -1276,7 +1432,10 @@ class FinanceRepository {
             'items': pending
                 .map(
                   (e) => {
-                    'entity_type': e['entity_type'],
+                    'entity_type':
+                        _isObligation(e) && e['cancellation_requested'] == true
+                        ? 'obligation_cancellations'
+                        : e['entity_type'],
                     'entity_id': e['entity_id'],
                     'operation': e['operation'],
                     'payload': e['payload'],
@@ -1308,14 +1467,16 @@ class FinanceRepository {
           final item = pending[index] as Map;
           if ((result['entity_id'] != null &&
                   result['entity_id'] != item['entity_id']) ||
-              ((item['entity_type'] == 'transfers' || _isTrade(item)) &&
+              ((item['entity_type'] == 'transfers' ||
+                      _isTrade(item) ||
+                      _isObligation(item)) &&
                   result['entity_id'] != item['entity_id'])) {
             throw const ApiFailure(
               'Identitas respons sinkronisasi tidak valid.',
             );
           }
           if (result['status'] == 'applied') {
-            if (_isTrade(item)) {
+            if (_isTrade(item) || _isObligation(item)) {
               item['status'] = 'acknowledged';
               // Discard pre-ack staging; only a fresh complete replay can settle.
               state.remove('investment_command_snapshots');
@@ -1449,6 +1610,12 @@ class FinanceRepository {
           'complete': !more,
           'cursor': next,
         };
+        state['obligation_history_coverage'] = {
+          'schema': 1,
+          'user_id': userId,
+          'complete': !more,
+          'cursor': next,
+        };
       });
       onProgress?.call();
       if (!more) break;
@@ -1457,7 +1624,9 @@ class FinanceRepository {
 
   void resolve(String queueId, {required bool useMine}) {
     final item = outbox.firstWhere((e) => e['id'] == queueId) as Map;
-    if (item['entity_type'] == 'transfers' || _isTrade(item)) {
+    if (item['entity_type'] == 'transfers' ||
+        _isTrade(item) ||
+        _isObligation(item)) {
       throw const ApiFailure(
         'Konflik transfer/investasi memerlukan pemeriksaan server; perintah asli tetap disimpan.',
       );

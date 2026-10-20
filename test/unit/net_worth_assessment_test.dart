@@ -46,6 +46,46 @@ Map<String, dynamic> snapshot() => {
 };
 
 void main() {
+  Map<String, dynamic> complete() => {
+    ...snapshot(),
+    'status': 'complete',
+    'known_assets': '1000.00',
+    'known_balance_liabilities': '0.00',
+    'known_net_worth': '940.00',
+    'net_worth': '940.00',
+    'obligation_liabilities': '60.00',
+    'receivables_value': '40.00',
+    'cash_balance': '960.00',
+    'investment_cash_balance': '0.00',
+    'holdings_value': '0.00',
+    'holdings': [],
+    'missing_components': ['attribution_unavailable'],
+  };
+  test(
+    'WM06 complete assessment includes debt and receivables with exact totals',
+    () {
+      final model = NetWorthAssessment.fromJson(complete());
+      expect(model.complete, true);
+      expect(model.amounts['net_worth'], '940.00');
+      expect(model.amounts['obligation_liabilities'], '60.00');
+      expect(model.amounts['receivables_value'], '40.00');
+    },
+  );
+  test('complete status cannot hide missing components or inconsistent financial totals', () {
+    for (final fields in [
+      {'net_worth': '940.01'},
+      {'receivables_value': null},
+      {
+        'missing_components': ['liabilities_unmodeled'],
+      },
+      {'holdings': snapshot()['holdings']},
+    ]) {
+      expect(
+        () => NetWorthAssessment.fromJson({...complete(), ...fields}),
+        throwsA(isA<ApiFailure>()),
+      );
+    }
+  });
   test(
     'captured history preserves original observation and partial amounts',
     () {

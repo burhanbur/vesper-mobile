@@ -8,6 +8,7 @@ import '../../accounts/pages/accounts_page.dart';
 import '../../categories/pages/categories_page.dart';
 import '../../household/pages/household_page.dart';
 import '../../investments/pages/portfolio_page.dart';
+import '../../obligations/pages/obligations_page.dart';
 import '../../notifications/widgets/notifications_sheet.dart';
 import '../../offline/widgets/offline_mode_sheet.dart';
 import '../../reports/pages/budget_page.dart';
@@ -317,6 +318,20 @@ class SettingsPage extends StatelessWidget {
                           ),
                         );
                       },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.handshake_outlined),
+                      title: const Text('Utang & Piutang'),
+                      subtitle: const Text(
+                        'Pokok, cicilan, bunga dan pelunasan',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const ObligationsPage(),
+                        ),
+                      ),
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(

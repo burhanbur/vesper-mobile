@@ -8,6 +8,7 @@ class NetWorthAssessment {
   bool get isHistoricalObservation =>
       balanceBasis == 'captured_recorded_ledger';
   final bool unavailable;
+  bool get complete => amounts['net_worth'] != null;
   final Map<String, String?> amounts;
   final List<String> missingComponents;
   final List<NetWorthHolding> holdings;
@@ -28,7 +29,7 @@ class NetWorthAssessment {
     if (value is! Map<String, dynamic> ||
         value['scope'] != 'owner' ||
         value['currency'] != 'IDR' ||
-        !['partial', 'unavailable'].contains(value['status']) ||
+        !['complete', 'partial', 'unavailable'].contains(value['status']) ||
         value['attribution'] != 'unavailable' ||
         !(value['status'] == 'unavailable'
             ? value['balance_basis'] == 'unavailable'
@@ -60,8 +61,12 @@ class NetWorthAssessment {
       if (!value.containsKey(key)) throw invalidNetWorth();
       amounts[key] = netWorthMoney(value[key]);
     }
-    // This partial contract must never imply a complete net worth.
-    if (amounts['net_worth'] != null ||
+    for (final key in ['obligation_liabilities', 'receivables_value']) {
+      amounts[key] = netWorthMoney(value[key]);
+    }
+    if ((value['status'] != 'complete' && amounts['net_worth'] != null) ||
+        (value['status'] == 'complete' &&
+            amounts.values.any((v) => v == null)) ||
         (value['status'] == 'unavailable' &&
             amounts.values.any((v) => v != null))) {
       throw invalidNetWorth();
@@ -76,6 +81,22 @@ class NetWorthAssessment {
         excluded < 0) {
       throw invalidNetWorth();
     }
+    final holdings = rows.map(NetWorthHolding.fromJson).toList();
+    if (value['status'] == 'complete') {
+      BigInt cents(String key) =>
+          BigInt.parse(amounts[key]!.replaceAll('.', ''));
+      if (missing.any((v) => v != 'attribution_unavailable') ||
+          holdings.any(
+            (h) => h.marketValue == null || h.unavailableReason != null,
+          ) ||
+          cents('known_assets') -
+                  cents('known_balance_liabilities') -
+                  cents('obligation_liabilities') !=
+              cents('net_worth') ||
+          amounts['net_worth'] != amounts['known_net_worth']) {
+        throw invalidNetWorth();
+      }
+    }
     return NetWorthAssessment._(
       date,
       observed,
@@ -83,7 +104,7 @@ class NetWorthAssessment {
       value['status'] == 'unavailable',
       Map.unmodifiable(amounts),
       List<String>.unmodifiable(missing),
-      List.unmodifiable(rows.map(NetWorthHolding.fromJson)),
+      List.unmodifiable(holdings),
       excluded,
     );
   }

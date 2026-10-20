@@ -5,6 +5,7 @@
             "name": "vesper_mobile",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
             "toolArgs": [
                 "--dart-define-from-file=env/development.json"
             ]
@@ -13,6 +14,7 @@
             "name": "vesper_mobile (Android emulator)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
             "toolArgs": [
                 "--dart-define-from-file=env/development.json"
             ]
@@ -21,6 +23,7 @@
             "name": "vesper_mobile (Web)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
             "toolArgs": [
                 "--dart-define-from-file=env/web.json"
             ]
@@ -29,12 +32,14 @@
             "name": "vesper_mobile (profile mode)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
             "flutterMode": "profile"
         },
         {
             "name": "vesper_mobile (release mode)",
             "request": "launch",
             "type": "dart",
+            "program": "lib/main.dart",
             "flutterMode": "release"
         }
     ]

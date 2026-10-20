@@ -1,3 +1,5 @@
+import '../../obligations/pages/obligations_page.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
@@ -100,9 +102,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
   bool get _isEditing => widget.transactionToEdit != null;
 
-  // Utang / Piutang Shortcut toggle per PRD 4.5
-  bool _isDebtShortcut = false;
-  bool _isDebtPayable = true; // true: Gw ngutang, false: Gw ngutangin
   bool _isSaving = false;
 
   @override
@@ -230,24 +229,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         categoryName: _selectedCategory,
         note: _noteController.text.trim(),
         date: _selectedDate,
-      );
-    } else if (_isDebtShortcut) {
-      // Shortcut "Catat Utang / Piutang" per PRD 4.5:
-      // "Gw ngutang" -> transfer(from=Kas/Dompet, to=Hutang / Kas Masuk)
-      state.addTransaction(
-        type: TransactionType.transfer,
-        amount: amount,
-        accountId: accountId,
-        toAccountId: _selectedToAccountId ?? state.selectableAccounts.last.id,
-        categoryName: _isDebtPayable
-            ? 'Catat Utang (Kewajiban)'
-            : 'Catat Piutang',
-        note: _noteController.text.trim().isNotEmpty
-            ? _noteController.text.trim()
-            : (_isDebtPayable ? 'Pinjaman / Utang' : 'Piutang ke pihak lain'),
-        date: _selectedDate,
-        isDebt: _isDebtPayable,
-        isReceivable: !_isDebtPayable,
       );
     } else if (_selectedType == TransactionType.transfer) {
       final toAccountId =
@@ -501,102 +482,16 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                         ),
                       ),
 
-                    // Shortcut Catat Utang / Piutang per PRD 4.5
-                    if (_selectedType == TransactionType.transfer) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.handshake_outlined,
-                                  size: 16,
-                                  color: AppColors.accentDark,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isDebtShortcut
-                                      ? 'Mode Catat Utang / Piutang'
-                                      : 'Shortcut Utang / Piutang',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.accentDark,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Switch(
-                              value: _isDebtShortcut,
-                              activeThumbColor: AppColors.primary,
-                              onChanged: (val) =>
-                                  setState(() => _isDebtShortcut = val),
-                            ),
-                          ],
+                    if (_selectedType == TransactionType.transfer)
+                      TextButton.icon(
+                        icon: const Icon(Icons.handshake_outlined),
+                        label: const Text('Catat Utang / Piutang & cicilan'),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => const ObligationsPage(),
+                          ),
                         ),
                       ),
-                      if (_isDebtShortcut) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ChoiceChip(
-                                label: const Center(
-                                  child: Text('Gw Ngutang (Kewajiban)'),
-                                ),
-                                selected: _isDebtPayable,
-                                selectedColor: AppColors.warning,
-                                labelStyle: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: _isDebtPayable
-                                      ? Colors.white
-                                      : AppColors.textPrimary,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setState(() => _isDebtPayable = true);
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ChoiceChip(
-                                label: const Center(
-                                  child: Text('Gw Ngutangin (Piutang)'),
-                                ),
-                                selected: !_isDebtPayable,
-                                selectedColor: AppColors.income,
-                                labelStyle: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: !_isDebtPayable
-                                      ? Colors.white
-                                      : AppColors.textPrimary,
-                                ),
-                                onSelected: (val) {
-                                  if (val) {
-                                    setState(() => _isDebtPayable = false);
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-
                     const SizedBox(height: 18),
 
                     // Nominal Input

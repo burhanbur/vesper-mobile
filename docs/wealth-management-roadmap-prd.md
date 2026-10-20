@@ -2,9 +2,9 @@
 
 - Created: 2026-10-20
 - Scope: Vesper mobile and backend
-- Document status: IN PROGRESS — WM-01–WM-05 DONE; Phase 2 partially complete
+- Document status: IN PROGRESS — WM-01–WM-06 DONE; Phase 2 partially complete
 - Current implementation task: None
-- Next task: WM-06 — Debt, receivables, and installments
+- Next task: WM-07 — Financial export and reconciliation
 - Product direction: Evolve household financial tracking into trustworthy wealth planning.
 
 ## 1. Purpose
@@ -150,7 +150,10 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 
 #### WM-06 — Debt, receivables, and installments
 
-- Status: TODO
+- Status: DONE
+- Completed: 2026-10-20. Marked complete at the user’s explicit direction; remaining validation waived, with existing evidence and limitations retained below.
+- Implementation policy: IDR decimal(20,2), exact cents; private owner obligations with explicit PAYABLE/RECEIVABLE kind. New funding settles signed principal as a protected TRANSFER; existing opening balances may be imported without moving cash. Optional legacy account mapping requires a matching signed, owner-owned leaf IDR balance and replaces that account in net worth; principal repayments update both the mapped account and settlement cash. Interest and fees use separate categorized ledger rows. Installment dates/principal are explicit, without assumed interest or automatic payments. Corrections reverse a repayment atomically and preserve audit history; deletion voids an untouched opening or archives a fully paid record, never silently erases partial repayment. Immutable client UUID commands, optimistic version conflicts, complete authoritative pull reconciliation, and durable pending/rejected feedback follow existing financial command patterns.
+- Mobile entry precision: the existing account/transaction presentation supports whole Rupiah only. WM-06 forms therefore accept whole IDR principal/interest/fees and whole-IDR settlement accounts; they reject fractional entry instead of rounding or crashing older views. Backend contracts and local arithmetic retain decimal(20,2) for lossless sync. General fractional-IDR presentation remains a separate compatibility limitation, not a silently changed money model.
 - Scope: Mobile + backend
 - Dependencies: Phase 1
 - Acceptance criteria:
@@ -316,3 +319,5 @@ Append an entry on task completion or a material scope/status change.
 | 2026-10-20 | WM-05 | DONE | Delivered local-first instrument creation/manual quotes, search, dividend CREATE commands through existing atomic sync/replay/recovery, accessible account-filtered trade history and exact owner cross-account capital/proceeds/realized/unrealized/dividend summary. Missing valuations remain null, dated manual/cache and pending values are labelled, cash settlement is excluded from holdings, and purchase fees are reported separately. Financial corrections and global quote last-accepted-write policy documented in `investment-lifecycle.md` in both repositories. Validation: final Flutter analyze clean and full suite 362 passed; Android emulator integration 1 passed with synthetic data; backend lint/typecheck, 268 tests, build and OpenAPI passed; isolated PostgreSQL 36 passed (7 files). Full validate attempted: format gate reports existing violations in `package.json`, `src/infrastructure/storage/file-storage.ts`, `src/infrastructure/storage/local-file-storage.ts`, `src/modules/net-worth/net-worth.repository.ts`, `src/modules/net-worth/net-worth.service.ts`, `tests/integration/net-worth.integration.test.ts`, `tests/unit/budget-progress.test.ts`; WM-05 files pass formatting and all subsequent gates passed separately. Both repositories pass diff whitespace checks. No persistent data reset or new migration; test infrastructure is isolated. Backend deployment remains the normal rollout step; no real-account device/server audit claimed. |
 
 Completion entry template: date; task ID; status; acceptance criteria met; changed paths; checks and results; remaining limitations or explicitly deferred scope.
+
+| 2026-10-20 | WM-06 | DONE | Implementation delivered for obligations, repayments, reversals, installments, atomic offline sync/recovery, and loan-aware net worth. Completed at explicit user direction on 2026-10-20; remaining validation waived by the user, with no further tests run. Flutter full suite: 381 passed; last analyze clean. Backend: 281 unit/HTTP tests and 46 isolated PostgreSQL integration tests passed before final sync batching/auth edits. Final lint optional-chain finding corrected, but lint/typecheck/build/OpenAPI still require rerun on final code. Device check unavailable: emulator disconnected. Additive migration 20261020160000_obligations was validated only on isolated PostgreSQL and is not applied to development data. Final gates were not rerun; DONE records user-directed acceptance, not additional verification. Black-screen launch target corrected in .vscode/launch.json. |

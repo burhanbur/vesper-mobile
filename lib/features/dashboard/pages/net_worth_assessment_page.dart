@@ -144,8 +144,10 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
               'Komponen belum tersedia: ${data.missingComponents.join(', ')}',
             ),
             Text('Akun dikecualikan: ${data.excludedAccountCount}'),
-            const Text(
-              'Utang dan piutang lengkap belum tersedia hingga WM06. Subtotal aset dikurangi kewajiban saldo negatif tetap parsial. Atribusi kontribusi versus perubahan pasar belum tersedia.',
+            Text(
+              data.complete
+                  ? 'Mencakup aset dan kewajiban yang tercatat. Data yang belum dicatat dan atribusi kontribusi versus perubahan pasar tidak tercakup.'
+                  : 'Observasi ini masih parsial. Periksa komponen belum tersedia; observasi lama tidak ditulis ulang setelah penambahan utang/piutang.',
             ),
             if (data.unavailable)
               const Text(
@@ -153,6 +155,12 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
               )
             else ...[
               Text('Subtotal diketahui: ${money('known_net_worth')}'),
+              if (data.complete)
+                Text('Net worth tercatat: ${money('net_worth')}'),
+              if (data.amounts['obligation_liabilities'] != null)
+                Text('Sisa utang: ${money('obligation_liabilities')}'),
+              if (data.amounts['receivables_value'] != null)
+                Text('Sisa piutang: ${money('receivables_value')}'),
               Text('Aset diketahui: ${money('known_assets')}'),
               Text(
                 'Kewajiban saldo negatif: ${money('known_balance_liabilities')}',
@@ -160,8 +168,10 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
               Text('Kas: ${money('cash_balance')}'),
               Text('Kas akun investasi: ${money('investment_cash_balance')}'),
               Text('Nilai holdings: ${money('holdings_value')}'),
-              const Text(
-                'Subtotal bukan net worth lengkap. Harga lama tetap masuk subtotal; posisi tanpa harga tidak dinilai nol.',
+              Text(
+                data.complete
+                    ? 'Harga manual bertanggal tetap digunakan; periksa penanda harga usang.'
+                    : 'Subtotal bukan net worth lengkap. Harga lama tetap masuk subtotal; posisi tanpa harga tidak dinilai nol.',
               ),
               for (final row in data.holdings)
                 ListTile(

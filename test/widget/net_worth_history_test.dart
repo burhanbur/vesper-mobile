@@ -62,7 +62,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Observasi historis pertama'), findsOneWidget);
       expect(find.textContaining('2026-10-20T12:00:00Z'), findsOneWidget);
-      expect(find.textContaining('WM06'), findsOneWidget);
+      expect(
+        find.textContaining('Observasi ini masih parsial'),
+        findsOneWidget,
+      );
       expect(find.textContaining('9007199254740993.01'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('old'), 200);
       expect(find.textContaining('USANG'), findsOneWidget);
