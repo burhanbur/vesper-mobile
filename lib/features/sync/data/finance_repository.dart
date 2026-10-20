@@ -168,6 +168,181 @@ class FinanceRepository {
 
   bool get hasUnresolvedInvestmentTrade => outbox.any(_isTrade);
 
+  List<Map<String, dynamic>> get pendingInvestmentCatalog =>
+      (state['investment_catalog_queue'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+  String saveInstrumentLocal({
+    required String code,
+    required String name,
+    required String type,
+  }) {
+    if (!RegExp(r'^[A-Z0-9][A-Z0-9._-]{0,119}$').hasMatch(code) ||
+        name.trim().isEmpty ||
+        name.trim().length > 255 ||
+        ![
+          'STOCK',
+          'MUTUAL_FUND',
+          'CRYPTO',
+          'BOND',
+          'GOLD',
+          'OTHER',
+        ].contains(type)) {
+      throw const ApiFailure('Kode, nama, atau jenis instrumen tidak valid.');
+    }
+    if (rows('instruments').any((r) => r['code'] == code)) {
+      throw const ApiFailure('Kode instrumen sudah tersedia.');
+    }
+    final id = const Uuid().v4();
+    final payload = {
+      'id': id,
+      'code': code,
+      'name': name.trim(),
+      'type': type,
+      'currency': 'IDR',
+    };
+    atomic(() {
+      _put('instruments', id, {...payload, 'pending_catalog': true});
+      state['investment_catalog_queue'] = [
+        ...pendingInvestmentCatalog,
+        {'id': id, 'path': '/instruments', 'payload': payload},
+      ];
+    });
+    return id;
+  }
+
+  void saveInvestmentPriceLocal(
+    String instrumentId,
+    String date,
+    String price,
+  ) {
+    final at = DateTime.tryParse(date);
+    final match = RegExp(r'^(0|[1-9]\d{0,11})(\.\d{1,8})?$').firstMatch(price);
+    if (row('instruments', instrumentId)?['currency'] != 'IDR' ||
+        row('instruments', instrumentId)?['deleted_at'] != null ||
+        !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date) ||
+        at == null ||
+        at.year < 1 ||
+        at.toIso8601String().substring(0, 10) != date ||
+        date.compareTo(
+              DateTime.now().toUtc().toIso8601String().substring(0, 10),
+            ) >
+            0 ||
+        match == null ||
+        match.end != price.length ||
+        !RegExp('[1-9]').hasMatch(price)) {
+      throw const ApiFailure('Instrumen, tanggal UTC, atau harga tidak valid.');
+    }
+    if (pendingInvestmentCatalog.any(
+      (r) =>
+          r['path'] == '/instrument-prices' &&
+          r['payload']['instrument_id'] == instrumentId &&
+          r['payload']['price_date'] == date,
+    )) {
+      throw const ApiFailure('Harga tanggal ini masih menunggu sinkronisasi.');
+    }
+    final id = const Uuid().v4();
+    final payload = {
+      'instrument_id': instrumentId,
+      'price_date': date,
+      'close_price': price,
+      'source': 'MANUAL',
+    };
+    atomic(() {
+      _put('instrument_prices', '$instrumentId:$date', {
+        ...payload,
+        'id': id,
+        'pending_catalog': true,
+      });
+      state['investment_catalog_queue'] = [
+        ...pendingInvestmentCatalog,
+        {'id': id, 'path': '/instrument-prices', 'payload': payload},
+      ];
+    });
+  }
+
+  /// Stops local catalog delivery only; an earlier response may have been lost.
+  /// Re-fetch the global catalog afterwards rather than claiming a server undo.
+  void discardInvestmentCatalog(String queueId) {
+    if (isSyncing) {
+      throw const ApiFailure('Tunggu hingga sinkronisasi selesai.');
+    }
+    final item = pendingInvestmentCatalog
+        .where((r) => r['id'] == queueId)
+        .firstOrNull;
+    if (item == null) return;
+    final instrument = item['path'] == '/instruments';
+    final removed = pendingInvestmentCatalog
+        .where(
+          (r) =>
+              r['id'] == queueId ||
+              (instrument && r['payload']['instrument_id'] == queueId),
+        )
+        .toList();
+    atomic(() {
+      for (final entry in removed) {
+        if (entry['path'] == '/instruments') {
+          _put('instruments', entry['id'] as String, null);
+        } else {
+          final p = entry['payload'] as Map;
+          // Removing a speculative quote makes its value unavailable until refresh.
+          _put(
+            'instrument_prices',
+            '${p['instrument_id']}:${p['price_date']}',
+            null,
+          );
+        }
+      }
+      state['investment_catalog_queue'] = pendingInvestmentCatalog
+          .where((r) => !removed.any((entry) => entry['id'] == r['id']))
+          .toList();
+    });
+  }
+
+  Future<void> syncInvestmentCatalog() async {
+    for (final item in pendingInvestmentCatalog) {
+      await requireOnline();
+      try {
+        final payload = Map<String, dynamic>.from(item['payload'] as Map);
+        final result = Map<String, dynamic>.from(
+          await client.request('POST', item['path'] as String, body: payload)
+              as Map,
+        );
+        if ((item['path'] == '/instruments' && result['id'] != item['id']) ||
+            (item['path'] == '/instrument-prices' &&
+                (result['instrument_id'] != payload['instrument_id'] ||
+                    result['price_date'] != payload['price_date']))) {
+          throw const ApiFailure('Identitas respons katalog tidak valid.');
+        }
+        atomic(() {
+          final instrument = item['path'] == '/instruments';
+          _put(
+            instrument ? 'instruments' : 'instrument_prices',
+            instrument
+                ? item['id'] as String
+                : '${payload['instrument_id']}:${payload['price_date']}',
+            result,
+          );
+          state['investment_catalog_queue'] = pendingInvestmentCatalog
+              .where((r) => r['id'] != item['id'])
+              .toList();
+        });
+      } catch (error) {
+        atomic(() {
+          state['investment_catalog_queue'] = pendingInvestmentCatalog
+              .map(
+                (r) => r['id'] == item['id']
+                    ? {...r, 'error': error.toString()}
+                    : r,
+              )
+              .toList();
+        });
+        rethrow; // Preserve ordering: prices may depend on a new instrument.
+      }
+    }
+  }
+
   Map<String, dynamic> _tradeWire(Map item) => {
     for (final key in [
       'entity_type',
@@ -400,6 +575,7 @@ class FinanceRepository {
         instrument == null ||
         instrument['deleted_at'] != null ||
         instrument['currency'] != 'IDR' ||
+        instrument['pending_catalog'] == true ||
         isSyncing ||
         outbox.any((e) {
           final p = e['payload'] as Map?;
@@ -866,6 +1042,97 @@ class FinanceRepository {
     }
   }
 
+  BudgetSaveRecord saveBudgetLocal({
+    required String id,
+    required String categoryId,
+    required int allocatedAmount,
+    String periodType = 'MONTHLY',
+    String? anchorDate,
+  }) {
+    if (allocatedAmount <= 0) {
+      throw const ApiFailure('Nominal budget harus lebih dari Rp 0.');
+    }
+    final existing =
+        row('budgets', id) ??
+        rows('budgets')
+            .where(
+              (b) =>
+                  b['category_id'] == categoryId &&
+                  b['period_type'] == periodType,
+            )
+            .firstOrNull;
+    final budgetId = existing?['id'] as String? ?? id;
+    final now = DateTime.now().toUtc();
+    final effectiveAnchor =
+        anchorDate ??
+        (existing?['anchor_date'] as String?) ??
+        now.toIso8601String().substring(0, 10);
+
+    final record = <String, dynamic>{
+      ...?existing,
+      'id': budgetId,
+      'category_id': categoryId,
+      'anchor_date': effectiveAnchor,
+      'period_type': periodType,
+      'current_amount': '$allocatedAmount.00',
+      'sync_status': 'pending',
+      'updated_at': now.toIso8601String(),
+    };
+
+    atomic(() {
+      _put('budgets', budgetId, record);
+    });
+
+    return BudgetSaveRecord(
+      id: budgetId,
+      categoryId: categoryId,
+      anchorDate: effectiveAnchor,
+      periodType: periodType,
+      allocatedAmount: allocatedAmount,
+    );
+  }
+
+  void markBudgetSynced(String id) {
+    final b = row('budgets', id);
+    if (b != null) {
+      atomic(() {
+        _put('budgets', id, {...b, 'sync_status': 'synced'});
+      });
+    }
+  }
+
+  Future<void> syncPendingBudgets() async {
+    final pending = rows('budgets')
+        .where((b) => b['sync_status'] == 'pending')
+        .toList();
+    for (final b in pending) {
+      final id = b['id'] as String;
+      final rawAmount = b['current_amount'];
+      final amount =
+          int.tryParse('$rawAmount'.split('.').first) ??
+          (rawAmount is num ? rawAmount.toInt() : rawAmount);
+      final categoryId = b['category_id'] as String;
+      final anchorDate = b['anchor_date'] as String;
+      final periodType = b['period_type'] as String;
+      try {
+        await writeOnline('POST', '/budgets', {
+          'category_id': categoryId,
+          'amount': amount,
+          'anchor_date': anchorDate,
+          'period_type': periodType,
+        });
+        markBudgetSynced(id);
+      } catch (_) {
+        try {
+          await writeOnline('PATCH', '/budgets/$id', {'amount': amount});
+          markBudgetSynced(id);
+        } catch (_) {
+          // Leave pending for future sync
+        }
+      }
+    }
+  }
+
   Future<dynamic> writeOnline(
     String method,
     String path,
@@ -942,6 +1209,13 @@ class FinanceRepository {
       },
     );
     await _pollInvestmentRecoveries(deviceId);
+    // Catalog failure must not prevent ledger pulls or unrelated commands.
+    try {
+      await syncInvestmentCatalog();
+    } catch (_) {}
+    try {
+      await syncPendingBudgets();
+    } catch (_) {}
     final attempted = <String>{};
     while (true) {
       await requireOnline();
@@ -1226,6 +1500,12 @@ class FinanceRepository {
                 : row,
           ),
       };
+      if (type == 'instruments') {
+        for (final local
+            in this.rows(type).where((r) => r['pending_catalog'] == true)) {
+          table[local['id'] as String] = local;
+        }
+      }
       // Preserve local edits across online refreshes.
       for (final item in outbox.where((e) => e['entity_type'] == type)) {
         final id = item['entity_id'] as String;
@@ -1288,4 +1568,21 @@ class FinanceRepository {
       state[key] = value;
     });
   }
+}
+
+/// Durable local representation of an offline or online budget save.
+class BudgetSaveRecord {
+  final String id;
+  final String categoryId;
+  final String anchorDate;
+  final String periodType;
+  final int allocatedAmount;
+
+  const BudgetSaveRecord({
+    required this.id,
+    required this.categoryId,
+    required this.anchorDate,
+    required this.periodType,
+    required this.allocatedAmount,
+  });
 }

@@ -16,6 +16,7 @@ import '../../transactions/widgets/transaction_item_tile.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/quick_actions_bar.dart';
+import 'net_worth_assessment_page.dart';
 
 class DashboardPage extends StatelessWidget {
   final VoidCallback onNavigateToTransactions;
@@ -64,6 +65,17 @@ class DashboardPage extends StatelessWidget {
 
                 // Hero Total Kekayaan Card
                 const NetWorthCard(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const NetWorthAssessmentPage(),
+                      ),
+                    ),
+                    child: const Text('Periksa valuasi server (parsial)'),
+                  ),
+                ),
 
                 // Neraca Card matching contoh-1.png ("Neraca: + Rp 6.800.000")
                 Padding(

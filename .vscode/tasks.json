@@ -2,63 +2,9 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "Validate account picker",
+			"label": "Verify WM04 full suite",
 			"type": "shell",
-			"command": "C:\\flutter\\bin\\flutter.bat",
-			"args": [
-				"analyze"
-			],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "test"
-		},
-		{
-			"label": "Check grouped picker",
-			"type": "shell",
-			"command": "C:\\flutter\\bin\\flutter.bat analyze; if ($LASTEXITCODE -eq 0) { C:\\flutter\\bin\\flutter.bat test }",
-			"args": [],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "test"
-		},
-		{
-			"label": "Analyze fixed picker errors",
-			"type": "shell",
-			"command": "C:\\flutter\\bin\\flutter.bat analyze",
-			"args": [],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "test"
-		},
-		{
-			"label": "Validate mobile resilience regressions",
-			"type": "shell",
-			"command": "C:\\flutter\\bin\\flutter.bat",
-			"args": [
-				"test",
-				"test/unit/auth_session_resilience_test.dart",
-				"test/unit/date_formatter_test.dart",
-				"test/unit/automatic_sync_test.dart",
-				"test/widget/dashboard_page_test.dart",
-				"test/widget/safe_ux_test.dart"
-			],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "test"
-		},
-		{
-			"label": "Validate investment safety boundary",
-			"type": "shell",
-			"command": "C:\\flutter\\bin\\flutter.bat analyze; C:\\flutter\\bin\\flutter.bat test",
-			"args": [],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "test"
-		},
-		{
-			"label": "Validate exact investment settlement",
-			"type": "shell",
-			"command": "C:\\flutter\\bin\\flutter.bat analyze; C:\\flutter\\bin\\flutter.bat test",
+			"command": "C:\\flutter\\bin\\flutter.bat test --reporter expanded",
 			"args": [],
 			"isBackground": false,
 			"problemMatcher": [],

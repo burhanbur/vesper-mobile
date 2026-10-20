@@ -29,6 +29,7 @@ class TransactionItem {
   };
   final String accountId;
   final String? toAccountId; // only for transfer
+  final String? categoryId;
   final String categoryName;
   final String? note;
   final DateTime date;
@@ -48,6 +49,7 @@ class TransactionItem {
     this.ledgerAmount,
     required this.accountId,
     this.toAccountId,
+    this.categoryId,
     required this.categoryName,
     this.note,
     required this.date,
@@ -68,6 +70,7 @@ class TransactionItem {
     int? ledgerAmount,
     String? accountId,
     String? toAccountId,
+    String? categoryId,
     String? categoryName,
     String? note,
     DateTime? date,
@@ -87,6 +90,7 @@ class TransactionItem {
       ledgerAmount: ledgerAmount ?? this.ledgerAmount,
       accountId: accountId ?? this.accountId,
       toAccountId: toAccountId ?? this.toAccountId,
+      categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
       note: note ?? this.note,
       date: date ?? this.date,

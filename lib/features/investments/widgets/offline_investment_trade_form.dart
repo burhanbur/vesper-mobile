@@ -23,7 +23,10 @@ class _OfflineInvestmentTradeFormState
   final note = TextEditingController();
   String? accountId, cashId, instrumentId, error;
   bool recovering = false;
-  late InvestmentTradeType type = widget.initialType == InvestmentTradeType.sell
+  late InvestmentTradeType type =
+      widget.initialType == InvestmentTradeType.dividend
+      ? InvestmentTradeType.dividend
+      : widget.initialType == InvestmentTradeType.sell
       ? InvestmentTradeType.sell
       : InvestmentTradeType.buy;
 
@@ -259,7 +262,7 @@ class _OfflineInvestmentTradeFormState
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'BUY/SELL disimpan lokal. Dividen belum didukung. Selesaikan sinkronisasi awal sebelum mencatat.',
+                        'BUY/SELL/dividen disimpan lokal. Fee termasuk pajak. Selesaikan sinkronisasi awal sebelum mencatat.',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textSecondary,
@@ -297,6 +300,10 @@ class _OfflineInvestmentTradeFormState
                   ),
                 ),
                 segments: const [
+                  ButtonSegment(
+                    value: InvestmentTradeType.dividend,
+                    label: Text('DIVIDEN'),
+                  ),
                   ButtonSegment(
                     value: InvestmentTradeType.buy,
                     label: Text(
@@ -394,7 +401,9 @@ class _OfflineInvestmentTradeFormState
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: 'Harga per unit (Rp)',
+                  labelText: type == InvestmentTradeType.dividend
+                      ? 'Dividen per unit (Rp)'
+                      : 'Harga per unit (Rp)',
                   prefixText: 'Rp ',
                   prefixIcon: const Icon(
                     Icons.price_change_outlined,

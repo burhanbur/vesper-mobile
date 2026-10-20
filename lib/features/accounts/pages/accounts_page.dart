@@ -1181,10 +1181,10 @@ class _AccountsPageState extends State<AccountsPage> {
                   children: [
                     _buildMetricCard(
                       id: 'all',
-                      title: 'Total Kekayaan Bersih',
+                      title: 'Estimasi tercatat lokal',
                       value: totalNetWorth,
-                      subtitle: 'Dana Likuid + Investasi - Hutang',
-                      badge: 'Net Worth',
+                      subtitle: 'Utang/piutang lengkap belum tersedia',
+                      badge: 'Parsial',
                       icon: Icons.account_balance_rounded,
                       accentColor: AppColors.primary,
                       isSelected: _assetPerspective == 'all',

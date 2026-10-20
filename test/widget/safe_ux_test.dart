@@ -215,6 +215,7 @@ void main() {
           ),
         ),
       );
+      await tester.ensureVisible(find.text('Transfer'));
       await tester.tap(find.text('Transfer'));
       await tester.pumpAndSettle();
       expect(find.byType(AddTransactionModal), findsOneWidget);

@@ -24,6 +24,7 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
   final controller = TextEditingController();
   String? error;
   int? initialBalance;
+  bool isSaving = false;
 
   @override
   void initState() {
@@ -62,7 +63,9 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
     }
 
     // If user enters invalid characters like decimals, don't auto-format over it, let validation show the error
-    if (trimmed.contains(',') || trimmed.contains('e') || trimmed.contains('E')) {
+    if (trimmed.contains(',') ||
+        trimmed.contains('e') ||
+        trimmed.contains('E')) {
       return;
     }
     if (trimmed.contains('.')) {
@@ -208,7 +211,7 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
                 icon: const Icon(Icons.close_rounded, size: 20),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: () => Navigator.pop(context),
+                onPressed: isSaving ? null : () => Navigator.pop(context),
               ),
             ],
           ),
@@ -271,10 +274,7 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
                               ? '••••••'
                               : initialBalance == null
                               ? '-'
-                              : CurrencyFormatter.formatRupiah(
-                                  initialBalance!,
-                                  withSign: initialBalance! < 0,
-                                )}',
+                              : CurrencyFormatter.formatRupiah(initialBalance!, withSign: initialBalance! < 0)}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -297,6 +297,7 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: controller,
+                  enabled: !isSaving,
                   autofocus: true,
                   obscureText: widget.state.isBalanceHidden,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -385,13 +386,17 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isSaving ? null : () => Navigator.pop(context),
               child: const Text('Batal'),
             ),
             FilledButton(
-              onPressed: target == null || delta == null
+              onPressed: target == null || delta == null || isSaving
                   ? null
                   : () {
+                      setState(() {
+                        isSaving = true;
+                        error = null;
+                      });
                       try {
                         widget.state.adjustAccountBalance(
                           widget.accountId,
@@ -401,11 +406,21 @@ class _BalanceAdjustmentDialogState extends State<BalanceAdjustmentDialog> {
                         Navigator.pop(context);
                       } catch (e) {
                         setState(() {
-                          error = e.toString();
+                          isSaving = false;
+                          error = e.toString().replaceFirst('ApiFailure: ', '');
                         });
                       }
                     },
-              child: const Text('Simpan'),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Simpan'),
             ),
           ],
         );

@@ -141,7 +141,7 @@ class _MainShellState extends State<MainShell> {
               color: AppColors.investment,
               bgColor: AppColors.investmentLight,
               title: 'Lihat Portofolio',
-              subtitle: 'Holdings dan snapshot investasi • hanya baca',
+              subtitle: 'Portofolio, transaksi, dividen & harga manual',
               onTap: () {
                 Navigator.of(ctx).pop();
                 Navigator.of(context).push<void>(

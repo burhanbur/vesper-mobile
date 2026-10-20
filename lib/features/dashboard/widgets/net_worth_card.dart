@@ -75,7 +75,7 @@ class NetWorthCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Label & Eye toggle + Growth Badge on the right
+                    // Balance scope and privacy toggle.
                     SizedBox(
                       width: double.infinity,
                       child: Wrap(
@@ -145,7 +145,7 @@ class NetWorthCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    // Total Amount in Rupiah + Sparkline wave on the right
+                    // Local recorded balance, not a historical valuation.
                     SizedBox(
                       width: double.infinity,
                       child: Wrap(
@@ -168,6 +168,17 @@ class NetWorthCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (view == DashboardBalanceView.netWorth)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Estimasi data lokal tercatat, termasuk perubahan belum sinkron. Utang/piutang lengkap (WM06), pertumbuhan dan grafik historis kekayaan belum tersedia.',
+                          style: TextStyle(
+                            color: AppColors.sageMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 18),
 
                     // Divider inside card

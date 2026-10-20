@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../data/portfolio_controller.dart';
 import '../data/portfolio_repository.dart';
+import 'investment_lifecycle_page.dart';
 
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({super.key});
@@ -78,7 +79,19 @@ class _PortfolioPageState extends State<PortfolioPage> {
     final controller = _controller;
     final hidden = AppStateScope.of(context).isBalanceHidden;
     return Scaffold(
-      appBar: AppBar(title: const Text('Portofolio investasi')),
+      appBar: AppBar(
+        title: const Text('Portofolio investasi'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => const InvestmentLifecyclePage(),
+              ),
+            ),
+            child: const Text('Kelola'),
+          ),
+        ],
+      ),
       body: controller == null
           ? const Center(
               child: Text(

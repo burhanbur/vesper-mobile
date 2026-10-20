@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/budget_period.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../transactions/models/transaction.dart';
+import '../models/budget.dart';
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key});
@@ -17,6 +20,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
   late DateTime _selectedMonth;
   late int _currentYear;
+  bool _didFetchInitial = false;
 
   @override
   void initState() {
@@ -24,6 +28,29 @@ class _BudgetPageState extends State<BudgetPage> {
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month);
     _currentYear = now.year;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didFetchInitial) {
+      _didFetchInitial = true;
+      _fetchProgress();
+    }
+  }
+
+  void _fetchProgress() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = AppStateScope.of(context);
+      if (_selectedPeriodTab == 0) {
+        final periodKey = formatPeriodKey(_selectedMonth, 'MONTHLY');
+        state.loadBudgetProgressForPeriod(periodKey, periodType: 'MONTHLY');
+      } else {
+        final periodKey = '$_currentYear';
+        state.loadBudgetProgressForPeriod(periodKey, periodType: 'ANNUAL');
+      }
+    });
   }
 
   IconData _getCategoryIcon(String iconName) {
@@ -48,8 +75,15 @@ class _BudgetPageState extends State<BudgetPage> {
   void _showAddBudgetModal(BuildContext context) {
     final amountController = TextEditingController();
     final state = AppStateScope.of(context);
-    final availableCategories = state.expenseCategories.map((c) => c.name).toList();
-    String? selectedCategory = availableCategories.isNotEmpty ? availableCategories.first : null;
+    final availableCategories = state.expenseCategories
+        .map((c) => c.name)
+        .toList();
+    String? selectedCategory = availableCategories.isNotEmpty
+        ? availableCategories.first
+        : null;
+
+    bool isSaving = false;
+    String? errorMessage;
 
     showModalBottomSheet<void>(
       context: context,
@@ -95,10 +129,44 @@ class _BudgetPageState extends State<BudgetPage> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.of(ctx).pop(),
+                    onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
                   ),
                 ],
               ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.expenseLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.expense),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.expense,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          errorMessage!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.expense,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               const Text(
                 'Pilih Kategori',
@@ -120,18 +188,18 @@ class _BudgetPageState extends State<BudgetPage> {
                     value: selectedCategory,
                     isExpanded: true,
                     items: availableCategories
-                        .map(
-                          (c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c),
-                          ),
-                        )
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setModalState(() => selectedCategory = val);
-                      }
-                    },
+                    onChanged: isSaving
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setModalState(() {
+                                selectedCategory = val;
+                                errorMessage = null;
+                              });
+                            }
+                          },
                   ),
                 ),
               ),
@@ -149,6 +217,12 @@ class _BudgetPageState extends State<BudgetPage> {
                 controller: amountController,
                 keyboardType: TextInputType.number,
                 autofocus: true,
+                enabled: !isSaving,
+                onChanged: (_) {
+                  if (errorMessage != null) {
+                    setModalState(() => errorMessage = null);
+                  }
+                },
                 decoration: InputDecoration(
                   hintText: 'Contoh: 1500000',
                   prefixText: 'Rp ',
@@ -171,28 +245,89 @@ class _BudgetPageState extends State<BudgetPage> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: () {
-                  final text = amountController.text.trim();
-                  final amount = int.tryParse(text) ?? 0;
-                  if (amount <= 0 || selectedCategory == null) return;
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final text = amountController.text.trim();
+                        final amount = int.tryParse(text) ?? 0;
+                        if (selectedCategory == null) {
+                          setModalState(() {
+                            errorMessage = 'Pilih kategori terlebih dahulu.';
+                          });
+                          return;
+                        }
+                        if (amount <= 0) {
+                          setModalState(() {
+                            errorMessage =
+                                'Jumlah alokasi budget harus lebih dari Rp 0.';
+                          });
+                          return;
+                        }
 
-                  state.setCategoryBudget(
-                    categoryName: selectedCategory!,
-                    allocatedAmount: amount,
-                  );
+                        setModalState(() {
+                          isSaving = true;
+                          errorMessage = null;
+                        });
 
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: AppColors.income,
-                      content: Text(
-                        'Budget untuk "$selectedCategory" berhasil ditetapkan Rp $amount/bulan!',
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('Simpan Budget'),
+                        try {
+                          final result = await state.setCategoryBudget(
+                            categoryName: selectedCategory!,
+                            allocatedAmount: amount,
+                          );
+
+                          if (!modalCtx.mounted) return;
+                          Navigator.of(ctx).pop();
+
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: result.isSyncedOnline
+                                  ? AppColors.income
+                                  : AppColors.primary,
+                              content: Row(
+                                children: [
+                                  Icon(
+                                    result.isSyncedOnline
+                                        ? Icons.check_circle_rounded
+                                        : Icons.cloud_queue_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(result.feedbackMessage)),
+                                ],
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!modalCtx.mounted) return;
+                          setModalState(() {
+                            isSaving = false;
+                            errorMessage = e.toString().replaceFirst(
+                              'ApiFailure: ',
+                              '',
+                            );
+                          });
+                        }
+                      },
+                child: isSaving
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text('Menyimpan...'),
+                        ],
+                      )
+                    : const Text('Simpan Budget'),
               ),
             ],
           ),
@@ -206,15 +341,60 @@ class _BudgetPageState extends State<BudgetPage> {
     final state = AppStateScope.of(context);
     final isYearly = _selectedPeriodTab == 1;
 
-    // Monthly values
-    final monthlyBudgets = state.budgets;
-    final totalMonthlyAllocated = state.totalBudgetAllocated;
-    final totalMonthlySpent = state.totalBudgetSpent;
+    final List<BudgetItem> displayedBudgets;
+    final int totalAllocated;
+    final int totalSpent;
 
-    // Calculation based on selected tab
-    final totalAllocated = isYearly ? totalMonthlyAllocated * 12 : totalMonthlyAllocated;
-    // For yearly YTD (Jan - Sep = 9 months)
-    final totalSpent = isYearly ? (totalMonthlySpent * 9) : totalMonthlySpent;
+    if (isYearly) {
+      final annualPeriodKey = '$_currentYear';
+      final annualBudgets = state.budgetsForPeriod(
+        period: annualPeriodKey,
+        periodType: 'ANNUAL',
+      );
+      if (annualBudgets.isNotEmpty) {
+        displayedBudgets = annualBudgets;
+      } else {
+        displayedBudgets = state.budgets.map((b) {
+          final yearTransactions = state.transactions.where(
+            (tx) =>
+                tx.type == TransactionType.expense &&
+                tx.categoryId == b.categoryId &&
+                tx.date.year == _currentYear,
+          );
+          final actualYearSpent = yearTransactions.fold(
+            0,
+            (sum, tx) => sum + tx.amount,
+          );
+          final annualAllocated = b.allocatedAmount * 12;
+          return b.copyWith(
+            period: annualPeriodKey,
+            allocatedAmount: annualAllocated,
+            spentAmount: actualYearSpent,
+            periodType: 'ANNUAL',
+            rawAllowance: '$annualAllocated.00',
+            rawSpent: '$actualYearSpent.00',
+            periodDays: 365,
+          );
+        }).toList();
+      }
+      totalAllocated = displayedBudgets.fold(
+        0,
+        (sum, b) => sum + b.allocatedAmount,
+      );
+      totalSpent = displayedBudgets.fold(0, (sum, b) => sum + b.spentAmount);
+    } else {
+      final monthlyPeriodKey = formatPeriodKey(_selectedMonth, 'MONTHLY');
+      displayedBudgets = state.budgetsForPeriod(
+        period: monthlyPeriodKey,
+        periodType: 'MONTHLY',
+      );
+      totalAllocated = displayedBudgets.fold(
+        0,
+        (sum, b) => sum + b.allocatedAmount,
+      );
+      totalSpent = displayedBudgets.fold(0, (sum, b) => sum + b.spentAmount);
+    }
+
     final totalRemaining = totalAllocated - totalSpent;
     final totalProgressPct = totalAllocated > 0
         ? (totalSpent / totalAllocated).clamp(0.0, 1.0)
@@ -249,12 +429,17 @@ class _BudgetPageState extends State<BudgetPage> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => _selectedPeriodTab = 0),
+                        onTap: () {
+                          setState(() => _selectedPeriodTab = 0);
+                          _fetchProgress();
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: !isYearly ? AppColors.primary : Colors.transparent,
+                            color: !isYearly
+                                ? AppColors.primary
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Center(
@@ -263,7 +448,9 @@ class _BudgetPageState extends State<BudgetPage> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: !isYearly ? Colors.white : AppColors.textSecondary,
+                                color: !isYearly
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),
@@ -272,12 +459,17 @@ class _BudgetPageState extends State<BudgetPage> {
                     ),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => setState(() => _selectedPeriodTab = 1),
+                        onTap: () {
+                          setState(() => _selectedPeriodTab = 1);
+                          _fetchProgress();
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: isYearly ? AppColors.primary : Colors.transparent,
+                            color: isYearly
+                                ? AppColors.primary
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Center(
@@ -286,7 +478,9 @@ class _BudgetPageState extends State<BudgetPage> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: isYearly ? Colors.white : AppColors.textSecondary,
+                                color: isYearly
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ),
@@ -317,6 +511,7 @@ class _BudgetPageState extends State<BudgetPage> {
                           );
                         }
                       });
+                      _fetchProgress();
                     },
                   ),
                   Text(
@@ -343,6 +538,7 @@ class _BudgetPageState extends State<BudgetPage> {
                           );
                         }
                       });
+                      _fetchProgress();
                     },
                   ),
                 ],
@@ -373,7 +569,9 @@ class _BudgetPageState extends State<BudgetPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            isYearly ? 'Total Budget Tahunan (12 Bulan)' : 'Total Budget Bulanan',
+                            isYearly
+                                ? 'Total Budget Tahunan (12 Bulan)'
+                                : 'Total Budget Bulanan',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -384,17 +582,26 @@ class _BudgetPageState extends State<BudgetPage> {
                         if (isYearly) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppColors.incomeLight,
+                              color: totalRemaining >= 0
+                                  ? AppColors.incomeLight
+                                  : AppColors.expenseLight,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
-                              '✅ On Track (Jan - Sep)',
+                            child: Text(
+                              totalRemaining >= 0
+                                  ? '✅ On Track'
+                                  : '⚠️ Over Budget',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.income,
+                                color: totalRemaining >= 0
+                                    ? AppColors.income
+                                    : AppColors.expense,
                               ),
                             ),
                           ),
@@ -432,7 +639,7 @@ class _BudgetPageState extends State<BudgetPage> {
                         Expanded(
                           child: Text(
                             isYearly
-                                ? 'Sisa Q4: ${CurrencyFormatter.formatCompact(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)'
+                                ? 'Sisa Tahun Ini: ${CurrencyFormatter.formatCompact(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)'
                                 : 'Tersisa: ${CurrencyFormatter.formatRupiah(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)',
                             style: TextStyle(
                               fontSize: 12,
@@ -467,7 +674,9 @@ class _BudgetPageState extends State<BudgetPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      isYearly ? 'Budget Tahunan per Kategori' : 'Budget per Kategori',
+                      isYearly
+                          ? 'Budget Tahunan per Kategori'
+                          : 'Budget per Kategori',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -477,7 +686,7 @@ class _BudgetPageState extends State<BudgetPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${monthlyBudgets.length} Kategori',
+                    '${displayedBudgets.length} Kategori',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -492,14 +701,17 @@ class _BudgetPageState extends State<BudgetPage> {
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: monthlyBudgets.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemCount: displayedBudgets.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final item = monthlyBudgets[index];
+                  final item = displayedBudgets[index];
 
-                  final allocated = isYearly ? item.allocatedAmount * 12 : item.allocatedAmount;
-                  final spent = isYearly ? (item.spentAmount * 9) : item.spentAmount;
-                  final progress = allocated > 0 ? (spent / allocated).clamp(0.0, 1.0) : 0.0;
+                  final allocated = item.allocatedAmount;
+                  final spent = item.spentAmount;
+                  final progress = allocated > 0
+                      ? (spent / allocated).clamp(0.0, 1.0)
+                      : 0.0;
                   final pct = (progress * 100).toInt();
 
                   // Warning logic
@@ -591,7 +803,9 @@ class _BudgetPageState extends State<BudgetPage> {
                             value: progress,
                             minHeight: 8,
                             backgroundColor: AppColors.surfaceVariant,
-                            valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              statusColor,
+                            ),
                           ),
                         ),
                       ],
@@ -609,14 +823,20 @@ class _BudgetPageState extends State<BudgetPage> {
                   decoration: BoxDecoration(
                     color: AppColors.accentLight.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.flag_rounded, color: AppColors.accentDark, size: 20),
+                          const Icon(
+                            Icons.flag_rounded,
+                            color: AppColors.accentDark,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'Target Tabungan Tahunan $_currentYear',
@@ -630,8 +850,12 @@ class _BudgetPageState extends State<BudgetPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Total alokasi budget tahunan yang direncanakan: ${CurrencyFormatter.formatRupiah(totalAllocated)}. Terpakai: ${CurrencyFormatter.formatRupiah(totalSpent)}.',
-                        style: const TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary),
+                        'Total alokasi budget tahunan yang direncanakan: ${CurrencyFormatter.formatRupiah(totalAllocated)}. Terpakai aktual: ${CurrencyFormatter.formatRupiah(totalSpent)}.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),

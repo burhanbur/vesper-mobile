@@ -31,6 +31,11 @@ class DateFormatter {
     'Des',
   ];
 
+  static String formatMonthShort(int month) {
+    if (month < 1 || month > 12) return '';
+    return _shortMonthsIndo[month - 1];
+  }
+
   static String formatShort(DateTime date) {
     final day = date.day;
     final month = _shortMonthsIndo[date.month - 1];

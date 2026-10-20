@@ -103,6 +103,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   // Utang / Piutang Shortcut toggle per PRD 4.5
   bool _isDebtShortcut = false;
   bool _isDebtPayable = true; // true: Gw ngutang, false: Gw ngutangin
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -147,7 +148,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_isSaving) return;
+
     final state = AppStateScope.of(context);
     final availableIds = state.selectableAccounts.map((a) => a.id).toSet();
     if (!availableIds.contains(_selectedAccountId) ||
@@ -158,18 +161,8 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       );
       return;
     }
-    try {
-      _saveTransaction();
-    } on ApiFailure catch (error) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
-    }
-  }
 
-  void _saveTransaction() {
-    final state = AppStateScope.of(context);
     final amount = CurrencyFormatter.parseRupiah(_amountController.text);
-
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -182,6 +175,51 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     }
 
     final accountId = _selectedAccountId ?? state.selectableAccounts.first.id;
+    if (_selectedType == TransactionType.transfer) {
+      final toAccountId =
+          _selectedToAccountId ??
+          (state.selectableAccounts.length > 1
+              ? state.selectableAccounts[1].id
+              : state.selectableAccounts.first.id);
+
+      if (accountId == toAccountId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.expense,
+            content: Text('Akun asal dan akun tujuan transfer harus berbeda!'),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      _saveTransaction(amount: amount, accountId: accountId);
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.expense,
+            content: Text('Gagal menyimpan transaksi: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _saveTransaction({required int amount, required String accountId}) {
+    final state = AppStateScope.of(context);
 
     if (_isEditing) {
       state.updateTransaction(
@@ -217,17 +255,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
           (state.selectableAccounts.length > 1
               ? state.selectableAccounts[1].id
               : state.selectableAccounts.first.id);
-
-      if (accountId == toAccountId) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppColors.expense,
-            content: Text('Akun asal dan akun tujuan transfer harus berbeda!'),
-          ),
-        );
-        return;
-      }
 
       state.addTransaction(
         type: TransactionType.transfer,
@@ -404,7 +431,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                             Icons.close_rounded,
                             color: AppColors.textSecondary,
                           ),
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _isSaving
+                              ? null
+                              : () => Navigator.of(context).pop(),
                         ),
                       ],
                     ),
@@ -846,7 +875,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               ),
               child: ElevatedButton(
                 key: const ValueKey('transaction_save_button'),
-                onPressed: _submit,
+                onPressed: _isSaving ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -854,14 +883,37 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: Text(
-                  _isEditing ? 'Simpan Perubahan' : 'Simpan Transaksi',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
+                child: _isSaving
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Menyimpan...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        _isEditing ? 'Simpan Perubahan' : 'Simpan Transaksi',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ],

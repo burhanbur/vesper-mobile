@@ -71,7 +71,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Kekayaan Bersih'));
+      await tester.tap(find.text('Estimasi tercatat lokal'));
       await tester.pumpAndSettle();
       expect(find.text('Tampilkan'), findsOneWidget);
       await tester.tap(find.text('Utang'));

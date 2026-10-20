@@ -64,7 +64,7 @@ class TradeClient extends ApiClient {
                       'id': p['linked_transaction_id'],
                       'account_id': cash,
                       'category_id': null,
-                      'type': 'EXPENSE',
+                      'type': p['type'] == 'DIVIDEND' ? 'INCOME' : 'EXPENSE',
                       'amount': '10.01',
                       'version': '1',
                     },
@@ -80,7 +80,7 @@ class TradeClient extends ApiClient {
                     'user_id': 'actor',
                     'account_type_id': 'cashType',
                     'currency': 'IDR',
-                    'balance': '89.99',
+                    'balance': p['type'] == 'DIVIDEND' ? '110.01' : '89.99',
                     'version': '2',
                   },
                 },
@@ -178,6 +178,40 @@ void main() {
         quantity: '1',
         pricePerUnit: '10.005',
         at: DateTime.utc(2026, 10, 15),
+      );
+
+      test(
+        'DIVIDEND survives lost acknowledgement without doubling cash or units',
+        () async {
+          repo.createInvestmentTrade(
+            accountId: portfolio,
+            cashAccountId: cash,
+            instrumentId: instrument,
+            type: 'DIVIDEND',
+            quantity: '1',
+            pricePerUnit: '10.005',
+            at: DateTime.utc(2026, 10, 15),
+          );
+          expect(repo.row('accounts', cash)!['balance'], '110.01');
+          expect(
+            repo.investmentHistory(portfolio).position(instrument).quantity,
+            '0.00000000',
+          );
+          client.lose = true;
+          await expectLater(repo.sync(), throwsA(isA<ApiFailure>()));
+          final envelope = client.deliveries.single;
+          repo = FinanceRepository(client, store, 'actor');
+          client.lose = false;
+          await repo.sync();
+          expect(client.deliveries.last, envelope);
+          expect(repo.outbox, isEmpty);
+          expect(repo.row('accounts', cash)!['balance'], '110.01');
+          expect(repo.rows('transactions'), hasLength(1));
+          expect(
+            repo.investmentHistory(portfolio).position(instrument).quantity,
+            '0.00000000',
+          );
+        },
       );
 
       test(

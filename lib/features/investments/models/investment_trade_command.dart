@@ -84,15 +84,17 @@ class InvestmentTradeCommand {
       pricePerUnit: pricePerUnit,
       fee: fee,
     );
-    final position = history
-        .position(instrumentId)
-        .advance(
-          InvestmentPositionTrade(
-            type: type,
-            quantity: quantity,
-            pricePerUnit: pricePerUnit,
-          ),
-        );
+    final position = type == 'DIVIDEND'
+        ? history.position(instrumentId)
+        : history
+              .position(instrumentId)
+              .advance(
+                InvestmentPositionTrade(
+                  type: type,
+                  quantity: quantity,
+                  pricePerUnit: pricePerUnit,
+                ),
+              );
     final balance = _minor(cashBalance);
     final amount = _minor(settlement.amount);
     final next = balance + (type == 'BUY' ? -amount : amount);

@@ -67,7 +67,8 @@ class InvestmentHistory {
         // still participate in chronology; this does not enable new dividends.
         for (final field in ['quantity', 'price_per_unit']) {
           final value = text(field);
-          final match = RegExp(r'^(0|[1-9]\d{0,11})\.\d{8}$').firstMatch(value);
+          final match = RegExp(r'^(0|[1-9]\d{0,11})(\.\d{1,8})?$')
+              .firstMatch(value);
           if (match == null || match.end != value.length) {
             throw const FormatException('Nilai dividen tidak valid.');
           }

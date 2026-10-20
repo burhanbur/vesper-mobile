@@ -1,14 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/network/api_client.dart';
+import '../core/utils/budget_period.dart';
+import '../core/utils/currency_formatter.dart';
 import '../database/local_store.dart';
 import '../database/transaction_query.dart';
 import '../core/security/local_data_failure.dart';
 import '../features/accounts/models/account.dart';
 import '../features/accounts/models/balance_adjustment.dart';
 import '../features/dashboard/models/dashboard_balance_view.dart';
+import '../features/dashboard/models/net_worth_assessment.dart';
+import '../features/dashboard/data/net_worth_repository.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/categories/models/category.dart';
 import '../features/household/models/category_report.dart';
@@ -32,6 +37,44 @@ int rupiah(dynamic value) {
     );
   }
   return int.parse(match[1]!);
+}
+
+/// Safe integer Rupiah parser that extracts the integer portion from decimal strings
+/// without using floating point parsing (double).
+int parseBudgetInteger(dynamic value, {int fallback = 0}) {
+  if (value == null) return fallback;
+  final text = value.toString().trim();
+  final match = RegExp(r'^(-?\d+)(?:\.(\d+))?$').firstMatch(text);
+  if (match == null) return fallback;
+  return int.tryParse(match.group(1)!) ?? fallback;
+}
+
+/// Represents the result of a budget save operation.
+/// Distinguishes durable local SQLite persistence from online sync status,
+/// providing honest user feedback and preventing false success claims.
+class BudgetSaveResult {
+  final bool isDurableLocal;
+  final bool isSyncedOnline;
+  final String? syncError;
+  final String categoryName;
+  final int allocatedAmount;
+
+  const BudgetSaveResult({
+    required this.isDurableLocal,
+    required this.isSyncedOnline,
+    this.syncError,
+    required this.categoryName,
+    required this.allocatedAmount,
+  });
+
+  /// User-facing honest feedback message:
+  /// Distinguishes durable local save with pending sync from full online sync.
+  String get feedbackMessage {
+    if (isSyncedOnline) {
+      return 'Budget untuk "$categoryName" berhasil ditetapkan ${CurrencyFormatter.formatRupiah(allocatedAmount)}/bulan!';
+    }
+    return 'Budget untuk "$categoryName" tersimpan di perangkat (antre sinkronisasi saat online)';
+  }
 }
 
 enum AppFlowStep { splash, onboarding, auth, main }
@@ -69,6 +112,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     this.repository,
   }) : auth = auth ?? AuthRepository(),
        _currentFlow = initialFlow ?? AppFlowStep.auth;
+  // Changes on login/logout, even when a new session belongs to the same owner.
+  Object get netWorthSessionKey => (_generation, currentUserId, repository);
+
+  Future<NetWorthAssessment> fetchNetWorthAssessment(DateTime? date) async {
+    final source = repository;
+    final session = netWorthSessionKey;
+    if (source == null || isOfflineMode) {
+      throw const ApiFailure('Penilaian membutuhkan koneksi internet.');
+    }
+    final data = await NetWorthRepository(source).fetch(date);
+    if (_disposed || session != netWorthSessionKey) {
+      throw const ApiFailure('Sesi penilaian telah berubah.');
+    }
+    return data;
+  }
+
   String currentUserId = '', userName = '', userEmail = '', userPhone = '';
   final String baseCurrency = 'IDR';
   bool _authenticated = false, _offline = false, _hidden = false;
@@ -553,6 +612,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               query: {'period': period},
             ),
           );
+          final res = repo.state['progress:${budget['id']}'];
+          if (res is Map) {
+            repo.state['progress:${budget['id']}:$period'] = res;
+          }
         } catch (error) {
           handleError(error);
         }
@@ -898,6 +961,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           amount: amount.abs(),
           ledgerAmount: amount,
           accountId: r['account_id'],
+          categoryId: r['category_id'] as String?,
           categoryName:
               categories
                   .where((c) => c.id == r['category_id'])
@@ -1610,52 +1674,210 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           )
           .toList();
 
-  List<BudgetItem> get budgets => _rows('budgets').map((r) {
-    final progress = repository?.state['progress:${r['id']}'] as Map?;
-    return BudgetItem(
-      id: r['id'],
-      categoryId: r['category_id'],
-      categoryName:
+  List<BudgetItem> get budgets {
+    final now = DateTime.now().toUtc();
+    final defaultMonthlyPeriod =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    return budgetsForPeriod(period: defaultMonthlyPeriod);
+  }
+
+  List<BudgetItem> budgetsForPeriod({
+    required String period,
+    String? periodType,
+  }) {
+    final budgetRows = _rows('budgets').where((r) {
+      if (periodType != null && r['period_type'] != periodType) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    return budgetRows.map((r) {
+      final cacheKey = 'progress:${r['id']}:$period';
+      final fallbackKey = 'progress:${r['id']}';
+      final periodProgress = repository?.state[cacheKey] as Map?;
+      final fallbackProgress = repository?.state[fallbackKey] as Map?;
+      final cachedProgress = periodProgress ?? fallbackProgress;
+
+      final parsedAnchor = DateTime.parse(r['anchor_date'] as String);
+      final anchorDate = parsedAnchor.isUtc
+          ? parsedAnchor
+          : DateTime.utc(
+              parsedAnchor.year,
+              parsedAnchor.month,
+              parsedAnchor.day,
+            );
+      final pType = r['period_type'] as String;
+      BudgetPeriodRange? range;
+      try {
+        range = budgetPeriodRange(anchorDate, pType, period);
+      } catch (_) {
+        // period might be for a different periodType
+      }
+
+      final categoryName =
           categories
               .where((c) => c.id == r['category_id'])
               .map((c) => c.name)
               .firstOrNull ??
-          '',
-      icon: r['icon'] ?? 'category',
-      allocatedAmount: rupiah(progress?['allowance'] ?? r['current_amount']),
-      spentAmount: rupiah(progress?['total_amount']),
-      periodType: r['period_type'],
-      anchorDate: DateTime.parse(r['anchor_date']),
-    );
-  }).toList();
+          '';
+
+      if (cachedProgress != null &&
+          (periodProgress != null ||
+              cachedProgress == fallbackProgress ||
+              cachedProgress['period'] == null ||
+              cachedProgress['period'] == period)) {
+        return BudgetItem(
+          id: r['id'],
+          categoryId: r['category_id'],
+          categoryName: categoryName,
+          icon: r['icon'] ?? 'category',
+          allocatedAmount: parseBudgetInteger(
+            cachedProgress['allowance'] ?? r['current_amount'],
+          ),
+          spentAmount: parseBudgetInteger(cachedProgress['total_amount']),
+          periodType: pType,
+          anchorDate: anchorDate,
+          period: period,
+          periodRange: range,
+          rawAllowance: cachedProgress['allowance']?.toString(),
+          rawSpent: cachedProgress['total_amount']?.toString(),
+          periodDays:
+              cachedProgress['period_days'] as int? ??
+              (range?.daysInPeriod ?? 0),
+          isLocalEstimate: false,
+        );
+      }
+
+      // Offline or un-cached: calculate local estimate from transactions
+      int localSpent = 0;
+      if (range != null) {
+        for (final tx in transactions) {
+          if (tx.type == TransactionType.expense &&
+              tx.categoryId == r['category_id'] &&
+              range.contains(tx.date)) {
+            localSpent += tx.amount;
+          }
+        }
+      }
+
+      final currentAmountInt = parseBudgetInteger(r['current_amount']);
+      return BudgetItem(
+        id: r['id'],
+        categoryId: r['category_id'],
+        categoryName: categoryName,
+        icon: r['icon'] ?? 'category',
+        allocatedAmount: currentAmountInt,
+        spentAmount: localSpent,
+        periodType: pType,
+        anchorDate: anchorDate,
+        period: period,
+        periodRange: range,
+        rawAllowance: '$currentAmountInt.00',
+        rawSpent: '$localSpent.00',
+        periodDays: range?.daysInPeriod ?? 0,
+        isLocalEstimate: true,
+      );
+    }).toList();
+  }
+
+  Future<void> loadBudgetProgressForPeriod(
+    String period, {
+    String? periodType,
+  }) async {
+    final repo = repository;
+    if (repo == null) return;
+    for (final budget in repo.rows('budgets')) {
+      if (periodType != null && budget['period_type'] != periodType) continue;
+      try {
+        await repo.cacheValue(
+          'progress:${budget['id']}:$period',
+          () => repo.client.request(
+            'GET',
+            '/budgets/${budget['id']}/progress',
+            query: {'period': period},
+          ),
+        );
+      } catch (_) {
+        // Fall back gracefully to local transactions
+      }
+    }
+    notifyListeners();
+  }
+
   int get totalBudgetAllocated =>
       budgets.fold(0, (sum, b) => sum + b.allocatedAmount);
   int get totalBudgetSpent => budgets.fold(0, (sum, b) => sum + b.spentAmount);
-  Future<void> setCategoryBudget({
+
+  Future<BudgetSaveResult> setCategoryBudget({
     required String categoryName,
     required int allocatedAmount,
+    String periodType = 'MONTHLY',
+    String? anchorDate,
   }) async {
     final category = getCategoryByName(categoryName);
     if (category == null) throw const ApiFailure('Kategori tidak ditemukan.');
+    if (allocatedAmount <= 0) {
+      throw const ApiFailure('Nominal budget harus lebih dari Rp 0.');
+    }
+
     final existing = budgets
-        .where((b) => b.categoryId == category.id)
+        .where((b) => b.categoryId == category.id && b.periodType == periodType)
         .firstOrNull;
-    await _repo.writeOnline(
-      existing == null ? 'POST' : 'PATCH',
-      existing == null ? '/budgets' : '/budgets/${existing.id}',
-      {
-        'amount': '$allocatedAmount.00',
-        if (existing == null) ...{
-          'category_id': category.id,
-          'anchor_date': DateTime.now().toUtc().toIso8601String().substring(
-            0,
-            10,
-          ),
-          'period_type': 'MONTHLY',
-        },
-      },
+    final budgetId = existing?.id ?? const Uuid().v4();
+    final now = DateTime.now().toUtc();
+    final effectiveAnchor =
+        anchorDate ??
+        existing?.anchorDate.toIso8601String().substring(0, 10) ??
+        now.toIso8601String().substring(0, 10);
+
+    // 1. Durable local save first (must succeed)
+    _repo.saveBudgetLocal(
+      id: budgetId,
+      categoryId: category.id,
+      allocatedAmount: allocatedAmount,
+      periodType: periodType,
+      anchorDate: effectiveAnchor,
     );
-    await refresh();
+    _notify();
+
+    // 2. Distinguishable sync feedback: Attempt online sync if not offline
+    bool isSyncedOnline = false;
+    String? syncError;
+
+    if (!_repo.offline) {
+      try {
+        await _repo.writeOnline(
+          existing == null ? 'POST' : 'PATCH',
+          existing == null ? '/budgets' : '/budgets/$budgetId',
+          {
+            'amount': '$allocatedAmount.00',
+            if (existing == null) ...{
+              'category_id': category.id,
+              'anchor_date': effectiveAnchor,
+              'period_type': periodType,
+            },
+          },
+        );
+        isSyncedOnline = true;
+        _repo.markBudgetSynced(budgetId);
+        try {
+          await refresh();
+        } catch (_) {}
+      } catch (e) {
+        // Pending sync is distinguishable from local save failure;
+        // offline or remote errors do not invalidate durable local storage.
+        syncError = e.toString();
+      }
+    }
+
+    return BudgetSaveResult(
+      isDurableLocal: true,
+      isSyncedOnline: isSyncedOnline,
+      syncError: syncError,
+      categoryName: categoryName,
+      allocatedAmount: allocatedAmount,
+    );
   }
 
   // No fabricated holdings. Portfolio integration requires account-scoped snapshots.
@@ -1720,6 +1942,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       description: note,
     );
     _notify();
+    requestAutomaticSync();
   }
 
   void updateInstrumentPrice(String assetId, double newPrice) =>

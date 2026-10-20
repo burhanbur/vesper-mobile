@@ -50,6 +50,20 @@ InvestmentTradeCommand prepare({
 );
 
 void main() {
+  test('DIVIDEND credits net cash and preserves quantity and average', () {
+    final command = prepare(
+      type: 'DIVIDEND',
+      bought: true,
+      quantity: '100',
+      price: '0.015',
+      fee: '0.01',
+    );
+    expect(command.settlement.amount, '1.49');
+    expect(command.cashBalanceAfter, '11.50');
+    expect(command.positionAfter.quantity, '2.00000000');
+    expect(command.positionAfter.average, '10.00000000');
+    expect(command.toPushItem()['payload']['type'], 'DIVIDEND');
+  });
   test(
     'BUY settles fractional cents once and keeps a stable JSON envelope',
     () {

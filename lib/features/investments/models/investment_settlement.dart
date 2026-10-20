@@ -30,8 +30,8 @@ class InvestmentSettlement {
     required String pricePerUnit,
     String fee = '0',
   }) {
-    if (type != 'BUY' && type != 'SELL') {
-      throw const FormatException('Hanya BUY dan SELL yang didukung.');
+    if (!['BUY', 'SELL', 'DIVIDEND'].contains(type)) {
+      throw const FormatException('Jenis investasi tidak didukung.');
     }
     final units = _parse(quantity, _precise, 8);
     final price = _parse(pricePerUnit, _precise, 8);

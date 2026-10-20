@@ -54,7 +54,7 @@ void main() {
       () => settle(quantity: '0.00000001', price: '0.00000001', fee: '0'),
       () => settle(quantity: '999999999999', price: '999999999999'),
       () => settle(quantity: '1', price: '1', fee: '999999999999999999.99'),
-      () => settle(type: 'DIVIDEND'),
+      () => settle(type: 'UNKNOWN'),
     ]) {
       expect(call, throwsFormatException);
     }

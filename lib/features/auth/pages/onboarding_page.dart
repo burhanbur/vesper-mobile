@@ -22,10 +22,7 @@ class OnboardingItem {
 class OnboardingPage extends StatefulWidget {
   final VoidCallback onFinish;
 
-  const OnboardingPage({
-    super.key,
-    required this.onFinish,
-  });
+  const OnboardingPage({super.key, required this.onFinish});
 
   @override
   State<OnboardingPage> createState() => _OnboardingPageState();
@@ -111,7 +108,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   TextButton(
                     onPressed: widget.onFinish,
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       backgroundColor: AppColors.surfaceVariant,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -172,7 +172,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         height: 7,
                         width: isActive ? 24 : 7,
                         decoration: BoxDecoration(
-                          color: isActive ? AppColors.primary : AppColors.border,
+                          color: isActive
+                              ? AppColors.primary
+                              : AppColors.border,
                           borderRadius: BorderRadius.circular(6),
                         ),
                       );
@@ -206,7 +208,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           ),
                           const SizedBox(width: 8),
                           Icon(
-                            _currentIndex == 2 ? Icons.rocket_launch_rounded : Icons.arrow_forward_rounded,
+                            _currentIndex == 2
+                                ? Icons.rocket_launch_rounded
+                                : Icons.arrow_forward_rounded,
                             size: 18,
                           ),
                         ],
@@ -255,7 +259,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.groups_rounded, size: 16, color: AppColors.accentDark),
+                Icon(
+                  Icons.groups_rounded,
+                  size: 16,
+                  color: AppColors.accentDark,
+                ),
                 SizedBox(width: 6),
                 Text(
                   '👥 Ruang Grup & Kolaborasi Pasangan',
@@ -313,7 +321,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.hub_rounded, size: 20, color: AppColors.primary),
+                        child: const Icon(
+                          Icons.hub_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
@@ -322,11 +334,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           children: [
                             Text(
                               'Pilihan Ruang Grup Aktif',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             Text(
                               'Satu akun, fleksibel untuk banyak grup',
-                              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
@@ -382,7 +400,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.accentLight.withValues(alpha: 0.4) : AppColors.surfaceVariant.withValues(alpha: 0.5),
+        color: isActive
+            ? AppColors.accentLight.withValues(alpha: 0.4)
+            : AppColors.surfaceVariant.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isActive ? AppColors.accent : AppColors.border,
@@ -417,7 +437,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
                 Text(
                   desc,
-                  style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -436,7 +459,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
               if (isActive)
                 const Text(
                   '● Aktif',
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.accentDark),
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accentDark,
+                  ),
                 ),
             ],
           ),
@@ -520,7 +547,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.textMuted),
+                    child: Icon(
+                      Icons.arrow_downward_rounded,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                   _buildEngineStep(
                     icon: Icons.storage_rounded,
@@ -530,7 +561,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Icon(Icons.arrow_downward_rounded, size: 16, color: AppColors.textMuted),
+                    child: Icon(
+                      Icons.arrow_downward_rounded,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                   _buildEngineStep(
                     icon: Icons.cloud_sync_rounded,
@@ -577,11 +612,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
                   desc,
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -608,7 +649,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.pie_chart_rounded, size: 16, color: Color(0xFF7C3AED)),
+                Icon(
+                  Icons.pie_chart_rounded,
+                  size: 16,
+                  color: Color(0xFF7C3AED),
+                ),
                 SizedBox(width: 6),
                 Text(
                   '💎 Manajemen Kekayaan Terpadu',
@@ -637,7 +682,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           // Description
           const Text(
-            'Dukungan struktur rekening bertingkat (parent-child pocket), pemisahan kas cair vs investasi, dan kalkulasi kekayaan bersih (Net Worth) yang selalu presisi.',
+            'Dukungan rekening bertingkat (parent-child pocket), pemisahan kas cair vs investasi, dan estimasi kekayaan dari data lokal tercatat. Belum mencakup seluruh utang dan piutang.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -679,7 +724,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         color: AppColors.sageMuted,
                       ),
                     ),
-                    Icon(Icons.remove_red_eye_outlined, size: 18, color: Colors.white70),
+                    Icon(
+                      Icons.remove_red_eye_outlined,
+                      size: 18,
+                      color: Colors.white70,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -697,9 +746,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    _buildPocketMiniTag('🏦 Bank Jago (3 Kantong)', 'Rp 13.800.000'),
+                    _buildPocketMiniTag(
+                      '🏦 Bank Jago (3 Kantong)',
+                      'Rp 13.800.000',
+                    ),
                     const SizedBox(width: 8),
-                    _buildPocketMiniTag('💳 BCA Utama (Bersama)', 'Rp 18.400.000'),
+                    _buildPocketMiniTag(
+                      '💳 BCA Utama (Bersama)',
+                      'Rp 18.400.000',
+                    ),
                   ],
                 ),
               ],
@@ -724,13 +779,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
             Text(
               amount,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
           ],
         ),

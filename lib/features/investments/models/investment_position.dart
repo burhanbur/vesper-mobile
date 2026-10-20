@@ -79,6 +79,28 @@ class InvestmentPosition {
   String get average =>
       _format(_round(_averageNumerator, _averageDenominator), 8);
 
+  String realizedSale(String quantity, String price, String fee) {
+    final units = _parsePrecise(quantity);
+    final salePrice = _parsePrecise(price);
+    final parts = fee.split('.');
+    if (!RegExp(r'^(0|[1-9]\d{0,17})(\.\d{1,2})?$').hasMatch(fee) ||
+        units > _quantity) {
+      throw const FormatException('Penjualan tidak valid.');
+    }
+    final feeMinor =
+        BigInt.parse(parts.first) * BigInt.from(100) +
+        BigInt.parse(parts.length == 1 ? '0' : parts[1].padRight(2, '0'));
+    final divisor = BigInt.from(10).pow(14) * _averageDenominator;
+    return _format(
+      _round(
+        units * (salePrice * _averageDenominator - _averageNumerator) -
+            feeMinor * divisor,
+        divisor,
+      ),
+      2,
+    );
+  }
+
   InvestmentPosition advance(InvestmentPositionTrade trade) {
     if (trade.type == 'SELL') {
       if (trade._quantity > _quantity) {
