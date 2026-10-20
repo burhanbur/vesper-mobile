@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
+import '../../../app/theme/app_colors.dart';
 import '../data/obligations_controller.dart';
 import '../data/obligations_repository.dart';
 
@@ -68,7 +69,16 @@ class _ObligationsPageState extends State<ObligationsPage> {
               key: ValueKey('$label:$value'),
               initialValue: value,
               isExpanded: true,
-              decoration: InputDecoration(labelText: label),
+              decoration: InputDecoration(
+                labelText: label,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               items: [
                 const DropdownMenuItem<String>(
                   value: null,
@@ -91,7 +101,16 @@ class _ObligationsPageState extends State<ObligationsPage> {
               key: ValueKey('$label:$type:$value'),
               initialValue: value,
               isExpanded: true,
-              decoration: InputDecoration(labelText: label),
+              decoration: InputDecoration(
+                labelText: label,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               items: [
                 const DropdownMenuItem<String>(
                   value: null,
@@ -118,24 +137,60 @@ class _ObligationsPageState extends State<ObligationsPage> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              decoration: InputDecoration(labelText: label),
+              decoration: InputDecoration(
+                labelText: label,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             );
             return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              backgroundColor: Colors.white,
               title: Text(
                 debt == null ? 'Catat utang / piutang' : 'Catat pembayaran',
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'IDR • Form mendukung Rupiah bulat. Pokok tidak dihitung sebagai pemasukan/pengeluaran. Pecahan tidak dibulatkan.',
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'IDR • Form mendukung Rupiah bulat. Pokok tidak dihitung sebagai pemasukan/pengeluaran. Pecahan tidak dibulatkan.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          height: 1.3,
+                        ),
+                      ),
                     ),
                     if (debt == null) ...[
                       DropdownButtonFormField<String>(
                         initialValue: kind,
-                        decoration: const InputDecoration(labelText: 'Jenis'),
+                        decoration: InputDecoration(
+                          labelText: 'Jenis',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: 'PAYABLE',
@@ -148,32 +203,62 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ],
                         onChanged: (v) => update(() => kind = v!),
                       ),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: counterparty,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Nama pihak',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 10),
                       amount(principal, 'Pokok IDR'),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: due,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Jatuh tempo (YYYY-MM-DD, opsional)',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: schedule,
                         minLines: 2,
                         maxLines: 5,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Jadwal pokok cicilan (opsional)',
                           hintText: '2026-11-20=100.00\n2026-12-20=100.00',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 8),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text(
                           'Saldo awal / pinjaman sudah berjalan',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         value: existing,
                         onChanged: (v) => update(() {
@@ -185,7 +270,12 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       if (existing) ...[
                         const Text(
                           'Tanpa arus kas baru. Jika saldo sudah tercatat sebagai akun lama, petakan akun tersebut agar tidak dihitung dua kali. Saldo utang harus negatif, piutang positif, sama dengan pokok.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
                         ),
+                        const SizedBox(height: 8),
                         accounts(
                           'Akun lama (opsional)',
                           mappedId,
@@ -194,7 +284,12 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       ] else ...[
                         const Text(
                           'Pendanaan baru akan menambah kas untuk utang atau mengurangi kas untuk piutang.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
                         ),
+                        const SizedBox(height: 8),
                         accounts(
                           'Akun kas pendanaan',
                           cashId,
@@ -202,36 +297,65 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ],
                     ] else ...[
-                      Text('Pihak: ${debt['counterparty']}'),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'Pihak: ${debt['counterparty']}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
                       accounts(
                         'Akun kas pembayaran',
                         cashId,
                         (v) => cashId = v,
                       ),
+                      const SizedBox(height: 10),
                       amount(principal, 'Pokok dibayar IDR'),
+                      const SizedBox(height: 10),
                       amount(interest, 'Bunga IDR'),
+                      const SizedBox(height: 10),
                       amount(fee, 'Biaya IDR'),
+                      const SizedBox(height: 10),
                       category(
                         'Kategori bunga',
                         debt['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME',
                         interestCategory,
                         (v) => interestCategory = v,
                       ),
+                      const SizedBox(height: 10),
                       category(
                         'Kategori biaya',
                         'EXPENSE',
                         feeCategory,
                         (v) => feeCategory = v,
                       ),
+                      const SizedBox(height: 8),
                       const Text(
                         'Bunga dan biaya memakai kategori masing-masing; untuk piutang, bunga diterima dan biaya dipotong dari penerimaan kas.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                     if (saveError != null)
-                      Text(
-                        saveError!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          saveError!,
+                          style: TextStyle(
+                            color: Theme.of(ctx).colorScheme.error,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                   ],
@@ -326,7 +450,12 @@ class _ObligationsPageState extends State<ObligationsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Konfirmasi perubahan'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Konfirmasi perubahan',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: Text(message),
         actions: [
           TextButton(
@@ -350,9 +479,20 @@ class _ObligationsPageState extends State<ObligationsPage> {
     String money(dynamic value) =>
         state.isBalanceHidden ? '••••••' : 'IDR $value';
     return Scaffold(
-      appBar: AppBar(title: const Text('Utang & Piutang')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text(
+          'Utang & Piutang',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
       body: active == null
-          ? const Center(child: Text('Silakan masuk kembali.'))
+          ? const Center(
+              child: Text(
+                'Silakan masuk kembali.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
           : ListenableBuilder(
               listenable: active,
               builder: (context, _) {
@@ -360,25 +500,173 @@ class _ObligationsPageState extends State<ObligationsPage> {
                 final source = repo.source;
                 final totals = repo.totals();
                 return ListView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
-                    const Text(
-                      'Catatan pribadi milik Anda. Saldo dan riwayat disimpan lokal; perintah tertunda termasuk dalam estimasi. Akun kas yang dibagikan tetap memperlihatkan arus kas kepada anggota yang berhak, tanpa rincian pinjaman.',
-                    ),
-                    if (!source.hasCompleteObligationHistory)
-                      const Text(
-                        'Selesaikan sinkronisasi awal sebelum mencatat pinjaman.',
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
                       ),
-                    Text('Sisa utang: ${money(totals['payable'])}'),
-                    Text('Sisa piutang: ${money(totals['receivable'])}'),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 16,
+                            color: AppColors.textMuted,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Catatan pribadi milik Anda. Saldo dan riwayat disimpan lokal; perintah tertunda termasuk dalam estimasi. Akun kas yang dibagikan tetap memperlihatkan arus kas kepada anggota yang berhak, tanpa rincian pinjaman.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!source.hasCompleteObligationHistory) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.warningLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          'Selesaikan sinkronisasi awal sebelum mencatat pinjaman.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.warning,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+
+                    // Summary Cards for Utang & Piutang
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.expenseLight,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 14,
+                                        color: AppColors.expense,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Utang',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Sisa utang: ${money(totals['payable'])}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.incomeLight,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.arrow_downward_rounded,
+                                        size: 14,
+                                        color: AppColors.income,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Piutang',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Sisa piutang: ${money(totals['receivable'])}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
                     Wrap(
                       spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        FilledButton(
+                        FilledButton.icon(
                           onPressed: () => form(),
-                          child: const Text('Tambah pinjaman'),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Tambah pinjaman'),
                         ),
-                        OutlinedButton(
+                        OutlinedButton.icon(
                           onPressed: source.isSyncing
                               ? null
                               : () async {
@@ -393,16 +681,38 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                   }
                                   if (mounted) setState(() {});
                                 },
-                          child: const Text('Sinkronkan'),
+                          icon: const Icon(Icons.sync_rounded, size: 16),
+                          label: const Text('Sinkronkan'),
                         ),
                       ],
                     ),
-                    if (active.error != null) Text(active.error!),
-                    if (error != null) Text(error!),
+                    if (active.error != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          active.error!,
+                          style: const TextStyle(color: AppColors.expense),
+                        ),
+                      ),
+                    if (error != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Text(
+                          error!,
+                          style: const TextStyle(color: AppColors.expense),
+                        ),
+                      ),
                     for (final queued in source.outbox.where(
                       (e) => e['entity_type'] == 'obligation_commands',
                     ))
                       Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        color: Colors.white,
+                        margin: const EdgeInsets.only(top: 8),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
@@ -410,13 +720,33 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             children: [
                               Text(
                                 '${queued['payload']['action']} • ${queued['status']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                               if (queued['cancellation_requested'] == true)
-                                const Text(
-                                  'Memeriksa pembatalan atomik; saldo tetap sementara sampai hasil server lengkap.',
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Memeriksa pembatalan atomik; saldo tetap sementara sampai hasil server lengkap.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.warning,
+                                    ),
+                                  ),
                                 ),
                               if (queued['error'] != null)
-                                Text('${queued['error']}'),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    '${queued['error']}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.expense,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 6),
                               Wrap(
                                 spacing: 8,
                                 children: [
@@ -460,38 +790,136 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           ),
                         ),
                       ),
+                    const SizedBox(height: 8),
                     if (repo.records.isEmpty)
-                      const Text('Belum ada pinjaman aktif.'),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 36,
+                          horizontal: 16,
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: const BoxDecoration(
+                                color: AppColors.surfaceVariant,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.handshake_outlined,
+                                size: 36,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Belum ada pinjaman aktif.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Catat utang atau piutang dengan menekan tombol Tambah pinjaman.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     for (final debt in repo.records)
                       Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        color: Colors.white,
+                        margin: const EdgeInsets.only(bottom: 10),
                         child: ExpansionTile(
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: debt['kind'] == 'PAYABLE'
+                                  ? AppColors.expenseLight
+                                  : AppColors.incomeLight,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              debt['kind'] == 'PAYABLE'
+                                  ? Icons.arrow_upward_rounded
+                                  : Icons.arrow_downward_rounded,
+                              size: 18,
+                              color: debt['kind'] == 'PAYABLE'
+                                  ? AppColors.expense
+                                  : AppColors.income,
+                            ),
+                          ),
                           title: Text(
                             '${debt['kind'] == 'PAYABLE' ? 'Utang' : 'Piutang'} • ${debt['counterparty']}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
                             'Sisa ${money(debt['outstanding'])} • jatuh tempo ${debt['due_date'] ?? 'belum ditentukan'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                           children: [
                             Padding(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  const Divider(),
                                   Text(
                                     'Pokok awal: ${money(debt['principal'])}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   if (debt['linked_account_id'] != null)
-                                    const Text(
-                                      'Menggantikan akun lama dalam net worth; pelunasan pokok juga memperbarui akun tersebut.',
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        'Menggantikan akun lama dalam net worth; pelunasan pokok juga memperbarui akun tersebut.',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
                                     ),
                                   for (final row in repo.schedule(
                                     debt['id'] as String,
                                   ))
-                                    Text(
-                                      '${row['due_date']} • sisa pokok cicilan ${money(row['remaining'])}',
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        '${row['due_date']} • sisa pokok cicilan ${money(row['remaining'])}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
                                     ),
-                                  const Text(
-                                    'Jadwal dialokasikan dari pembayaran pokok secara berurutan; bunga/biaya dicatat saat dibayar, tanpa pembayaran otomatis.',
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 6),
+                                    child: Text(
+                                      'Jadwal dialokasikan dari pembayaran pokok secara berurutan; bunga/biaya dicatat saat dibayar, tanpa pembayaran otomatis.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
                                   ),
                                   Wrap(
                                     spacing: 8,
@@ -512,10 +940,12 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 10),
                                   const Text(
                                     'Riwayat pembayaran & koreksi',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 13,
                                     ),
                                   ),
                                   for (final event in repo.events(
@@ -525,9 +955,17 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                       contentPadding: EdgeInsets.zero,
                                       title: Text(
                                         '${event['operation']} • ${event['reversed_at'] == null ? event['transacted_at'] : 'DIBALIKKAN'}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
                                       ),
                                       subtitle: Text(
                                         'Pokok ${money(event['principal'])} • bunga ${money(event['interest'])} • biaya ${money(event['fee'])}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
                                       trailing:
                                           event['operation'] == 'REPAY' &&

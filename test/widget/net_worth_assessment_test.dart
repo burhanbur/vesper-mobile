@@ -50,7 +50,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Periksa valuasi server (parsial)'));
+      await tester.tap(find.text('Lihat rincian valuasi'));
       await tester.pumpAndSettle();
       expect(find.byType(NetWorthAssessmentPage), findsOneWidget);
       expect(find.textContaining('bukan total household'), findsOneWidget);

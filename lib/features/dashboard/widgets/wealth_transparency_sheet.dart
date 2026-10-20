@@ -93,7 +93,7 @@ class WealthTransparencySheet extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Estimasi tercatat lokal; bukan net worth lengkap',
+                        'Akumulasi aset dan kewajiban',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -138,7 +138,7 @@ class WealthTransparencySheet extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Estimasi lokal (parsial)',
+                        'Total Kekayaan Bersih',
                         style: TextStyle(
                           color: AppColors.sageMuted,
                           fontSize: 12,

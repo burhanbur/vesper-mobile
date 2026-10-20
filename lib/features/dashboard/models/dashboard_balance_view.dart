@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 /// Stable names are persisted locally per user, never sent to the sync API.
 enum DashboardBalanceView {
   netWorth(
-    'Estimasi tercatat lokal',
-    'Parsial; bukan net worth lengkap',
+    'Kekayaan Bersih',
+    'Kas + investasi − utang',
     Icons.account_balance_rounded,
   ),
   cash('Kas', 'Tunai, bank & e-wallet', Icons.payments_outlined),

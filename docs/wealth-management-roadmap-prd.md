@@ -2,9 +2,9 @@
 
 - Created: 2026-10-20
 - Scope: Vesper mobile and backend
-- Document status: IN PROGRESS — WM-01–WM-06 DONE; Phase 2 partially complete
+- Document status: IN PROGRESS — WM-01–WM-07 DONE; Phase 2 complete
 - Current implementation task: None
-- Next task: WM-07 — Financial export and reconciliation
+- Next task: WM-08 — Personal and household goals
 - Product direction: Evolve household financial tracking into trustworthy wealth planning.
 
 ## 1. Purpose
@@ -63,7 +63,7 @@ Areas requiring verification/completion:
 | Phase | Priority | Outcome | Status | Task IDs |
 | --- | --- | --- | --- | --- |
 | 1 | P0 | Correct net worth, budget periods, and save feedback | DONE | WM-01–WM-04 |
-| 2 | P1 | Complete investment lifecycle, liabilities, and financial export | IN PROGRESS | WM-05–WM-07 |
+| 2 | P1 | Complete investment lifecycle, liabilities, and financial export | DONE | WM-05–WM-07 |
 | 3 | P1 | Goals, emergency fund, and recurring obligations | TODO | WM-08–WM-10 |
 | 4 | P2 | Explainable health indicators, allocation, and forecasting | TODO | WM-11–WM-13 |
 | 5 | P3 | Automation and advanced asset coverage | TODO | WM-14–WM-19 |
@@ -165,7 +165,9 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 
 #### WM-07 — Financial export and reconciliation
 
-- Status: TODO
+- Status: DONE
+- Completed: 2026-10-20. Initially delivered with validation waived; automated validation subsequently requested by the user. Flutter analyze clean and full suite 404 passed, including 23 new WM-07 tests. See validation delivery entry for platform checks.
+- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: Phase 1
 - Acceptance criteria:
@@ -192,6 +194,7 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 #### WM-09 — Emergency fund planning
 
 - Status: TODO
+- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: WM-08
 - Acceptance criteria:
@@ -217,6 +220,7 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 #### WM-11 — Financial health indicators
 
 - Status: TODO
+- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: WM-06, WM-09, WM-10
 - Acceptance criteria:
@@ -237,6 +241,7 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 #### WM-13 — Cash-flow forecasting
 
 - Status: TODO
+- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: WM-10; WM-06 for installment commitments
 - Acceptance criteria:
@@ -321,3 +326,6 @@ Append an entry on task completion or a material scope/status change.
 Completion entry template: date; task ID; status; acceptance criteria met; changed paths; checks and results; remaining limitations or explicitly deferred scope.
 
 | 2026-10-20 | WM-06 | DONE | Implementation delivered for obligations, repayments, reversals, installments, atomic offline sync/recovery, and loan-aware net worth. Completed at explicit user direction on 2026-10-20; remaining validation waived by the user, with no further tests run. Flutter full suite: 381 passed; last analyze clean. Backend: 281 unit/HTTP tests and 46 isolated PostgreSQL integration tests passed before final sync batching/auth edits. Final lint optional-chain finding corrected, but lint/typecheck/build/OpenAPI still require rerun on final code. Device check unavailable: emulator disconnected. Additive migration 20261020160000_obligations was validated only on isolated PostgreSQL and is not applied to development data. Final gates were not rerun; DONE records user-directed acceptance, not additional verification. Black-screen launch target corrected in .vscode/launch.json. |
+| 2026-10-20 | WM-07 | DONE | Delivered Settings → Financial Export and Reconciliation: owned-account/currency/date filters, exact CSV credit/debit/net totals, per-row local sync status, UTF-8 BOM/CRLF quoting and spreadsheet formula escaping; Android system document picker, web download and native app-documents/clipboard fallback. Current leaf IDR cash reconciliation previews exact differences, requires a statement reference and confirmation, rechecks session/balance, and appends an audited categorized adjustment using existing atomic local/outbox flow. Existing adjustment API now accepts an optional description while preserving its default. No backend API or migration needed. Paths: lib/features/reports/data/financial_export_*, csv_file*, pages/financial_export_page.dart, settings_page.dart, finance_state.dart, Android MainActivity.kt; contract in docs/financial-export-reconciliation.md. Per explicit user instruction, no tests, analyzer, build or emulator validation run; only source formatting performed. Manual acceptance delegated to the user. Full Android restart/rebuild required for the native save channel. |
+
+| 2026-10-20 | WM-07 validation | DONE | User requested automated validation after initial delivery. Added 22 unit cases across snapshot and encrypted indexed SQLite plus 1 widget scenario covering CSV encoding/escaping/exact totals, period boundaries, pagination, owner/currency scope, sync statuses, durable audit adjustments, eligibility, precision, stale previews, cancellation/confirmation and session isolation. Corrected 6 lint findings in WM-07 source. Final flutter analyze: no issues; full flutter test: 404 passed. Android debug APK build with lib/main.dart and development defines passed, including native Kotlin CSV channel. Existing balance-adjustment regression tests pass in the full suite. Diff whitespace check passed. System document picker interaction on a device and other platform runtime behavior were not exercised. |

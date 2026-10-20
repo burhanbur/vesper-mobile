@@ -73,7 +73,7 @@ class DashboardPage extends StatelessWidget {
                         builder: (_) => const NetWorthAssessmentPage(),
                       ),
                     ),
-                    child: const Text('Periksa valuasi server (parsial)'),
+                    child: const Text('Lihat rincian valuasi'),
                   ),
                 ),
 

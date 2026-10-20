@@ -172,7 +172,7 @@ class NetWorthCard extends StatelessWidget {
                       const Padding(
                         padding: EdgeInsets.only(top: 8),
                         child: Text(
-                          'Estimasi data lokal tercatat, termasuk perubahan belum sinkron. Utang/piutang lengkap (WM06), pertumbuhan dan grafik historis kekayaan belum tersedia.',
+                          'Data dihitung dari saldo akun tercatat. Pertumbuhan dan grafik historis kekayaan belum tersedia.',
                           style: TextStyle(
                             color: AppColors.sageMuted,
                             fontSize: 11,

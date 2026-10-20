@@ -1188,7 +1188,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String accountId,
     int target, {
     int? expectedBalance,
+    String description = 'Penyesuaian saldo',
   }) {
+    if (description.trim().isEmpty || description.length > 5000) {
+      throw const ApiFailure('Catatan penyesuaian tidak valid.');
+    }
     final repo = _repo;
     final account = repo.row('accounts', accountId);
     if (account == null || account['deleted_at'] != null) {
@@ -1285,7 +1289,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             DateTime.now().millisecondsSinceEpoch,
             isUtc: true,
           ).toIso8601String(),
-          'description': 'Penyesuaian saldo',
+          'description': description,
         },
         local: {'created_by': currentUserId},
         balanceDelta: {accountId: delta},

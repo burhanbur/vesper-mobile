@@ -13,6 +13,7 @@ import '../../notifications/widgets/notifications_sheet.dart';
 import '../../offline/widgets/offline_mode_sheet.dart';
 import '../../reports/pages/budget_page.dart';
 import '../../reports/pages/reports_page.dart';
+import '../../reports/pages/financial_export_page.dart';
 import '../../sync/widgets/sync_conflict_modal.dart';
 import '../data/devices_repository.dart';
 import 'devices_page.dart';
@@ -330,6 +331,20 @@ class SettingsPage extends StatelessWidget {
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(
                           builder: (_) => const ObligationsPage(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.file_download_outlined),
+                      title: const Text('Ekspor & Rekonsiliasi'),
+                      subtitle: const Text(
+                        'CSV transaksi dan pencocokan saldo',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const FinancialExportPage(),
                         ),
                       ),
                     ),
