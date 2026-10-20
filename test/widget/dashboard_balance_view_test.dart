@@ -71,21 +71,21 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Total Kekayaan Bersih'));
+      await tester.tap(find.text('Kekayaan Bersih'));
       await tester.pumpAndSettle();
-      expect(find.text('Tampilan saldo utama'), findsOneWidget);
-      await tester.tap(find.text('Total Utang'));
+      expect(find.text('Tampilkan'), findsOneWidget);
+      await tester.tap(find.text('Utang'));
       await tester.pumpAndSettle();
       expect(state.dashboardBalanceView, DashboardBalanceView.debt);
-      expect(find.text('Total Utang'), findsOneWidget);
+      expect(find.text('Utang'), findsOneWidget);
       expect(find.text('Rp 0'), findsOneWidget);
       await tester.tap(find.byTooltip('Sembunyikan saldo'));
       await tester.pumpAndSettle();
       expect(find.text('Rp •••••••••'), findsOneWidget);
       expect(find.text('Rp 0'), findsNothing);
-      await tester.tap(find.text('Total Utang'));
+      await tester.tap(find.text('Utang'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Total Kas'));
+      await tester.tap(find.text('Kas'));
       await tester.pumpAndSettle();
       expect(state.dashboardBalanceView, DashboardBalanceView.cash);
       expect(find.text('Rp •••••••••'), findsOneWidget);

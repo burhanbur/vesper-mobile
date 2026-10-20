@@ -321,14 +321,7 @@ class NetWorthCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Tampilan saldo utama',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Pilih ringkasan untuk dashboard. Pilihan disimpan di perangkat ini.',
-              ),
+              Text('Tampilkan', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               for (final view in DashboardBalanceView.values)
                 ListTile(
@@ -348,10 +341,6 @@ class NetWorthCard extends StatelessWidget {
                       : const Icon(Icons.radio_button_unchecked_rounded),
                   onTap: () => Navigator.pop(context, view),
                 ),
-              const SizedBox(height: 12),
-              const Text(
-                'Pemasukan dan pengeluaran tetap menunjukkan arus kas bulan berjalan. Utang ditampilkan sebagai jumlah kewajiban.',
-              ),
             ],
           ),
         ),

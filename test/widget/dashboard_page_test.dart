@@ -121,7 +121,7 @@ void main() {
     tester,
   ) async {
     final state = await _pump(tester);
-    expect(find.text('Total Kekayaan Bersih'), findsOneWidget);
+    expect(find.text('Kekayaan Bersih'), findsOneWidget);
     expect(find.text('Kas + investasi − utang'), findsOneWidget);
     expect(find.text('Total Kekayaan'), findsNothing);
     expect(find.textContaining('% bulan ini'), findsNothing);

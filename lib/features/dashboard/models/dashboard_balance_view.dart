@@ -3,21 +3,13 @@ import 'package:flutter/material.dart';
 /// Stable names are persisted locally per user, never sent to the sync API.
 enum DashboardBalanceView {
   netWorth(
-    'Total Kekayaan Bersih',
+    'Kekayaan Bersih',
     'Kas + investasi − utang',
     Icons.account_balance_rounded,
   ),
-  cash('Total Kas', 'Tunai, bank, dan dompet digital', Icons.payments_outlined),
-  investments(
-    'Total Investasi',
-    'Nilai portofolio investasi',
-    Icons.trending_up_rounded,
-  ),
-  debt(
-    'Total Utang',
-    'Kartu kredit, paylater, dan pinjaman',
-    Icons.credit_card_outlined,
-  );
+  cash('Kas', 'Tunai, bank & e-wallet', Icons.payments_outlined),
+  investments('Investasi', 'Nilai portofolio', Icons.trending_up_rounded),
+  debt('Utang', 'Kredit, paylater & pinjaman', Icons.credit_card_outlined);
 
   const DashboardBalanceView(this.label, this.description, this.icon);
 
