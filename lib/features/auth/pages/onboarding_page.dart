@@ -492,7 +492,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 Icon(Icons.bolt_rounded, size: 16, color: Color(0xFFB45309)),
                 SizedBox(width: 6),
                 Text(
-                  '⚡ 100% Offline-First Engine',
+                  '⚡ Akses Penuh Tanpa Internet',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -518,7 +518,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           // Description
           const Text(
-            'Semua data Anda tersimpan instan di penyimpanan SQLite lokal perangkat. Begitu terhubung kembali ke internet, antrean transaksi otomatis tersinkronisasi mulus ke cloud.',
+            'Semua data Anda tersimpan instan dan aman di perangkat. Begitu terhubung kembali ke internet, transaksi otomatis diselaraskan secara mulus ke akun bersama.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -542,8 +542,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   _buildEngineStep(
                     icon: Icons.edit_note_rounded,
                     color: AppColors.primary,
-                    title: '1. Aksi Pengguna & Input Cepat',
-                    desc: 'Catat belanja di kasir tanpa hambatan loading spinner.',
+                    title: '1. Catat Transaksi Cepat',
+                    desc: 'Catat belanja di kasir seketika tanpa perlu menunggu sinyal atau loading.',
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
@@ -556,8 +556,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   _buildEngineStep(
                     icon: Icons.storage_rounded,
                     color: const Color(0xFF2563EB),
-                    title: '2. Local Database SQLite / Drift',
-                    desc: 'Data aman di ponsel Anda sebagai sumber kebenaran utama.',
+                    title: '2. Penyimpanan Aman di Perangkat',
+                    desc: 'Data tersimpan langsung di ponsel Anda sehingga selalu siap diakses.',
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
@@ -570,8 +570,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   _buildEngineStep(
                     icon: Icons.cloud_sync_rounded,
                     color: AppColors.income,
-                    title: '3. Background Sync & Cloud Backup',
-                    desc: 'Otomatis tersinkron ke pasangan & anggota saat terhubung.',
+                    title: '3. Sinkronisasi Otomatis',
+                    desc: 'Otomatis diperbarui ke pasangan & anggota saat ponsel kembali online.',
                   ),
                 ],
               ),
@@ -682,7 +682,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           // Description
           const Text(
-            'Dukungan rekening bertingkat (parent-child pocket), pemisahan kas cair vs investasi, dan estimasi kekayaan dari data lokal tercatat. Belum mencakup seluruh utang dan piutang.',
+            'Dukungan kantong bertingkat (kantong utama dan sub-kantong), pemisahan kas cair vs investasi, dan estimasi kekayaan bersih yang tercatat rapi. Belum mencakup seluruh utang dan piutang.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
