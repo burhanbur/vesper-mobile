@@ -15,6 +15,11 @@ import '../../reports/pages/budget_page.dart';
 import '../../reports/pages/reports_page.dart';
 import '../../reports/pages/financial_export_page.dart';
 import '../../goals/pages/goals_page.dart';
+import '../../emergency_funds/pages/emergency_fund_page.dart';
+import '../../bills/pages/bills_page.dart';
+import '../../financial_health/pages/financial_health_page.dart';
+import '../../asset_allocation/pages/asset_allocation_page.dart';
+import '../../cash_flow/pages/cash_flow_page.dart';
 import '../../sync/widgets/sync_conflict_modal.dart';
 import '../data/devices_repository.dart';
 import 'devices_page.dart';
@@ -343,6 +348,70 @@ class SettingsPage extends StatelessWidget {
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(builder: (_) => const GoalsPage()),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.health_and_safety_outlined),
+                      title: const Text('Dana Darurat'),
+                      subtitle: const Text(
+                        'Kebutuhan wajib dan cakupan dana likuid',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const EmergencyFundPage(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.event_repeat_outlined),
+                      title: const Text('Tagihan & Jadwal'),
+                      subtitle: const Text(
+                        'Jatuh tempo, pengingat dan pembayaran',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(builder: (_) => const BillsPage()),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.monitor_heart_outlined),
+                      title: const Text('Indikator Keuangan'),
+                      subtitle: const Text(
+                        'Tabungan, likuiditas dan beban utang',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const FinancialHealthPage(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.pie_chart_outline),
+                      title: const Text('Alokasi Aset'),
+                      subtitle: const Text('Komposisi, target dan konsentrasi'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const AssetAllocationPage(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.timeline_outlined),
+                      title: const Text('Proyeksi Arus Kas'),
+                      subtitle: const Text(
+                        'Komitmen mendatang dan potensi kekurangan kas',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(builder: (_) => const CashFlowPage()),
                       ),
                     ),
                     const Divider(height: 1, indent: 56),

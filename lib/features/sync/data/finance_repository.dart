@@ -169,6 +169,8 @@ class FinanceRepository {
   bool get hasUnresolvedInvestmentTrade => outbox.any(_isTrade);
   bool _isObligation(dynamic item) =>
       item['entity_type'] == 'obligation_commands';
+  bool _isRecordCommand(dynamic item) =>
+      _isObligation(item) || item['entity_type'] == 'bill_commands';
   bool get hasObligationModel {
     final coverage = state['obligation_history_coverage'];
     return coverage is Map &&
@@ -195,7 +197,7 @@ class FinanceRepository {
   void requireObligationReady() {
     if (!hasCompleteObligationHistory ||
         isSyncing ||
-        outbox.any((e) => _isTrade(e) || _isObligation(e))) {
+        outbox.any((e) => _isTrade(e) || _isRecordCommand(e))) {
       throw const ApiFailure(
         'Selesaikan sinkronisasi awal dan rekonsiliasi perintah keuangan sebelumnya.',
       );
@@ -205,14 +207,15 @@ class FinanceRepository {
   void commitObligationCommand(
     String id,
     Map<String, dynamic> payload,
-    Map<String, Map<String, dynamic>?> changes,
-  ) {
+    Map<String, Map<String, dynamic>?> changes, {
+    String entityType = 'obligation_commands',
+  }) {
     requireObligationReady();
     atomic(() {
       outbox.add({
         'id': const Uuid().v4(),
         'entity_id': id,
-        'entity_type': 'obligation_commands',
+        'entity_type': entityType,
         'operation': 'CREATE',
         'client_version': '0',
         'payload': payload,
@@ -228,6 +231,56 @@ class FinanceRepository {
           entry.key.substring(split + 1),
           entry.value,
         );
+      }
+    });
+  }
+
+  void commitBillCommand(
+    String id,
+    Map<String, dynamic> payload,
+    Map<String, Map<String, dynamic>?> changes,
+  ) {
+    if (state['bill_history_coverage'] is! Map ||
+        state['bill_history_coverage']['complete'] != true) {
+      throw const ApiFailure(
+        'Sinkronkan riwayat tagihan sebelum mencatat pembayaran.',
+      );
+    }
+    commitObligationCommand(id, payload, changes, entityType: 'bill_commands');
+  }
+
+  void retryBillCommand(
+    String queueId, {
+    bool cancel = false,
+    bool useServer = false,
+  }) {
+    if (isSyncing) throw const ApiFailure('Tunggu sinkronisasi selesai.');
+    final item = outbox
+        .where((e) => e['id'] == queueId && e['entity_type'] == 'bill_commands')
+        .firstOrNull;
+    if (item == null ||
+        !['pending', 'rejected', 'conflict'].contains(item['status'])) {
+      throw const ApiFailure('Perintah tidak tersedia.');
+    }
+    atomic(() {
+      if (useServer) {
+        final server = item['server_data'];
+        if (server is! Map ||
+            server['user_id'] != userId ||
+            !(item['required_snapshots'] as List).contains(
+              'bill_occurrences:${server['id']}',
+            )) {
+          throw const ApiFailure(
+            'Kejadian server belum tersedia. Coba ulang atau ajukan pembatalan.',
+          );
+        }
+        item['status'] = 'acknowledged';
+        state['cursor'] = '0';
+        state.remove('investment_command_snapshots');
+      } else {
+        if (cancel) item['cancellation_requested'] = true;
+        item['status'] = 'pending';
+        item.remove('error');
       }
     });
   }
@@ -609,7 +662,13 @@ class FinanceRepository {
       item['entity_type'] == 'investment_transactions';
 
   bool _tradeTouches(String type, String id) => outbox.any((item) {
-    if (_isObligation(item)) {
+    if (_isRecordCommand(item)) {
+      if (type == 'bill_schedules' && item['payload']['bill_id'] == id) {
+        return true;
+      }
+      if (type == 'transactions' && item['payload']['record_id'] == id) {
+        return true;
+      }
       final keys = item['required_snapshots'] as List;
       if (keys.contains('$type:$id')) return true;
       if (type == 'account_types') {
@@ -622,6 +681,10 @@ class FinanceRepository {
       }
       if (type == 'categories') {
         return [
+          row(
+            'bill_schedules',
+            '${item['payload']['bill_id']}',
+          )?['category_id'],
           item['payload']['interest_category_id'],
           item['payload']['fee_category_id'],
         ].contains(id);
@@ -677,7 +740,7 @@ class FinanceRepository {
         instrument['currency'] != 'IDR' ||
         instrument['pending_catalog'] == true ||
         isSyncing ||
-        outbox.any(_isObligation) ||
+        outbox.any(_isRecordCommand) ||
         outbox.any((e) {
           final p = e['payload'] as Map?;
           return _isTrade(e) ||
@@ -841,7 +904,7 @@ class FinanceRepository {
     }
     for (final item
         in outbox
-            .where((e) => _isObligation(e) && e['status'] == 'acknowledged')
+            .where((e) => _isRecordCommand(e) && e['status'] == 'acknowledged')
             .toList()) {
       final keys = (item['required_snapshots'] as List).cast<String>();
       if (snapshots == null || !keys.every(snapshots.containsKey)) continue;
@@ -932,6 +995,7 @@ class FinanceRepository {
     final old = row(type, entityId);
     if ([
           'obligations',
+          'bill_occurrences',
           'obligation_events',
           'obligation_commands',
         ].contains(type) ||
@@ -1303,14 +1367,24 @@ class FinanceRepository {
   Future<void> _runSync({void Function()? onProgress}) async {
     await requireOnline();
     final startedWithGoals = state['goal_history_coverage'] is Map;
+    final startedWithEmergencyPlan = state['emergency_plan_coverage'] is Map;
+    final startedWithBills = state['bill_history_coverage'] is Map;
     atomic(() {
+      final billCoverage = state['bill_history_coverage'];
+      if (billCoverage is Map && billCoverage['complete'] != true) {
+        state['cursor'] = '0';
+      }
+      final emergencyCoverage = state['emergency_plan_coverage'];
+      if (emergencyCoverage is Map && emergencyCoverage['complete'] != true) {
+        state['cursor'] = '0';
+      }
       final goalCoverage = state['goal_history_coverage'];
       if (goalCoverage is Map && goalCoverage['complete'] != true) {
         state['cursor'] = '0';
       }
       if (outbox.any(
         (e) =>
-            (_isTrade(e) || _isObligation(e)) &&
+            (_isTrade(e) || _isRecordCommand(e)) &&
             ['acknowledged', 'cancellation_approved'].contains(e['status']),
       )) {
         state['cursor'] = '0';
@@ -1425,6 +1499,23 @@ class FinanceRepository {
                 return false;
               }
             }
+            if (e['entity_type'] == 'emergency_plans') {
+              final payload = e['payload'] as Map?;
+              if (outbox.any(
+                (d) =>
+                    d != e &&
+                    ((d['entity_type'] == 'goals' &&
+                            d['entity_id'] == payload?['goal_id']) ||
+                        (d['entity_type'] == 'accounts' &&
+                            (payload?['account_ids'] as List? ?? const [])
+                                .contains(d['entity_id'])) ||
+                        (d['entity_type'] == 'categories' &&
+                            (payload?['category_ids'] as List? ?? const [])
+                                .contains(d['entity_id']))),
+              )) {
+                return false;
+              }
+            }
             final categoryId = (e['payload'] as Map?)?['category_id'];
             return categoryId == null ||
                 !outbox.any(
@@ -1448,8 +1539,11 @@ class FinanceRepository {
                 .map(
                   (e) => {
                     'entity_type':
-                        _isObligation(e) && e['cancellation_requested'] == true
-                        ? 'obligation_cancellations'
+                        _isRecordCommand(e) &&
+                            e['cancellation_requested'] == true
+                        ? (e['entity_type'] == 'bill_commands'
+                              ? 'bill_cancellations'
+                              : 'obligation_cancellations')
                         : e['entity_type'],
                     'entity_id': e['entity_id'],
                     'operation': e['operation'],
@@ -1484,14 +1578,14 @@ class FinanceRepository {
                   result['entity_id'] != item['entity_id']) ||
               ((item['entity_type'] == 'transfers' ||
                       _isTrade(item) ||
-                      _isObligation(item)) &&
+                      _isRecordCommand(item)) &&
                   result['entity_id'] != item['entity_id'])) {
             throw const ApiFailure(
               'Identitas respons sinkronisasi tidak valid.',
             );
           }
           if (result['status'] == 'applied') {
-            if (_isTrade(item) || _isObligation(item)) {
+            if (_isTrade(item) || _isRecordCommand(item)) {
               item['status'] = 'acknowledged';
               // Discard pre-ack staging; only a fresh complete replay can settle.
               state.remove('investment_command_snapshots');
@@ -1635,6 +1729,22 @@ class FinanceRepository {
         }
         if (!more) _finishTrades();
         state['cursor'] = next;
+        if (state['bill_history_coverage'] is Map) {
+          state['bill_history_coverage'] = {
+            'schema': 1,
+            'user_id': userId,
+            'complete': !more && startedWithBills,
+            'cursor': next,
+          };
+        }
+        if (state['emergency_plan_coverage'] is Map) {
+          state['emergency_plan_coverage'] = {
+            'schema': 1,
+            'user_id': userId,
+            'complete': !more && startedWithEmergencyPlan,
+            'cursor': next,
+          };
+        }
         if (state['goal_history_coverage'] is Map) {
           state['goal_history_coverage'] = {
             'schema': 1,
@@ -1665,7 +1775,7 @@ class FinanceRepository {
     final item = outbox.firstWhere((e) => e['id'] == queueId) as Map;
     if (item['entity_type'] == 'transfers' ||
         _isTrade(item) ||
-        _isObligation(item)) {
+        _isRecordCommand(item)) {
       throw const ApiFailure(
         'Konflik transfer/investasi memerlukan pemeriksaan server; perintah asli tetap disimpan.',
       );

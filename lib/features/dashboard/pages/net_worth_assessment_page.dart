@@ -73,6 +73,31 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
     }
   }
 
+  static String _formatAmount(String? raw) {
+    if (raw == null) return 'Belum tersedia';
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return 'Belum tersedia';
+
+    final isNegative = trimmed.startsWith('-');
+    final clean = isNegative ? trimmed.substring(1) : trimmed;
+    final parts = clean.split('.');
+    final intPart = parts[0];
+    final decPart = parts.length > 1 ? parts[1] : null;
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < intPart.length; i++) {
+      if (i > 0 && (intPart.length - i) % 3 == 0) {
+        buffer.write('.');
+      }
+      buffer.write(intPart[i]);
+    }
+    final formattedInt = (isNegative ? '-' : '') + buffer.toString();
+    if (decPart != null && decPart.isNotEmpty) {
+      return '$formattedInt.$decPart';
+    }
+    return formattedInt;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
@@ -81,7 +106,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
         ? '••••••'
         : data?.amounts[key] == null
         ? 'Belum tersedia'
-        : 'IDR ${data!.amounts[key]}';
+        : 'IDR ${_formatAmount(data!.amounts[key])}';
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -588,7 +613,9 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                       trailing: Text(
                         state.isBalanceHidden
                             ? '••••'
-                            : row.marketValue ?? 'Tidak dinilai',
+                            : row.marketValue != null
+                            ? _formatAmount(row.marketValue)
+                            : 'Tidak dinilai',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),

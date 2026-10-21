@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../models/notification_item.dart';
+import '../../bills/pages/bills_page.dart';
 
 class NotificationsSheet {
   static void show(BuildContext context) {
@@ -53,6 +54,16 @@ class NotificationsSheet {
               ],
             ),
             const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute(builder: (_) => const BillsPage()),
+                );
+              },
+              icon: const Icon(Icons.event_repeat),
+              label: const Text('Buka Tagihan & Jadwal'),
+            ),
 
             if (state.notifications.isEmpty)
               const Padding(

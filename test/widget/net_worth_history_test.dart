@@ -66,13 +66,13 @@ void main() {
         find.textContaining('Observasi ini masih parsial'),
         findsOneWidget,
       );
-      expect(find.textContaining('9007199254740993.01'), findsOneWidget);
+      expect(find.textContaining('9.007.199.254.740.993.01'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('old'), 200);
       expect(find.textContaining('USANG'), findsOneWidget);
       expect(find.text('12.34'), findsOneWidget);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
-      expect(find.textContaining('9007199254740993.01'), findsNothing);
+      expect(find.textContaining('9.007.199.254.740.993.01'), findsNothing);
       expect(find.text('12.34'), findsNothing);
       await tester.scrollUntilVisible(
         find.textContaining('Subtotal diketahui:'),

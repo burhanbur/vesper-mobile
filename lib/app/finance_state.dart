@@ -23,6 +23,7 @@ import '../features/investments/models/investment.dart';
 import '../features/investments/data/investment_lifecycle_repository.dart';
 import '../features/obligations/data/obligations_repository.dart';
 import '../features/notifications/models/notification_item.dart';
+import '../features/bills/data/bills_repository.dart';
 import '../features/reports/models/budget.dart';
 import '../features/sync/data/finance_repository.dart';
 import '../features/sync/models/sync_conflict.dart';
@@ -1955,22 +1956,30 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       throw const ApiFailure(
         'Instrumen server diperlukan untuk memperbarui harga.',
       );
-  List<AppNotificationItem> get notifications => _rows('notifications')
-      .map(
-        (r) => AppNotificationItem(
-          id: r['id'],
-          type: NotificationType.values.byName(r['type']),
-          title: r['title'],
-          body: r['body'],
-          createdAt: DateTime.parse(r['created_at']),
-          isRead: r['is_read'],
-        ),
-      )
-      .toList();
+  List<AppNotificationItem> get notifications => [
+    ..._rows('notifications').map(
+      (r) => AppNotificationItem(
+        id: r['id'],
+        type: NotificationType.values.byName(r['type']),
+        title: r['title'],
+        body: r['body'],
+        createdAt: DateTime.parse(r['created_at']),
+        isRead: r['is_read'],
+      ),
+    ),
+    if (repository != null)
+      ...BillsRepository(repository!, activate: false).reminders(),
+  ];
   int get unreadNotificationCount =>
       notifications.where((n) => !n.isRead).length;
   Future<void> markNotificationsAsRead() async {
-    for (final item in notifications.where((n) => !n.isRead)) {
+    if (repository != null) {
+      BillsRepository(repository!, activate: false).markRemindersRead();
+    }
+    _notify();
+    for (final item in notifications.where(
+      (n) => !n.isRead && !n.id.startsWith('bill:'),
+    )) {
       await _repo.writeOnline('PATCH', '/notifications/${item.id}/read', {});
     }
     await refresh();
@@ -2123,6 +2132,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void goalsSaved() {
+    _notify();
+    requestAutomaticSync();
+  }
+
+  void emergencyPlanSaved() {
+    _notify();
+    requestAutomaticSync();
+  }
+
+  void billsSaved() {
     _notify();
     requestAutomaticSync();
   }
