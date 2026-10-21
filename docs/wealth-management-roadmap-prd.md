@@ -2,9 +2,9 @@
 
 - Created: 2026-10-20
 - Scope: Vesper mobile and backend
-- Document status: IN PROGRESS — WM-01–WM-07 DONE; Phase 2 complete
+- Document status: IN PROGRESS — WM-01–WM-08 DONE; Phase 3 partially complete
 - Current implementation task: None
-- Next task: WM-08 — Personal and household goals
+- Next task: WM-09 — Emergency fund planning
 - Product direction: Evolve household financial tracking into trustworthy wealth planning.
 
 ## 1. Purpose
@@ -64,7 +64,7 @@ Areas requiring verification/completion:
 | --- | --- | --- | --- | --- |
 | 1 | P0 | Correct net worth, budget periods, and save feedback | DONE | WM-01–WM-04 |
 | 2 | P1 | Complete investment lifecycle, liabilities, and financial export | DONE | WM-05–WM-07 |
-| 3 | P1 | Goals, emergency fund, and recurring obligations | TODO | WM-08–WM-10 |
+| 3 | P1 | Goals, emergency fund, and recurring obligations | IN PROGRESS | WM-08–WM-10 |
 | 4 | P2 | Explainable health indicators, allocation, and forecasting | TODO | WM-11–WM-13 |
 | 5 | P3 | Automation and advanced asset coverage | TODO | WM-14–WM-19 |
 
@@ -181,7 +181,9 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 
 #### WM-08 — Personal and household goals
 
-- Status: TODO
+- Status: DONE
+- Completed: 2026-10-21. Personal/household goals, exact allocation/backing, completion, offline sync/recovery and authorization delivered; validation evidence below.
+- Implementation policy: Exact two-decimal same-currency soft earmarks on owned active leaf CASH accounts/pockets; allocations never move cash or create expenses. All nondeleted goals, including completed milestones, reserve their allocations until withdrawn. Allocation increases cannot exceed current positive cash minus other commitments. Cash remains spendable: actual backed progress assigns current cash once, oldest allocation first (created_at then UUID), and shows shortfalls. Private goals are owner-only; shared goal visibility requires active household membership, creator-only metadata/completion, and contributor-only allocation changes. A contributor may withdraw their own allocation after leaving without reading the shared goal. Foreign account IDs and balances are redacted. Currency/scope/start date stay immutable; completion requires backed target and does not release cash automatically. UTC calendar-day linear expected progress and ceiling monthly remaining contributions are explained in UI. Offline edits use existing versioned durable sync with retry/conflict feedback; authoritative server validation resolves concurrent over-allocation.
 - Scope: Mobile + backend
 - Dependencies: Phase 1
 - Acceptance criteria:
@@ -194,7 +196,6 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 #### WM-09 — Emergency fund planning
 
 - Status: TODO
-- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: WM-08
 - Acceptance criteria:
@@ -220,7 +221,6 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 #### WM-11 — Financial health indicators
 
 - Status: TODO
-- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: WM-06, WM-09, WM-10
 - Acceptance criteria:
@@ -241,7 +241,6 @@ Phase status is TODO until work starts, IN PROGRESS while any work is active or 
 #### WM-13 — Cash-flow forecasting
 
 - Status: TODO
-- Implementation policy: Current user-owned local ledger only, including pending entries; explicit local-calendar period, account, currency and household exclusions. CSV uses UTF-8 BOM, CRLF, quoted cells and formula escaping. Reconciliation compares current owned leaf IDR cash balances, requires statement references and confirmation, and appends an audited ordinary adjustment through existing offline sync. No historical balance rewrite or new backend API. Automated validation was initially waived; subsequent requested checks and results are recorded in the delivery log.
 - Scope: Mobile + backend as needed
 - Dependencies: WM-10; WM-06 for installment commitments
 - Acceptance criteria:
@@ -329,3 +328,4 @@ Completion entry template: date; task ID; status; acceptance criteria met; chang
 | 2026-10-20 | WM-07 | DONE | Delivered Settings → Financial Export and Reconciliation: owned-account/currency/date filters, exact CSV credit/debit/net totals, per-row local sync status, UTF-8 BOM/CRLF quoting and spreadsheet formula escaping; Android system document picker, web download and native app-documents/clipboard fallback. Current leaf IDR cash reconciliation previews exact differences, requires a statement reference and confirmation, rechecks session/balance, and appends an audited categorized adjustment using existing atomic local/outbox flow. Existing adjustment API now accepts an optional description while preserving its default. No backend API or migration needed. Paths: lib/features/reports/data/financial_export_*, csv_file*, pages/financial_export_page.dart, settings_page.dart, finance_state.dart, Android MainActivity.kt; contract in docs/financial-export-reconciliation.md. Per explicit user instruction, no tests, analyzer, build or emulator validation run; only source formatting performed. Manual acceptance delegated to the user. Full Android restart/rebuild required for the native save channel. |
 
 | 2026-10-20 | WM-07 validation | DONE | User requested automated validation after initial delivery. Added 22 unit cases across snapshot and encrypted indexed SQLite plus 1 widget scenario covering CSV encoding/escaping/exact totals, period boundaries, pagination, owner/currency scope, sync statuses, durable audit adjustments, eligibility, precision, stale previews, cancellation/confirmation and session isolation. Corrected 6 lint findings in WM-07 source. Final flutter analyze: no issues; full flutter test: 404 passed. Android debug APK build with lib/main.dart and development defines passed, including native Kotlin CSV channel. Existing balance-adjustment regression tests pass in the full suite. Diff whitespace check passed. System document picker interaction on a device and other platform runtime behavior were not exercised. |
+| 2026-10-21 | WM-08 | DONE | Delivered personal and active-household goal creation/editing/archive/completion with same-currency exact targets, UTC dates, transparent daily pace and monthly contribution, owner-only metadata and contributor-owned leaf cash/pocket allocations. Earmarks do not create expenses or move balances; capacity is serialized server-side and backing consumes cash once oldest-first, with shortfall and snapshot labels. Added household join/revocation publication, redacted contributor accounts, post-exit withdrawals, local first saves, immutable retry identity, expected-version conflicts, explicit retry/discard recovery and initial-history bootstrap race guard. Paths: lib/features/goals/, finance_repository.dart, finance_state.dart, settings_page.dart; backend src/modules/goals/, sync schemas/repository/OpenAPI/publication, Prisma Goal/GoalAllocation and additive migration 20261021010000_goals; docs/goals.md in both repositories. Checks: Flutter analyze clean; full suite 427 passed, including 23 new goal unit/widget tests; backend lint/typecheck, 284 unit/HTTP tests, build and OpenAPI passed; fresh isolated tmpfs PostgreSQL migration and all 51 integration tests passed (9 files, including 5 goals cases). Full npm validate attempted: format gate blocked by four pre-existing files (package.json, file-storage.ts, local-file-storage.ts, budget-progress.test.ts); subsequent gates passed separately. Both repositories pass diff whitespace checks. No real financial data reset or migration applied to the daily database; deploy migration and regenerate Prisma before running the updated backend. Device/emulator runtime was not exercised. |

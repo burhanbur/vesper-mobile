@@ -14,6 +14,7 @@ import '../../offline/widgets/offline_mode_sheet.dart';
 import '../../reports/pages/budget_page.dart';
 import '../../reports/pages/reports_page.dart';
 import '../../reports/pages/financial_export_page.dart';
+import '../../goals/pages/goals_page.dart';
 import '../../sync/widgets/sync_conflict_modal.dart';
 import '../data/devices_repository.dart';
 import 'devices_page.dart';
@@ -332,6 +333,16 @@ class SettingsPage extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (_) => const ObligationsPage(),
                         ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.flag_outlined),
+                      title: const Text('Goal & Target'),
+                      subtitle: const Text('Target pribadi dan rumah tangga'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(builder: (_) => const GoalsPage()),
                       ),
                     ),
                     const Divider(height: 1, indent: 56),

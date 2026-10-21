@@ -1302,7 +1302,12 @@ class FinanceRepository {
 
   Future<void> _runSync({void Function()? onProgress}) async {
     await requireOnline();
+    final startedWithGoals = state['goal_history_coverage'] is Map;
     atomic(() {
+      final goalCoverage = state['goal_history_coverage'];
+      if (goalCoverage is Map && goalCoverage['complete'] != true) {
+        state['cursor'] = '0';
+      }
       if (outbox.any(
         (e) =>
             (_isTrade(e) || _isObligation(e)) &&
@@ -1406,6 +1411,16 @@ class FinanceRepository {
                       payload['from_account_id'],
                       payload['to_account_id'],
                     ].contains(dependency['entity_id']),
+              )) {
+                return false;
+              }
+            }
+            if (e['entity_type'] == 'goal_allocations') {
+              final goalId =
+                  (e['payload'] as Map?)?['goal_id'] ??
+                  row('goal_allocations', '${e['entity_id']}')?['goal_id'];
+              if (outbox.any(
+                (d) => d['entity_type'] == 'goals' && d['entity_id'] == goalId,
               )) {
                 return false;
               }
@@ -1583,6 +1598,22 @@ class FinanceRepository {
             continue;
           }
           // Never overwrite an unacknowledged local edit with a remote snapshot.
+          // Goal revocation tombstones override cached projections, while the
+          // original command remains available for explicit recovery.
+          if (['goals', 'goal_allocations'].contains(type) &&
+              change['operation'] == 'DELETE') {
+            for (final item in outbox.where(
+              (e) => e['entity_type'] == type && e['entity_id'] == id,
+            )) {
+              item['status'] = 'rejected';
+              item['server_data'] = null;
+              item['before'] = null;
+              item['error'] =
+                  'Goal/alokasi dihapus atau akses rumah tangga dicabut.';
+            }
+            _put(type, id, null);
+            continue;
+          }
           if (outbox.any(
             (e) =>
                 e['entity_type'] == change['entity_type'] &&
@@ -1604,6 +1635,14 @@ class FinanceRepository {
         }
         if (!more) _finishTrades();
         state['cursor'] = next;
+        if (state['goal_history_coverage'] is Map) {
+          state['goal_history_coverage'] = {
+            'schema': 1,
+            'user_id': userId,
+            'complete': !more && startedWithGoals,
+            'cursor': next,
+          };
+        }
         state['investment_history_coverage'] = {
           'schema': 1,
           'user_id': userId,

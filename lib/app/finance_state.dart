@@ -2122,6 +2122,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     requestAutomaticSync();
   }
 
+  void goalsSaved() {
+    _notify();
+    requestAutomaticSync();
+  }
+
   DashboardBalanceView get dashboardBalanceView {
     final saved = repository?.state['dashboard_balance_view'];
     return DashboardBalanceView.values.firstWhere(
