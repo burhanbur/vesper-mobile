@@ -1,11 +1,54 @@
+import java.util.Base64
+import java.util.Properties
+import java.net.URI
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+val validateReleaseConfiguration = tasks.register("validateReleaseConfiguration") {
+    doLast {
+        for (key in listOf("storeFile", "storePassword", "keyAlias", "keyPassword")) {
+            require(!keystoreProperties.getProperty(key).isNullOrBlank()) {
+                "Release signing requires $key in android/key.properties. See docs/android-release.md."
+            }
+        }
+        require(rootProject.file(keystoreProperties.getProperty("storeFile")).isFile) {
+            "Release keystore not found. See docs/android-release.md."
+        }
+        val defines = (project.findProperty("dart-defines") as? String).orEmpty()
+            .split(',').filter { it.isNotEmpty() }
+            .map { String(Base64.getDecoder().decode(it), Charsets.UTF_8) }
+        val apiUrl = defines.lastOrNull { it.startsWith("API_BASE_URL=") }
+            ?.substringAfter('=')
+        val uri = runCatching { URI(apiUrl.orEmpty()) }.getOrNull()
+        require(uri != null && uri.scheme == "https" && !uri.host.isNullOrBlank() &&
+            uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null &&
+            uri.path in listOf("/api/v1", "/api/v1/") &&
+            uri.host !in listOf("localhost", "127.0.0.1", "[::1]", "10.0.2.2") &&
+            !uri.host.endsWith(".invalid")) {
+            "Release requires a production HTTPS API_BASE_URL ending in /api/v1. " +
+                "Pass --dart-define-from-file=env/production.json. See docs/android-release.md."
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name == "preReleaseBuild" || name == "compileFlutterBuildRelease") {
+        dependsOn(validateReleaseConfiguration)
+    }
+}
+
 android {
-    namespace = "com.example.vesper_mobile"
+    namespace = "id.bmafazi.vesper"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,8 +58,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.vesper_mobile"
+        applicationId = "id.bmafazi.vesper"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -29,11 +71,18 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { rootProject.file(it) }
+            storePassword = keystoreProperties.getProperty("storePassword")
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

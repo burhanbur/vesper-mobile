@@ -400,7 +400,7 @@ class _InvestmentDetailPageState extends State<InvestmentDetailPage> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${DateFormatter.formatDate(tx.transactedAt)} • ${tx.quantity} ${asset.symbol}',
+                                  '${DateFormatter.formatDate(state.timeZone.at(tx.transactedAt))} • ${tx.quantity} ${asset.symbol}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: AppColors.textSecondary,

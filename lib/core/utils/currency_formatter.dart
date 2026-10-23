@@ -1,6 +1,20 @@
 class CurrencyFormatter {
   CurrencyFormatter._();
 
+  /// Lossless presentation of minor units, including fractional Rupiah.
+  static String formatMinorRupiah(BigInt amount) {
+    final major = (amount.abs() ~/ BigInt.from(100)).toString();
+    final grouped = major.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+$)'),
+      (match) => '${match[1]}.',
+    );
+    final cents = amount.abs() % BigInt.from(100);
+    final fraction = cents == BigInt.zero
+        ? ''
+        : ',${cents.toString().padLeft(2, '0')}';
+    return '${amount.isNegative ? '-' : ''}Rp $grouped$fraction';
+  }
+
   /// Formats an integer rupiah value into standard format: "Rp 12.500.000"
   /// If [withSign] is true, prefixes '+' or '-' based on [isPositive] or [isNegative].
   static String formatRupiah(
@@ -37,10 +51,14 @@ class CurrencyFormatter {
   static String formatCompact(int amount) {
     final absAmount = amount.abs();
     if (absAmount >= 1000000000) {
-      final value = (absAmount / 1000000000).toStringAsFixed(1).replaceAll('.', ',');
+      final value = (absAmount / 1000000000)
+          .toStringAsFixed(1)
+          .replaceAll('.', ',');
       return 'Rp ${value.endsWith(',0') ? value.substring(0, value.length - 2) : value} M';
     } else if (absAmount >= 1000000) {
-      final value = (absAmount / 1000000).toStringAsFixed(1).replaceAll('.', ',');
+      final value = (absAmount / 1000000)
+          .toStringAsFixed(1)
+          .replaceAll('.', ',');
       return 'Rp ${value.endsWith(',0') ? value.substring(0, value.length - 2) : value} Jt';
     } else if (absAmount >= 1000) {
       final value = (absAmount / 1000).toStringAsFixed(1).replaceAll('.', ',');

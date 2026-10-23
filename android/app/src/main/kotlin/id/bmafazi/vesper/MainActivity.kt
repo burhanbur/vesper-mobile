@@ -1,4 +1,4 @@
-package com.example.vesper_mobile
+package id.bmafazi.vesper
 
 import android.os.Bundle
 import android.view.WindowManager

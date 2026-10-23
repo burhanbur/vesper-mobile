@@ -1,6 +1,9 @@
 # vesper_mobile
 
-A new Flutter project.
+Vesper personal and household finance app.
+
+See the [Android release guide](docs/android-release.md) for production API
+configuration, upload signing, versioning, and release builds.
 
 ## Getting Started
 

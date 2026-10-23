@@ -689,13 +689,16 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                                 onTap: () async {
                                   final picked = await showDatePicker(
                                     context: context,
-                                    initialDate: _selectedDate,
+                                    initialDate: state.timeZone.at(
+                                      _selectedDate,
+                                    ),
                                     firstDate: DateTime(2020),
                                     lastDate: DateTime(2030),
                                   );
                                   if (picked != null) {
                                     setState(() {
-                                      _selectedDate = picked;
+                                      _selectedDate = state.timeZone
+                                          .fromCalendar(picked);
                                     });
                                   }
                                 },
@@ -718,7 +721,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                                       const SizedBox(width: 8),
                                       Text(
                                         DateFormatter.formatShort(
-                                          _selectedDate,
+                                          state.timeZone.at(_selectedDate),
                                         ),
                                         style: const TextStyle(
                                           fontSize: 13,

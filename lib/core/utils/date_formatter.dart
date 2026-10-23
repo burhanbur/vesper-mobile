@@ -1,3 +1,5 @@
+import 'app_time_zone.dart';
+
 class DateFormatter {
   DateFormatter._();
 
@@ -47,12 +49,12 @@ class DateFormatter {
     return formatShort(date);
   }
 
-  static String formatFull(DateTime date) {
-    // WIB is UTC+7 regardless of the device's local timezone (no DST).
-    final wib = date.toUtc().add(const Duration(hours: 7));
-    final hour = wib.hour.toString().padLeft(2, '0');
-    final minute = wib.minute.toString().padLeft(2, '0');
-    return '${formatShort(wib)}, $hour:$minute WIB';
+  static String formatFull(
+    DateTime date, {
+    AppTimeZone timeZone = AppTimeZone.device,
+  }) {
+    final calendar = timeZone.at(date);
+    return '${formatShort(calendar)}, ${formatTime(date, timeZone: timeZone)} ${timeZone.abbreviation(date)}';
   }
 
   static String formatMonthYear(DateTime date) {
@@ -60,17 +62,34 @@ class DateFormatter {
     return '$month ${date.year}';
   }
 
-  static String formatTime(DateTime date) {
-    final wib = date.toUtc().add(const Duration(hours: 7));
-    final hour = wib.hour.toString().padLeft(2, '0');
-    final minute = wib.minute.toString().padLeft(2, '0');
+  static String formatTime(
+    DateTime date, {
+    AppTimeZone timeZone = AppTimeZone.device,
+  }) {
+    final calendar = timeZone.at(date);
+    final hour = calendar.hour.toString().padLeft(2, '0');
+    final minute = calendar.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
 
-  static String formatRelativeOrDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final targetDate = DateTime(date.year, date.month, date.day);
+  static String formatRelativeOrDate(
+    DateTime date, {
+    AppTimeZone timeZone = AppTimeZone.device,
+    DateTime? now,
+  }) {
+    final calendarNow = timeZone.at(now ?? DateTime.now());
+    final calendarDate = timeZone.at(date);
+    // Compare calendar dates, rather than 24h durations across DST boundaries.
+    final today = DateTime.utc(
+      calendarNow.year,
+      calendarNow.month,
+      calendarNow.day,
+    );
+    final targetDate = DateTime.utc(
+      calendarDate.year,
+      calendarDate.month,
+      calendarDate.day,
+    );
     final diff = today.difference(targetDate).inDays;
 
     if (diff == 0) {
@@ -80,7 +99,7 @@ class DateFormatter {
     } else if (diff == -1) {
       return 'Besok';
     } else {
-      return formatShort(date);
+      return formatShort(calendarDate);
     }
   }
 }

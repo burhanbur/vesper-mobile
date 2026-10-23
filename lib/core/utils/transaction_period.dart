@@ -1,17 +1,25 @@
 import '../../features/transactions/models/transaction.dart';
+import 'app_time_zone.dart';
 
-/// Calendar periods use local presentation time, with an exclusive end boundary.
+/// Selected calendar month with exclusive UTC query boundaries.
 class TransactionPeriod {
-  TransactionPeriod(DateTime month) : start = DateTime(month.year, month.month);
+  TransactionPeriod(DateTime month, {this.timeZone = AppTimeZone.device})
+    : month = DateTime.utc(month.year, month.month);
 
-  final DateTime start;
-  DateTime get end => DateTime(start.year, start.month + 1);
-  TransactionPeriod shift(int months) =>
-      TransactionPeriod(DateTime(start.year, start.month + months));
+  final DateTime month;
+  final AppTimeZone timeZone;
+  DateTime get start => timeZone.fromCalendar(month);
+  DateTime get end =>
+      timeZone.fromCalendar(DateTime.utc(month.year, month.month + 1));
+  TransactionPeriod withTimeZone(AppTimeZone zone) =>
+      TransactionPeriod(month, timeZone: zone);
+  TransactionPeriod shift(int months) => TransactionPeriod(
+    DateTime.utc(month.year, month.month + months),
+    timeZone: timeZone,
+  );
 
   bool contains(DateTime date) {
-    final local = date.toLocal();
-    return !local.isBefore(start) && local.isBefore(end);
+    return !date.isBefore(start) && date.isBefore(end);
   }
 
   List<TransactionItem> filter(Iterable<TransactionItem> transactions) =>

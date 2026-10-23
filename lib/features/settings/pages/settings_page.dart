@@ -24,6 +24,7 @@ import '../../sync/widgets/sync_conflict_modal.dart';
 import '../data/devices_repository.dart';
 import 'devices_page.dart';
 import 'security_page.dart';
+import '../widgets/time_zone_sheet.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -116,7 +117,10 @@ class SettingsPage extends StatelessWidget {
                         ),
                       ),
                       subtitle: Text(
-                        DateFormatter.formatRelativeOrDate(item.timestamp),
+                        DateFormatter.formatRelativeOrDate(
+                          item.timestamp,
+                          timeZone: state.timeZone,
+                        ),
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -723,6 +727,30 @@ class SettingsPage extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
+                    ListTile(
+                      key: const ValueKey('settings_time_zone'),
+                      leading: const Icon(
+                        Icons.schedule_outlined,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Zona waktu',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        state.timeZone.label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => TimeZoneSheet.show(context),
+                    ),
+                    const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
                         Icons.security_rounded,

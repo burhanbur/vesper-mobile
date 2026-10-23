@@ -9,6 +9,8 @@ import '../../../database/transaction_query.dart';
 import '../../accounts/pages/accounts_page.dart';
 import '../../accounts/pages/account_detail_page.dart';
 import '../../accounts/widgets/account_card.dart';
+import '../../bills/pages/bills_page.dart';
+import '../../reports/pages/budget_page.dart';
 import '../../investments/widgets/investment_trade_modal.dart';
 import '../../transactions/models/transaction.dart';
 import '../../transactions/widgets/add_transaction_modal.dart';
@@ -16,6 +18,7 @@ import '../../transactions/widgets/transaction_item_tile.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/quick_actions_bar.dart';
+import '../widgets/dashboard_insights_panel.dart';
 import 'net_worth_assessment_page.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -126,8 +129,8 @@ class DashboardPage extends StatelessWidget {
                               const SizedBox(width: 10),
                               const Flexible(
                                 child: Text(
-                                  'Neraca Bulan Berjalan',
-                                  overflow: TextOverflow.ellipsis,
+                                  'Surplus/Defisit Bulan Ini',
+                                  maxLines: 2,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -176,6 +179,16 @@ class DashboardPage extends StatelessWidget {
                   },
                   onInvestments: () => InvestmentTradeModal.show(context),
                   onReports: onNavigateToReports,
+                ),
+
+                DashboardInsightsPanel(
+                  insights: state.dashboardInsights,
+                  hidden: isHidden,
+                  onBills: () =>
+                      ShellManagementScope.open(context, const BillsPage()),
+                  onSpending: onNavigateToReports,
+                  onBudgets: () =>
+                      ShellManagementScope.open(context, const BudgetPage()),
                 ),
 
                 const SizedBox(height: 14),

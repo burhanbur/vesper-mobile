@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/portfolio_controller.dart';
 import '../data/portfolio_repository.dart';
@@ -377,7 +378,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Cache diambil: ${read.fetchedAt.toLocal().toIso8601String()}',
+                                'Cache diambil: ${DateFormatter.formatFull(read.fetchedAt, timeZone: AppStateScope.of(context).timeZone)}',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textMuted,

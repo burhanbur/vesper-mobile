@@ -31,7 +31,7 @@ void main() {
 
     // 1. Verify Home elements
     expect(find.text('Kekayaan Bersih'), findsOneWidget);
-    expect(find.text('Neraca Bulan Berjalan'), findsOneWidget);
+    expect(find.text('Surplus/Defisit Bulan Ini'), findsOneWidget);
 
     // 2. Tap Transaksi Tab
     await tester.tap(find.text('Transaksi'));

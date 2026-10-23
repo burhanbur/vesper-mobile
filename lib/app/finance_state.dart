@@ -5,6 +5,9 @@ import 'package:uuid/uuid.dart';
 
 import '../core/network/api_client.dart';
 import '../core/utils/budget_period.dart';
+import '../core/utils/app_time_zone.dart';
+import '../core/utils/transaction_period.dart';
+import '../features/settings/data/time_zone_preferences_repository.dart';
 import '../core/utils/currency_formatter.dart';
 import '../database/local_store.dart';
 import '../database/transaction_query.dart';
@@ -14,6 +17,8 @@ import '../features/accounts/models/balance_adjustment.dart';
 import '../features/dashboard/models/dashboard_balance_view.dart';
 import '../features/dashboard/models/net_worth_assessment.dart';
 import '../features/dashboard/data/net_worth_repository.dart';
+import '../features/dashboard/data/dashboard_insights_repository.dart';
+import '../features/dashboard/models/dashboard_insights.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/categories/models/category.dart';
 import '../features/household/models/category_report.dart';
@@ -335,7 +340,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) requestAutomaticSync();
+    if (state == AppLifecycleState.resumed) {
+      _notify(); // Refresh OS timezone/calendar changes even while offline.
+      requestAutomaticSync();
+    }
   }
 
   void requestAutomaticSync() {
@@ -546,6 +554,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       // A sync failure must not prevent reading unrelated server resources.
       // refreshList preserves locally queued mutations over server snapshots.
       try {
+        // Dashboard reminders need a complete bill feed, including for owners
+        // who have never opened the Bills page. Activation reuses its bootstrap.
+        BillsRepository(repo);
         await repo.sync(
           onProgress: () {
             if (active()) _notify();
@@ -2154,6 +2165,30 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  DashboardInsights get dashboardInsights {
+    final source = repository;
+    if (source == null || source.userId != currentUserId) {
+      return const DashboardInsights();
+    }
+    return DashboardInsightsRepository(source).read(timeZone: timeZone);
+  }
+
+  AppTimeZone get timeZone {
+    final source = repository;
+    return source == null || source.userId != currentUserId
+        ? AppTimeZone.device
+        : TimeZonePreferencesRepository(source).selected;
+  }
+
+  void setTimeZone(AppTimeZone zone) {
+    final source = repository;
+    if (source == null || source.userId != currentUserId) {
+      throw const ApiFailure('Sesi telah berubah.');
+    }
+    TimeZonePreferencesRepository(source).save(zone);
+    _notify();
+  }
+
   int get dashboardBalance => switch (dashboardBalanceView) {
     DashboardBalanceView.netWorth => totalNetWorth,
     DashboardBalanceView.cash => totalLiquidCash,
@@ -2178,8 +2213,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       .where((a) => a.isIncludeTotal && a.type == AccountType.cash)
       .fold(0, (sum, a) => sum + a.balance);
   bool _thisMonth(DateTime date) {
-    final now = DateTime.now();
-    final local = date.toLocal();
+    final now = timeZone.at(DateTime.now());
+    final local = timeZone.at(date);
     return local.year == now.year && local.month == now.month;
   }
 
@@ -2200,11 +2235,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int get monthNetSavings => monthIncome - monthExpense;
 
   TransactionSummary get _monthSummary {
-    final now = DateTime.now();
-    return _repo.store.transactionSummary(
-      DateTime(now.year, now.month),
-      DateTime(now.year, now.month + 1),
+    final period = TransactionPeriod(
+      timeZone.at(DateTime.now()),
+      timeZone: timeZone,
     );
+    return _repo.store.transactionSummary(period.start, period.end);
   }
 
   double get monthGrowthPercentage {
@@ -2219,9 +2254,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   List<double> get monthNetWorthTrend {
-    final now = DateTime.now();
+    final now = timeZone.at(DateTime.now());
     final startVal = (totalNetWorth - monthNetSavings).toDouble();
-    if (repository?.store.isIndexed == true) {
+    if (repository?.store.isIndexed == true && timeZone == AppTimeZone.device) {
       final daily = _monthSummary.dailyNet;
       final points = <double>[startVal];
       var running = startVal;
@@ -2236,7 +2271,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
       return points;
     }
-    final monthTx = transactions.where((t) => _thisMonth(t.date)).toList()
+    final period = TransactionPeriod(now, timeZone: timeZone);
+    final monthTx = transactionsInPeriod(period.start, period.end)
       ..sort((a, b) => a.date.compareTo(b.date));
 
     if (monthTx.isEmpty) {
@@ -2245,7 +2281,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     final dailyDeltas = <int, double>{};
     for (final t in monthTx) {
-      final day = t.date.toLocal().day;
+      final day = timeZone.at(t.date).day;
       final delta = t.type == TransactionType.income
           ? t.amount.toDouble()
           : t.type == TransactionType.expense

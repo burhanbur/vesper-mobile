@@ -22,3 +22,14 @@ appropriate environment file explicitly; no production URL is assumed.
 These values are public application configuration, not secrets. Never put API
 keys, passwords, or tokens in these files: compiled application configuration can
 be inspected by users.
+
+## Android production
+
+Copy `production.example.json` to `production.json` (ignored by Git), then replace
+the placeholder with the actual HTTPS API URL, including `/api/v1`.
+`API_BASE_URL` is the full URL, not a literal `{base_url}` variable.
+The `.invalid` example is deliberately rejected by release builds.
+
+Build with `flutter build appbundle --release --dart-define-from-file=env/production.json`.
+Release builds reject missing signing credentials and missing/invalid API URLs.
+See [Android release guide](../docs/android-release.md) for signing and validation.

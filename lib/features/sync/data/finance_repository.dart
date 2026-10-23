@@ -1371,7 +1371,13 @@ class FinanceRepository {
     final startedWithBills = state['bill_history_coverage'] is Map;
     atomic(() {
       final billCoverage = state['bill_history_coverage'];
-      if (billCoverage is Map && billCoverage['complete'] != true) {
+      if (billCoverage is Map &&
+          (billCoverage['schema'] != 1 ||
+              billCoverage['user_id'] != userId ||
+              billCoverage['cursor'] != state['cursor'] ||
+              billCoverage['replay_required'] == true)) {
+        // A checkpoint at the current cursor already includes bill history.
+        // Resume an interrupted/429 pull there instead of replaying page zero.
         state['cursor'] = '0';
       }
       final emergencyCoverage = state['emergency_plan_coverage'];
@@ -1734,6 +1740,7 @@ class FinanceRepository {
             'schema': 1,
             'user_id': userId,
             'complete': !more && startedWithBills,
+            'replay_required': !startedWithBills,
             'cursor': next,
           };
         }

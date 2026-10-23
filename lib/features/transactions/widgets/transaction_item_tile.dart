@@ -207,7 +207,10 @@ class TransactionItemTile extends StatelessWidget {
               _buildDetailRow('Akun Tujuan', toAccount.name),
             _buildDetailRow(
               'Tanggal & Waktu',
-              DateFormatter.formatFull(transaction.date),
+              DateFormatter.formatFull(
+                transaction.date,
+                timeZone: state.timeZone,
+              ),
             ),
             _buildDetailRow('Dibuat oleh', transaction.createdByName),
             if (transaction.note != null && transaction.note!.isNotEmpty)
@@ -378,7 +381,7 @@ class TransactionItemTile extends StatelessWidget {
     );
   }
 
-  Widget _buildRightSubLabel(Color color) {
+  Widget _buildRightSubLabel(BuildContext context, Color color) {
     if (transaction.type == TransactionType.transfer) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
@@ -435,10 +438,11 @@ class TransactionItemTile extends StatelessWidget {
     }
 
     // For regular income/expense, display time if available
-    final local = transaction.date.toLocal();
+    final zone = AppStateScope.of(context).timeZone;
+    final local = zone.at(transaction.date);
     if (local.hour != 0 || local.minute != 0) {
       return Text(
-        DateFormatter.formatTime(transaction.date),
+        DateFormatter.formatTime(transaction.date, timeZone: zone),
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
@@ -471,7 +475,12 @@ class TransactionItemTile extends StatelessWidget {
     }
     subtitleParts.add(accountName);
     if (showDate) {
-      subtitleParts.add(DateFormatter.formatRelativeOrDate(transaction.date));
+      subtitleParts.add(
+        DateFormatter.formatRelativeOrDate(
+          transaction.date,
+          timeZone: state.timeZone,
+        ),
+      );
     }
     final subtitle = subtitleParts.join(' • ');
 
@@ -606,7 +615,7 @@ class TransactionItemTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-                  _buildRightSubLabel(color),
+                  _buildRightSubLabel(context, color),
                 ],
               ),
             ];

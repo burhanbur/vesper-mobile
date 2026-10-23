@@ -5,6 +5,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/transaction_period.dart';
+import '../../../core/utils/app_time_zone.dart';
 import '../../../core/widgets/month_selector.dart';
 import '../../transactions/models/transaction.dart';
 import 'budget_page.dart';
@@ -20,6 +21,17 @@ class ReportsPage extends StatefulWidget {
 class _ReportsPageState extends State<ReportsPage> {
   int _selectedTab = 0;
   TransactionPeriod _period = TransactionPeriod(DateTime.now());
+  AppTimeZone? _timeZone;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final zone = AppStateScope.of(context).timeZone;
+    _period = _timeZone == null
+        ? TransactionPeriod(zone.at(DateTime.now()), timeZone: zone)
+        : _period.withTimeZone(zone);
+    _timeZone = zone;
+  }
 
   static IconData _getCategoryIcon(String categoryName, bool isIncome) {
     final cat = categoryName.toLowerCase();

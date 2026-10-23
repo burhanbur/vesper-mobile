@@ -34,7 +34,7 @@ class MonthSelector extends StatelessWidget {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                DateFormatter.formatMonthYear(period.start),
+                DateFormatter.formatMonthYear(period.month),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,

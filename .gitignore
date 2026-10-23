@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local production endpoint configuration (never bundle credentials).
+/env/production.json

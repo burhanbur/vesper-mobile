@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/transaction_period.dart';
+import '../../../core/utils/app_time_zone.dart';
 import '../../../core/widgets/month_selector.dart';
 import '../../../database/transaction_query.dart';
 import '../../categories/models/category.dart';
@@ -25,10 +26,25 @@ class _TransactionsPageState extends State<TransactionsPage> {
   String _searchQuery = '';
   bool _isSearchVisible = false;
   TransactionPeriod _period = TransactionPeriod(DateTime.now());
+  AppTimeZone? _timeZone;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final zone = AppStateScope.of(context).timeZone;
+    if (_timeZone == null) {
+      _period = TransactionPeriod(zone.at(DateTime.now()), timeZone: zone);
+    } else {
+      _period = _period.withTimeZone(zone);
+    }
+    _timeZone = zone;
+  }
+
   final List<TransactionCursor?> _pages = [null];
   int _page = 0;
   String? _scope;
   int? _revision;
+  DateTime? _queryStart, _queryEnd;
   void _resetPages() {
     _pages
       ..clear()
@@ -46,9 +62,13 @@ class _TransactionsPageState extends State<TransactionsPage> {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     if (_scope != state.localDataScope ||
-        _revision != state.localDataRevision) {
+        _revision != state.localDataRevision ||
+        _queryStart != _period.start ||
+        _queryEnd != _period.end) {
       _scope = state.localDataScope;
       _revision = state.localDataRevision;
+      _queryStart = _period.start;
+      _queryEnd = _period.end;
       _resetPages();
     }
     final categoryOptions = switch (_selectedFilter) {
@@ -97,8 +117,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
     final rows = <Object>[];
     DateTime? previousDay;
     for (final tx in filtered) {
-      final local = tx.date.toLocal();
-      final day = DateTime(local.year, local.month, local.day);
+      final local = state.timeZone.at(tx.date);
+      final day = DateTime.utc(local.year, local.month, local.day);
       if (day != previousDay) rows.add(day);
       rows.add(tx);
       previousDay = day;

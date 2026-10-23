@@ -1775,6 +1775,7 @@ class HouseholdPage extends StatelessWidget {
                                     ? tx.note!
                                     : DateFormatter.formatRelativeOrDate(
                                         tx.date,
+                                        timeZone: state.timeZone,
                                       ),
                                 style: const TextStyle(
                                   fontSize: 11,

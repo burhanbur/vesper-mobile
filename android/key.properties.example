@@ -1,0 +1,5 @@
+# Copy to android/key.properties. Paths are relative to android/; use forward slashes.
+storeFile=keystores/upload-keystore.jks
+storePassword=REPLACE_WITH_KEYSTORE_PASSWORD
+keyAlias=vesper-upload
+keyPassword=REPLACE_WITH_KEY_PASSWORD

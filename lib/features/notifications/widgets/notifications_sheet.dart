@@ -134,7 +134,10 @@ class NotificationsSheet {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          DateFormatter.formatRelativeOrDate(notif.createdAt),
+                          DateFormatter.formatRelativeOrDate(
+                            notif.createdAt,
+                            timeZone: state.timeZone,
+                          ),
                           style: const TextStyle(
                             fontSize: 10,
                             color: AppColors.textMuted,
