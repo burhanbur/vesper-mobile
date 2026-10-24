@@ -15,6 +15,16 @@ enum AppTimeZone {
       ? instant.toLocal()
       : instant.toUtc().add(Duration(hours: offsetHours!));
 
+  /// Date-only calendar value; never persist this as an event timestamp.
+  DateTime calendarDate(DateTime instant) {
+    final value = at(instant);
+    return DateTime.utc(value.year, value.month, value.day);
+  }
+
+  int offsetMinutesAt(DateTime instant) => this == device
+      ? instant.toLocal().timeZoneOffset.inMinutes
+      : offsetHours! * 60;
+
   /// Interpret calendar components in this zone and return the UTC instant.
   DateTime fromCalendar(DateTime calendar) => this == device
       ? DateTime(

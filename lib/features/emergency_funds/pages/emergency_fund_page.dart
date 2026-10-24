@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../goals/data/goals_repository.dart';
 import '../data/emergency_fund_controller.dart';
@@ -200,7 +201,7 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                         DropdownMenuItem(
                           value: n,
                           child: Text(
-                            '$n bulan kalender penuh (UTC)',
+                            '$n bulan kalender penuh',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -447,10 +448,9 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
     String? assessmentError;
     if (plan != null) {
       try {
-        result = repo.assess(plan);
+        result = repo.assess(plan, timeZone: state.timeZone);
       } catch (_) {
-        assessmentError =
-            'Data perhitungan belum valid. Tinjau pengaturan dan sinkronkan ulang.';
+        assessmentError = 'Data perhitungan belum valid. Tinjau pengaturan dan sinkronkan ulang.';
       }
     }
     final hidden = state.isBalanceHidden;
@@ -632,7 +632,11 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Cakupan saat ini: ${r.coverageHundredths == null ? 'Belum tersedia' : hidden ? '••••••' : '${r.coverageHundredths! ~/ BigInt.from(100)}.${(r.coverageHundredths! % BigInt.from(100)).toString().padLeft(2, '0')} bulan'}',
+                    'Cakupan saat ini: ${r.coverageHundredths == null
+                        ? 'Belum tersedia'
+                        : hidden
+                        ? '••••••'
+                        : '${r.coverageHundredths! ~/ BigInt.from(100)}.${(r.coverageHundredths! % BigInt.from(100)).toString().padLeft(2, '0')} bulan'}',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -687,7 +691,7 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                   if (plan['baseline_mode'] == 'HISTORY') ...[
                     const Divider(height: 20),
                     Text(
-                      'Periode: ${goalDay(r.historyStart)} sampai ${goalDay(r.historyEnd.subtract(const Duration(days: 1)))} UTC (${r.historyMonths} bulan penuh).',
+                      'Periode: ${DateFormatter.formatShort(state.timeZone.at(r.historyStart))} sampai ${DateFormatter.formatShort(state.timeZone.at(r.historyEnd.subtract(const Duration(microseconds: 1))))} (${r.historyMonths} bulan penuh).',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -851,17 +855,24 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                 children: [
                   Text(
                     'Rencana: ${item['status']} — ${item['error'] ?? 'menunggu sinkronisasi'}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   if (['conflict', 'rejected'].contains(item['status']))
                     Wrap(
                       children: [
                         TextButton(
                           onPressed: () {
-                            active.save(() => repo.recover(item['id'] as String));
+                            active.save(
+                              () => repo.recover(item['id'] as String),
+                            );
                             setState(() {});
                           },
-                          child: const Text('Coba ulang dengan validasi server'),
+                          child: const Text(
+                            'Coba ulang dengan validasi server',
+                          ),
                         ),
                         TextButton(
                           onPressed: () {

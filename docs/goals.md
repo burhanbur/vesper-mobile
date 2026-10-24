@@ -2,7 +2,7 @@
 
 Entry: **Lainnya & Pengaturan → Goal & Target**. Create a personal goal or select
 an active household. The creator owns metadata; sharing never transfers ownership
-of the goal or the contributing account. Currency, household and UTC start date
+of the goal or the contributing account. Currency, household and calendar start date
 are immutable. Name, target, deadline and milestone status can be updated.
 
 ## Money and allocation policy
@@ -44,7 +44,9 @@ backing while the completed milestone remains visible; the creator can reopen it
 
 ## Progress and pace
 
-Use UTC calendar dates. Expected progress today is
+Start/target dates remain date-only calendar values. New start dates and today
+for pace/overdue calculations use the owner-selected Settings timezone. Changing
+zones does not rewrite existing dates. Expected progress today is
 `ceil(target_cents × clamped_elapsed_days / total_days)`; same-day goals require
 the full target. Below expected means behind, otherwise on track. The UI reports
 overdue separately and shows remaining funds even after the deadline.

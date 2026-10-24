@@ -12,7 +12,7 @@ The UI shows actual opening balances, reserved amounts, available opening cash, 
 
 ## Dates and commitments
 
-Choose 7, 30, 60 or 90 calendar days, including today, and a fixed UTC/WIB/WITA/WIT planning timezone without daylight saving. The horizon is [planning-day today, today + N days). Both first and last included dates are displayed.
+Choose 7, 30, 60 or 90 calendar days, including today, and a fixed UTC/WIB/WITA/WIT planning timezone without daylight saving. The horizon is [planning-day today, today + N days). Both first and last included dates are displayed. New defaults follow the owner's selected supported Indonesian timezone; an existing saved planning zone remains authoritative. Observation timestamps follow the display selection.
 
 WM-10 recurrence reuses its original anchor, month-end clamping, inclusive end date and immutable schedule terms. Forecast generation extends the reusable bill occurrence reader to the chosen horizon, leaving its existing 60-day default unchanged. A bill's due date is interpreted at 00:00 in its own fixed timezone, then mapped to the planning calendar day. WM-06 installment/balloon dates without a linked bill use the planning timezone. This date mapping is an explicit scenario assumption, not a promised payment timestamp.
 

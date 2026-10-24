@@ -1,6 +1,8 @@
 import 'package:uuid/uuid.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/app_time_zone.dart';
+import '../../settings/data/time_zone_preferences_repository.dart';
 import '../../sync/data/finance_repository.dart';
 
 BigInt goalMinor(String value) {
@@ -161,7 +163,11 @@ class GoalsRepository {
     return result;
   }
 
-  GoalProgress progress(Map<String, dynamic> goal, {DateTime? now}) {
+  GoalProgress progress(
+    Map<String, dynamic> goal, {
+    DateTime? now,
+    AppTimeZone? timeZone,
+  }) {
     final backed = backing();
     final entries = allocations.where((a) => a['goal_id'] == goal['id']);
     final pledged = entries.fold(
@@ -175,7 +181,8 @@ class GoalsRepository {
     final target = goalMinor('${goal['target_amount']}');
     final start = goalDate('${goal['start_date']}');
     final end = goalDate('${goal['target_date']}');
-    final today = goalDate(goalDay(now ?? DateTime.now()));
+    final today = (timeZone ?? TimeZonePreferencesRepository(source).selected)
+        .calendarDate(now ?? DateTime.now());
     final days = end.difference(start).inDays;
     final elapsed = today
         .difference(start)
@@ -281,7 +288,10 @@ class GoalsRepository {
     String? groupId,
   }) {
     ready();
-    final start = goalDay(DateTime.now());
+    final start = goalDay(
+      TimeZonePreferencesRepository(source).selected
+          .calendarDate(DateTime.now()),
+    );
     if (name.trim().isEmpty ||
         name.trim().length > 120 ||
         !RegExp(r'^[A-Z]{3}$').hasMatch(currency) ||

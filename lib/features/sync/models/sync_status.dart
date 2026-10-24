@@ -1,12 +1,17 @@
 class SyncStatusEntry {
   final String title, status, message;
-  final bool waiting, needsReview;
+  final String id, entityType, entityId;
+  final bool waiting, needsReview, isRejected;
   const SyncStatusEntry(
     this.title,
     this.status,
     this.message, {
+    this.id = '',
+    this.entityType = '',
+    this.entityId = '',
     this.waiting = false,
     this.needsReview = false,
+    this.isRejected = false,
   });
 
   factory SyncStatusEntry.fromRow(Map row) {
@@ -47,8 +52,12 @@ class SyncStatusEntry {
               : waiting
               ? 'Data lokal dipertahankan sampai konfirmasi server lengkap.'
               : 'Perubahan tersimpan di perangkat dan menunggu pengiriman.'),
+      id: row['id']?.toString() ?? '',
+      entityType: row['entity_type']?.toString() ?? '',
+      entityId: row['entity_id']?.toString() ?? '',
       waiting: waiting,
       needsReview: review,
+      isRejected: status == 'rejected',
     );
   }
 }

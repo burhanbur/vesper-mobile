@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/obligations_controller.dart';
 import '../data/obligations_repository.dart';
@@ -954,7 +955,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                     ListTile(
                                       contentPadding: EdgeInsets.zero,
                                       title: Text(
-                                        '${event['operation']} • ${event['reversed_at'] == null ? event['transacted_at'] : 'DIBALIKKAN'}',
+                                        '${event['operation']} • ${event['reversed_at'] == null ? DateFormatter.timestamp(event['transacted_at'], timeZone: AppStateScope.of(context).timeZone) : 'DIBALIKKAN'}',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,

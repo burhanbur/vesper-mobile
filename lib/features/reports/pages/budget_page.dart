@@ -22,11 +22,18 @@ class _BudgetPageState extends State<BudgetPage> {
   late int _currentYear;
   bool _didFetchInitial = false;
 
+  String get _monthlyPeriodKey => formatPeriodKey(
+    DateTime.utc(_selectedMonth.year, _selectedMonth.month, 1),
+    'MONTHLY',
+  );
+
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _selectedMonth = DateTime(now.year, now.month);
+    final now = DateTime.now().toUtc();
+    // This is a budget calendar month, not device-local midnight. Converting
+    // local midnight to UTC can request the previous month in WIB/WITA/WIT.
+    _selectedMonth = DateTime.utc(now.year, now.month);
     _currentYear = now.year;
   }
 
@@ -44,7 +51,7 @@ class _BudgetPageState extends State<BudgetPage> {
       if (!mounted) return;
       final state = AppStateScope.of(context);
       if (_selectedPeriodTab == 0) {
-        final periodKey = formatPeriodKey(_selectedMonth, 'MONTHLY');
+        final periodKey = _monthlyPeriodKey;
         state.loadBudgetProgressForPeriod(periodKey, periodType: 'MONTHLY');
       } else {
         final periodKey = '$_currentYear';
@@ -239,6 +246,7 @@ class _BudgetPageState extends State<BudgetPage> {
               TextField(
                 controller: amountController,
                 keyboardType: TextInputType.number,
+                inputFormatters: const [CurrencyTextInputFormatter()],
                 autofocus: true,
                 enabled: !isSaving,
                 onChanged: (_) {
@@ -247,7 +255,7 @@ class _BudgetPageState extends State<BudgetPage> {
                   }
                 },
                 decoration: InputDecoration(
-                  hintText: 'Contoh: 1500000',
+                  hintText: 'Contoh: 1.500.000',
                   prefixText: 'Rp ',
                   prefixStyle: const TextStyle(fontWeight: FontWeight.w700),
                   border: OutlineInputBorder(
@@ -272,7 +280,7 @@ class _BudgetPageState extends State<BudgetPage> {
                     ? null
                     : () async {
                         final text = amountController.text.trim();
-                        final amount = int.tryParse(text) ?? 0;
+                        final amount = CurrencyFormatter.parseRupiah(text);
                         if (selectedCategory == null) {
                           setModalState(() {
                             errorMessage = 'Pilih kategori terlebih dahulu.';
@@ -393,7 +401,7 @@ class _BudgetPageState extends State<BudgetPage> {
             (tx) =>
                 tx.type == TransactionType.expense &&
                 tx.categoryId == b.categoryId &&
-                tx.date.year == _currentYear,
+                tx.date.toUtc().year == _currentYear,
           );
           final actualYearSpent = yearTransactions.fold(
             0,
@@ -417,7 +425,7 @@ class _BudgetPageState extends State<BudgetPage> {
       );
       totalSpent = displayedBudgets.fold(0, (sum, b) => sum + b.spentAmount);
     } else {
-      final monthlyPeriodKey = formatPeriodKey(_selectedMonth, 'MONTHLY');
+      final monthlyPeriodKey = _monthlyPeriodKey;
       displayedBudgets = state.budgetsForPeriod(
         period: monthlyPeriodKey,
         periodType: 'MONTHLY',
@@ -544,7 +552,7 @@ class _BudgetPageState extends State<BudgetPage> {
                         if (isYearly) {
                           _currentYear--;
                         } else {
-                          _selectedMonth = DateTime(
+                          _selectedMonth = DateTime.utc(
                             _selectedMonth.year,
                             _selectedMonth.month - 1,
                           );
@@ -571,7 +579,7 @@ class _BudgetPageState extends State<BudgetPage> {
                         if (isYearly) {
                           _currentYear++;
                         } else {
-                          _selectedMonth = DateTime(
+                          _selectedMonth = DateTime.utc(
                             _selectedMonth.year,
                             _selectedMonth.month + 1,
                           );

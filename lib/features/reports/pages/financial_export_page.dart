@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/app_time_zone.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/csv_file.dart';
 import '../data/financial_export_controller.dart';
@@ -18,6 +19,8 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
   String? accountId, reconciliationId, error, message;
   String currency = 'IDR';
   late DateTime start, end;
+  AppTimeZone? rangeZone;
+  String? rangeZoneRules;
   final statement = TextEditingController();
   final reference = TextEditingController();
   FinancialExport? result;
@@ -27,15 +30,28 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    start = DateTime(now.year, now.month, 1);
-    end = DateTime(now.year, now.month, now.day);
+    final now = DateTime.now().toUtc();
+    start = DateTime.utc(now.year, now.month, 1);
+    end = DateTime.utc(now.year, now.month, now.day);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final state = AppStateScope.of(context);
+    if (rangeZone == null) {
+      end = state.timeZone.calendarDate(DateTime.now());
+      start = DateTime.utc(end.year, end.month, 1);
+    }
+    final rules = state.timeZone == AppTimeZone.device
+        ? '${DateTime.now().timeZoneName}:${DateTime.now().timeZoneOffset.inMinutes}'
+        : state.timeZone.name;
+    if (rangeZone != state.timeZone || rangeZoneRules != rules) {
+      rangeZone = state.timeZone;
+      rangeZoneRules = rules;
+      result = null;
+      message = null;
+    }
     final source = state.repository;
     if (source == null || source.userId != state.currentUserId) {
       controller?.dispose();
@@ -90,9 +106,9 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     if (picked == null || !mounted) return;
     setState(() {
       if (first) {
-        start = picked;
+        start = DateTime.utc(picked.year, picked.month, picked.day);
       } else {
-        end = picked;
+        end = DateTime.utc(picked.year, picked.month, picked.day);
       }
       result = null;
       message = null;
@@ -137,9 +153,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     final accepted = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
         title: const Text(
           'Catat penyesuaian saldo?',
@@ -181,6 +195,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
     final active = controller;
     if (active == null || !active.isCurrent) {
       return Scaffold(
@@ -277,7 +292,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                           child: Text(
                             'Hanya akun aktif milik sendiri, termasuk akun tersembunyi dan '
                             'transaksi lokal yang belum tersinkron. Data pribadi anggota rumah tangga lain '
-                            'tidak disertakan. Periode memakai tanggal lokal perangkat; waktu CSV adalah UTC. '
+                            'tidak disertakan. Periode mengikuti zona waktu pilihan di Pengaturan; timestamp CSV memakai format UTC untuk pertukaran data. '
                             'Berkas berisi data keuangan pribadi.',
                             style: TextStyle(
                               fontSize: 11,
@@ -410,9 +425,10 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                                 'Tanggal akhir harus setelah tanggal awal.',
                               );
                             }
-                            result = repo.export(
-                              start: start,
-                              end: DateTime(end.year, end.month, end.day + 1),
+                            result = repo.exportCalendar(
+                              startDate: start,
+                              endDate: end,
+                              timeZone: state.timeZone,
                               currency: currency,
                               accountId: selectedAccount,
                             );
@@ -489,10 +505,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                                           );
                                         }
                                       },
-                                icon: const Icon(
-                                  Icons.copy_rounded,
-                                  size: 16,
-                                ),
+                                icon: const Icon(Icons.copy_rounded, size: 16),
                                 label: const Text('Salin CSV'),
                               ),
                             ],
@@ -612,8 +625,9 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(signed: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      signed: true,
+                    ),
                     onChanged: (_) => setState(() => comparison = null),
                   ),
                   const SizedBox(height: 12),
@@ -712,10 +726,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
               ),
               child: Text(
                 error!,
-                style: const TextStyle(
-                  color: AppColors.expense,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: AppColors.expense, fontSize: 12),
               ),
             ),
           if (message != null)
@@ -728,10 +739,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
               ),
               child: SelectableText(
                 message!,
-                style: const TextStyle(
-                  color: AppColors.income,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: AppColors.income, fontSize: 12),
               ),
             ),
         ],

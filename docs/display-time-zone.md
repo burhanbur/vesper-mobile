@@ -29,6 +29,16 @@ even offline, so device clock/timezone changes can refresh calendar boundaries.
 - Transaction date picking interprets a chosen calendar date as midnight in the
   selected zone. Existing timestamps are not changed merely by opening an edit
   form or changing the timezone preference.
+- Emergency-fund history and the emergency baseline within financial health
+  use the same selected-zone complete-month boundaries and month evidence.
+- Goal creation dates, suggested deadlines, today's linear progress and overdue
+  status follow the owner's selected calendar. Existing start/target dates stay
+  unchanged. New bill/forecast defaults use the preferred Indonesian zone when
+  supported; existing explicit schedule/planning zones are preserved.
+- Export date pickers describe an inclusive selected-zone range. The repository
+  converts calendar midnights into a half-open instant range, including the last
+  selected day. Changing zones clears a prepared CSV so it must be regenerated.
+  CSV timestamp columns remain UTC for interchange.
 
 All persisted/API transaction timestamps remain UTC. Display conversion never
 rewrites or resyncs existing transactions, balances or investment positions.
@@ -36,12 +46,27 @@ rewrites or resyncs existing transactions, balances or investment positions.
 ## Calendar contracts retained
 
 Budget allowance periods remain the existing UTC anchored calendar; both the
-budget page and dashboard budget attention keep that rule. Bill due dates retain
-each schedule's explicit timezone. Cash-flow planning retains its own saved
+budget page and dashboard budget attention keep that rule.
+The budget month selector stores calendar values in UTC and derives its request
+key from the selected year/month. Device-local midnight must not be converted
+into a period key: October 1 midnight in WIB is September 30 in UTC, which would
+request September while the heading still says October.
+
+Bill due dates retain each schedule's explicit timezone. Cash-flow planning retains its own saved
 planning timezone. Financial-health assessment windows also follow the selected
 display timezone; see [Financial health](financial-health.md). Backend as-of
 valuation dates, market price reference dates and export contracts retain their
 explicit domain rules. The settings sheet explains the budget/bill distinction.
+
+Reference dates are validated as UTC calendar placeholders, independently of
+the device timezone. They are never passed through instant display conversion.
+Raw observation/cache/history instants use `DateFormatter.timestamp`; explicit
+offsets are required instead of guessing the device zone for ambiguous strings.
+Native summary day buckets are invalidated when the OS zone changes, before
+incremental mutations are applied, including a later switch back.
+
+See [Timezone audit](timezone-audit.md) for module coverage and retained server
+calendar contracts.
 
 ## Validation
 

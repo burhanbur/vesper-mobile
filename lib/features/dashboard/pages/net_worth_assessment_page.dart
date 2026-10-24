@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../models/net_worth_assessment.dart';
 
@@ -189,8 +190,8 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
             icon: const Icon(Icons.calendar_today_rounded, size: 16),
             label: Text(
               _date == null
-                  ? 'Tanggal: hari ini (UTC)'
-                  : 'Tanggal UTC: ${_date!.toIso8601String().substring(0, 10)}',
+                  ? 'Tanggal acuan: terbaru'
+                  : 'Tanggal acuan: ${_date!.toIso8601String().substring(0, 10)}',
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
           ),
@@ -206,7 +207,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                         _error = null;
                       }),
                 icon: const Icon(Icons.replay_rounded, size: 14),
-                label: const Text('Kembali ke hari ini (UTC)'),
+                label: const Text('Gunakan tanggal terbaru'),
               ),
             ),
           const SizedBox(height: 8),
@@ -280,7 +281,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Waktu respons: ${data.observedAt} (bukan bukti historis)',
+                      'Waktu respons: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)} (bukan bukti historis)',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textMuted,
@@ -529,8 +530,8 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                       const SizedBox(height: 2),
                       Text(
                         data.unavailable
-                            ? 'Waktu respons: ${data.observedAt} (bukan bukti historis)'
-                            : 'Waktu observasi (UTC): ${data.observedAt}',
+                            ? 'Waktu respons: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)} (bukan bukti historis)'
+                            : 'Waktu observasi: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)}',
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,

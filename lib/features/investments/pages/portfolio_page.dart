@@ -61,7 +61,8 @@ class _PortfolioPageState extends State<PortfolioPage> {
   }
 
   Future<void> _chooseDate(PortfolioController controller) async {
-    final now = DateTime.now();
+    // Server snapshots are reference calendar dates with a UTC-day cutoff.
+    final now = DateTime.now().toUtc();
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.tryParse(controller.date ?? '') ?? now,

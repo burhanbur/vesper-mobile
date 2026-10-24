@@ -1,4 +1,5 @@
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/app_time_zone.dart';
 import '../../../database/transaction_query.dart';
 import '../../goals/data/goals_repository.dart';
 import '../../sync/data/finance_repository.dart';
@@ -169,11 +170,18 @@ class EmergencyFundRepository {
     });
   }
 
-  EmergencyAssessment assess(Map<String, dynamic> config, {DateTime? now}) {
-    final current = (now ?? DateTime.now()).toUtc();
-    final end = DateTime.utc(current.year, current.month, 1);
+  EmergencyAssessment assess(
+    Map<String, dynamic> config, {
+    DateTime? now,
+    AppTimeZone? timeZone,
+  }) {
+    final instant = (now ?? DateTime.now()).toUtc();
+    final current = timeZone?.at(instant) ?? instant;
+    final calendarEnd = DateTime.utc(current.year, current.month, 1);
+    final end = timeZone?.fromCalendar(calendarEnd) ?? calendarEnd;
     final months = config['history_months'] as int;
-    final start = DateTime.utc(end.year, end.month - months, 1);
+    final calendarStart = DateTime.utc(current.year, current.month - months, 1);
+    final start = timeZone?.fromCalendar(calendarStart) ?? calendarStart;
     final warnings = <String>[];
     BigInt? baseline;
     var monthsWithExpenses = 0;
@@ -234,8 +242,8 @@ class EmergencyFundRepository {
             total += amount;
             if (amount > BigInt.zero) {
               activeMonths.add(
-                DateTime.parse('${row['transacted_at']}')
-                    .toUtc()
+                (timeZone?.at(DateTime.parse('${row['transacted_at']}')) ??
+                        DateTime.parse('${row['transacted_at']}').toUtc())
                     .toIso8601String()
                     .substring(0, 7),
               );

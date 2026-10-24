@@ -23,6 +23,7 @@ class _QueueState extends AppState {
         ? []
         : [
             SyncStatusEntry.fromRow({
+              'id': 'q-1',
               'entity_type': 'transactions',
               'status': afterStatus,
               'error': 'Kategori sudah dihapus',
@@ -65,6 +66,9 @@ void main() {
         await tester.tap(find.text('Periksa perubahan'));
         await tester.pumpAndSettle();
         expect(find.text('Kategori sudah dihapus'), findsOneWidget);
+        if (status == 'rejected') {
+          expect(find.text('Buang perubahan lokal'), findsOneWidget);
+        }
         expect(state.pendingSyncCount, 1);
       }
       if (status == 'acknowledged') {

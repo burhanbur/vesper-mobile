@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/asset_allocation_repository.dart';
 import '../data/asset_allocation_controller.dart';
@@ -73,66 +74,70 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    const Text(
-                      'Persen aset positif IDR, total tepat 100%. Disimpan per pengguna di perangkat ini. Target adalah pilihan sendiri, bukan saran transaksi.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.35,
+                  const Text(
+                    'Persen aset positif IDR, total tepat 100%. Disimpan per pengguna di perangkat ini. Target adalah pilihan sendiri, bukan saran transaksi.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  for (final kind in allocationClasses)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: TextField(
+                        controller: fields[kind],
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: '${allocationLabels[kind]} (%)',
+                          labelStyle: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    for (final kind in allocationClasses)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: TextField(
-                          controller: fields[kind],
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: '${allocationLabels[kind]} (%)',
-                            labelStyle: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.border),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: AppColors.border),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: AppColors.primary,
-                                width: 1.5,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                          ),
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                    if (error != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          error!,
-                          style: TextStyle(
-                            color: Theme.of(ctx).colorScheme.error,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                ],
               ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -196,18 +201,12 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
             if (weight > 0)
               Expanded(
                 flex: weight,
-                child: Container(
-                  height: 8,
-                  color: AppColors.primary,
-                ),
+                child: Container(height: 8, color: AppColors.primary),
               ),
             if (weight < 10000)
               Expanded(
                 flex: 10000 - weight,
-                child: Container(
-                  height: 8,
-                  color: AppColors.surfaceVariant,
-                ),
+                child: Container(height: 8, color: AppColors.surfaceVariant),
               ),
           ],
         ),
@@ -390,7 +389,9 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
                 decoration: BoxDecoration(
                   color: AppColors.expenseLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.expense.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.expense.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Text(
                   active.error!,
@@ -410,7 +411,9 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
                 decoration: BoxDecoration(
                   color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: const Text(
                   'Ada perubahan lokal yang belum tersinkron. Angka server/cache belum mencerminkan perubahan tersebut; tidak ditambah delta lokal.',
@@ -488,7 +491,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tanggal ${data.json['snapshot_date']} UTC; diamati ${data.json['observed_at']}.',
+                    'Tanggal ${DateFormatter.calendarDate(data.json['snapshot_date'])}; diamati ${DateFormatter.timestamp(data.json['observed_at'], timeZone: state.timeZone)}.',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,

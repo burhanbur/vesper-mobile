@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/investment_lifecycle_controller.dart';
 import '../data/investment_lifecycle_repository.dart';
@@ -133,7 +134,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                     TextField(
                       controller: date,
                       decoration: const InputDecoration(
-                        labelText: 'Tanggal UTC (YYYY-MM-DD)',
+                        labelText: 'Tanggal harga (YYYY-MM-DD)',
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -362,7 +363,8 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                         'Laba/rugi belum terealisasi: ${money(overview.unrealized)}',
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: overview.unrealized != null &&
+                          color:
+                              overview.unrealized != null &&
                                   !overview.unrealized!.startsWith('-')
                               ? AppColors.income
                               : AppColors.expense,
@@ -406,7 +408,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Cache katalog: ${source.state['investment_catalog_fetched_at'] ?? 'belum pernah dimuat'}',
+                      'Cache katalog: ${DateFormatter.timestamp(source.state['investment_catalog_fetched_at'], timeZone: AppStateScope.of(context).timeZone)}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textMuted,
@@ -414,7 +416,10 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                     ),
                     const Text(
                       'Harga bertanggal, bukan real-time. Harga lama/cache offline mungkin usang; periksa tanggal sebelum memakai valuasi.',
-                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
@@ -433,10 +438,9 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                           setState(() => search = v.toLowerCase()),
                     ),
                     for (final item in repo.instruments.where(
-                      (r) =>
-                          '${r['code']} ${r['name']}'.toLowerCase().contains(
-                            search,
-                          ),
+                      (r) => '${r['code']} ${r['name']}'.toLowerCase().contains(
+                        search,
+                      ),
                     ))
                       ListTile(
                         title: Text(
@@ -453,7 +457,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                       ),
                     for (final quote in source.rows('instrument_prices'))
                       Text(
-                        '${source.row('instruments', '${quote['instrument_id']}')?['code'] ?? quote['instrument_id']}: ${money(quote['close_price'] as String?)} • ${quote['price_date']} UTC${quote['pending_catalog'] == true ? ' • lokal/pending' : ''}',
+                        '${source.row('instruments', '${quote['instrument_id']}')?['code'] ?? quote['instrument_id']}: ${money(quote['close_price'] as String?)} • ${DateFormatter.calendarDate(quote['price_date'])}${quote['pending_catalog'] == true ? ' • lokal/pending' : ''}',
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -549,15 +553,14 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                                                     item['id'] as String,
                                                   );
                                                 } catch (failure) {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        failure.toString(),
-                                                      ),
-                                                    ),
-                                                  );
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            failure.toString(),
+                                                          ),
+                                                        ),
+                                                      );
                                                 }
                                               }
                                             },
@@ -570,9 +573,8 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                             TextButton.icon(
                               onPressed: () async {
                                 try {
-                                  await AppStateScope.of(
-                                    context,
-                                  ).checkInvestmentRecovery();
+                                  await AppStateScope.of(context)
+                                      .checkInvestmentRecovery();
                                 } catch (_) {
                                   /* Queue retains the delivery error. */
                                 }
@@ -678,7 +680,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            '${source.row('accounts', '${row['account_id']}')?['name']} • ${row['transacted_at']}\n'
+                            '${source.row('accounts', '${row['account_id']}')?['name']} • ${DateFormatter.timestamp(row['transacted_at'], timeZone: AppStateScope.of(context).timeZone)}\n'
                             '${hidden ? '••••••' : row['quantity']} unit × ${money(row['price_per_unit'] as String?)}\n'
                             'Fee/pajak: ${money(row['fee'] as String?)} • ${row['version'] == '0' ? 'Lokal/pending' : 'Tersinkron'}\n${row['description'] ?? ''}',
                           ),

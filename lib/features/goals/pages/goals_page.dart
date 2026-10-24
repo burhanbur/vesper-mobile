@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/goals_controller.dart';
 import '../data/goals_repository.dart';
@@ -54,7 +55,11 @@ class _GoalsPageState extends State<GoalsPage> {
     final date = TextEditingController(
       text:
           goal?['target_date'] as String? ??
-          goalDay(DateTime.now().toUtc().add(const Duration(days: 365))),
+          goalDay(
+            AppStateScope.of(context).timeZone
+                .calendarDate(DateTime.now())
+                .add(const Duration(days: 365)),
+          ),
     );
     final currency = TextEditingController(
       text: goal?['currency'] as String? ?? 'IDR',
@@ -148,7 +153,7 @@ class _GoalsPageState extends State<GoalsPage> {
                   TextField(
                     controller: date,
                     decoration: InputDecoration(
-                      labelText: 'Tanggal target UTC (YYYY-MM-DD)',
+                      labelText: 'Tanggal target (YYYY-MM-DD)',
                       labelStyle: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
@@ -483,9 +488,7 @@ class _GoalsPageState extends State<GoalsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actionsOverflowButtonSpacing: 8,
         backgroundColor: Colors.white,
         title: const Text(
@@ -497,10 +500,7 @@ class _GoalsPageState extends State<GoalsPage> {
         ),
         content: const Text(
           'Seluruh alokasi goal ini dilepas setelah sinkronisasi diterima server. Saldo dan transaksi tidak berubah.',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
@@ -626,7 +626,9 @@ class _GoalsPageState extends State<GoalsPage> {
                 decoration: BoxDecoration(
                   color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: const Text(
                   'Sinkronkan riwayat awal sebelum menambah alokasi. Goal pribadi dapat dibuat offline.',
@@ -678,7 +680,10 @@ class _GoalsPageState extends State<GoalsPage> {
                 children: [
                   Text(
                     '${item['status']} — ${item['error'] ?? item['operation']}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   if (['conflict', 'rejected'].contains(item['status']))
                     Wrap(
@@ -746,7 +751,8 @@ class _GoalsPageState extends State<GoalsPage> {
                     ? 'Sesuai jalur'
                     : 'Tertinggal';
 
-                final statusColor = (goal['status'] == 'COMPLETED' || progress.achieved)
+                final statusColor =
+                    (goal['status'] == 'COMPLETED' || progress.achieved)
                     ? AppColors.income
                     : progress.overdue
                     ? AppColors.expense
@@ -813,7 +819,7 @@ class _GoalsPageState extends State<GoalsPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Target ${goal['target_date']} UTC • $statusText',
+                        'Target ${DateFormatter.calendarDate(goal['target_date'])} • $statusText',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textMuted,
@@ -885,7 +891,7 @@ class _GoalsPageState extends State<GoalsPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Patokan hari ini: ${money(progress.expected)}. Target dibagi linear sejak ${goal['start_date']} sampai tenggat, memakai hari UTC; bukan prediksi hasil investasi.',
+                        'Patokan hari ini: ${money(progress.expected)}. Target dibagi linear sejak ${goal['start_date']} sampai tenggat, mengikuti zona waktu pilihan; bukan prediksi hasil investasi.',
                         style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,
@@ -903,7 +909,9 @@ class _GoalsPageState extends State<GoalsPage> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                            color: AppColors.surfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
@@ -922,7 +930,7 @@ class _GoalsPageState extends State<GoalsPage> {
                                     ),
                                     if (a['user_id'] != repo.source.userId)
                                       Text(
-                                        'Snapshot: ${a['backing_checked_at'] ?? 'belum tersedia'}',
+                                        'Snapshot: ${DateFormatter.timestamp(a['backing_checked_at'], timeZone: AppStateScope.of(context).timeZone)}',
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: AppColors.textMuted,

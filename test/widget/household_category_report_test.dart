@@ -24,7 +24,7 @@ void main() {
       expect(find.text('Saldo Kas Bersama'), findsOneWidget);
       final list = find.byType(ListView);
       await tester.scrollUntilVisible(
-        find.text('2026-10 (UTC)'),
+        find.text('2026-10'),
         250,
         scrollable: find
             .descendant(of: list, matching: find.byType(Scrollable))
@@ -44,9 +44,9 @@ void main() {
         find.text('Mode offline: menampilkan data grup tersimpan.'),
         findsOneWidget,
       );
-      await tester.tap(find.byTooltip('Bulan UTC sebelumnya'));
+      await tester.tap(find.byTooltip('Bulan sebelumnya'));
       await tester.pumpAndSettle();
-      expect(find.text('2026-09 (UTC)'), findsOneWidget);
+      expect(find.text('2026-09'), findsOneWidget);
       expect(find.text('Rp 25000.25'), findsNothing);
       expect(find.textContaining('Agregat belum tersedia'), findsOneWidget);
       expect(find.text('Rp 0'), findsNothing);

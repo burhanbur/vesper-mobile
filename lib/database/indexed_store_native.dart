@@ -16,6 +16,7 @@ class IndexedStore {
   Map<String, dynamic> get state => _state;
   int revision = 0;
   final Map<String, _SummaryWindow> _summaries = {};
+  String? _summaryZone;
   final List<(dynamic, dynamic)> _summaryChanges = [];
   bool _resetSummaries = false;
 
@@ -113,6 +114,7 @@ class IndexedStore {
   }
 
   void commit({String? sourceDigest}) {
+    _refreshSummaryZone();
     if (journal.dirty.isEmpty && sourceDigest == null) return;
     database.execute('BEGIN IMMEDIATE');
     _summaryChanges.clear();
@@ -270,8 +272,9 @@ class IndexedStore {
   }
 
   TransactionSummary transactionSummary(DateTime start, DateTime end) {
+    _refreshSummaryZone();
     final key =
-        '${start.toUtc().microsecondsSinceEpoch}:${end.toUtc().microsecondsSinceEpoch}:${DateTime.now().timeZoneName}';
+        '${start.toUtc().microsecondsSinceEpoch}:${end.toUtc().microsecondsSinceEpoch}:${DateTime.now().timeZoneName}:${start.toLocal().timeZoneOffset.inMinutes}:${end.toLocal().timeZoneOffset.inMinutes}';
     final cached = _summaries[key];
     if (cached != null) return cached.snapshot;
     final summary = _SummaryWindow(
@@ -289,6 +292,17 @@ class IndexedStore {
     if (_summaries.length >= 24) _summaries.remove(_summaries.keys.first);
     _summaries[key] = summary;
     return summary.snapshot;
+  }
+
+  // Incremental day buckets use the OS calendar. Discard the previous zone's
+  // windows before applying mutations, including when switching back later.
+  void _refreshSummaryZone() {
+    final now = DateTime.now();
+    final zone = '${now.timeZoneName}:${now.timeZoneOffset.inMinutes}';
+    if (_summaryZone != zone) {
+      _summaries.clear();
+      _summaryZone = zone;
+    }
   }
 
   TransactionPage transactionPage(TransactionQuery query) {

@@ -41,7 +41,10 @@ class NetWorthAssessment {
     }
     final date = netWorthText(value['snapshot_date']);
     if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date) ||
-        DateTime.tryParse(date)?.toIso8601String().substring(0, 10) != date) {
+        DateTime.tryParse('${date}T00:00:00Z')
+                ?.toIso8601String()
+                .substring(0, 10) !=
+            date) {
       throw invalidNetWorth();
     }
     final observed = netWorthText(value['observed_at']);

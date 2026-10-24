@@ -181,8 +181,9 @@ class _AccountsPageState extends State<AccountsPage> {
                 TextField(
                   controller: balanceController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [CurrencyTextInputFormatter()],
                   decoration: const InputDecoration(
-                    hintText: 'Contoh: 1000000',
+                    hintText: 'Contoh: 1.000.000',
                     prefixText: 'Rp ',
                     prefixIcon: Icon(Icons.money_rounded),
                   ),
@@ -330,13 +331,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   onPressed: () {
                     final name = nameController.text.trim();
                     final balance =
-                        int.tryParse(
-                          balanceController.text.replaceAll(
-                            RegExp(r'[^0-9]'),
-                            '',
-                          ),
-                        ) ??
-                        0;
+                        CurrencyFormatter.parseRupiah(balanceController.text);
                     if (name.isEmpty) return;
 
                     try {

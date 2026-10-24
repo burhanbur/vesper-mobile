@@ -89,7 +89,10 @@ class AllocationSnapshot {
     bool date(dynamic v) =>
         v is String &&
         RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v) &&
-        DateTime.tryParse(v)?.toIso8601String().substring(0, 10) == v;
+        DateTime.tryParse('${v}T00:00:00Z')
+                ?.toIso8601String()
+                .substring(0, 10) ==
+            v;
     if (!date(value['snapshot_date']) ||
         value['observed_at'] is! String ||
         !(value['observed_at'] as String).endsWith('Z') ||

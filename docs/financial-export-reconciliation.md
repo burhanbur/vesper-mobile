@@ -14,8 +14,10 @@ household reports are accessible. No tokens, secrets, device identifiers, privat
 obligation details, or household member profiles are exported.
 
 Choose one currency and optionally one account. Start/end dates are inclusive
-local calendar dates, translated to a half-open UTC interval [start midnight,
-midnight after end). Each transaction leg has its own row. Transfers and derived
+calendar dates in the Settings timezone, translated to a half-open UTC interval [start midnight,
+midnight after end). Construct the next calendar midnight before converting,
+so device daylight-saving days need not be 24 hours. Changing the timezone
+clears a prepared export. CSV event timestamps remain UTC. Each transaction leg has its own row. Transfers and derived
 investment/obligation cash settlements remain ledger entries, not additional
 income/expense. Credit, debit, and net totals use exact integer cents and include
 these movements; they are not income/expense report totals. Opening balances are

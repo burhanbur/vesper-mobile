@@ -1,4 +1,5 @@
 import '../../../core/network/api_client.dart';
+import '../../settings/data/time_zone_preferences_repository.dart';
 import '../../bills/data/bills_repository.dart';
 import '../../goals/data/goals_repository.dart';
 import '../../reports/data/financial_export_repository.dart';
@@ -108,7 +109,14 @@ class CashFlowRepository {
       'schema': 1,
       'user_id': source.userId,
       'days': 30,
-      'utc_offset_minutes': 420,
+      'utc_offset_minutes': switch (TimeZonePreferencesRepository(source)
+          .selected
+          .offsetMinutesAt(DateTime.now())) {
+        420 => 420,
+        480 => 480,
+        540 => 540,
+        _ => 0,
+      },
       'include_estimates': true,
       'include_overdue': true,
       'include_receivables': false,

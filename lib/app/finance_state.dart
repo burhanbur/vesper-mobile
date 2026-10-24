@@ -1724,7 +1724,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           final fallbackProgress = repository?.state[fallbackKey] as Map?;
           final cachedProgress = periodProgress ?? fallbackProgress;
 
-          final parsedAnchor = DateTime.parse(r['anchor_date'] as String);
+          final parsedAnchor = DateTime.parse("${r['anchor_date']}T00:00:00Z");
           final anchorDate = parsedAnchor.isUtc
               ? parsedAnchor
               : DateTime.utc(
@@ -2073,6 +2073,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void resolveConflictUseServer(String id) {
     _repo.resolve(id, useMine: false);
+    _changed();
+  }
+
+  void discardOutboxEntry(SyncStatusEntry entry) {
+    if (entry.id.isEmpty) return;
+    final repo = _repo;
+    if (entry.entityType == 'transactions' && entry.entityId.isNotEmpty) {
+      final tx = repo.row('transactions', entry.entityId);
+      if (tx != null) {
+        deleteTransaction(entry.entityId);
+        return;
+      }
+    }
+    repo.atomic(() {
+      final item = repo.outbox.firstWhere(
+        (e) => e['id'] == entry.id,
+        orElse: () => null,
+      );
+      if (item != null) {
+        repo.outbox.remove(item);
+        if (item['operation'] == 'CREATE' && entry.entityId.isNotEmpty) {
+          repo.entities[entry.entityType]?.remove(entry.entityId);
+        }
+      }
+    });
     _changed();
   }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/app_time_zone.dart';
 import '../../../database/transaction_query.dart';
 import '../../sync/data/finance_repository.dart';
 
@@ -78,6 +79,25 @@ class FinancialExportRepository {
     }
     return '"${text.replaceAll('"', '""')}"';
   }
+
+  /// Inclusive date-picker range in the chosen calendar. Construct the next
+  /// calendar midnight before converting; a device day may be 23 or 25 hours.
+  FinancialExport exportCalendar({
+    required DateTime startDate,
+    required DateTime endDate,
+    required AppTimeZone timeZone,
+    required String currency,
+    String? accountId,
+  }) => export(
+    start: timeZone.fromCalendar(
+      DateTime.utc(startDate.year, startDate.month, startDate.day),
+    ),
+    end: timeZone.fromCalendar(
+      DateTime.utc(endDate.year, endDate.month, endDate.day + 1),
+    ),
+    currency: currency,
+    accountId: accountId,
+  );
 
   FinancialExport export({
     required DateTime start,

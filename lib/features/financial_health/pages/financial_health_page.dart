@@ -541,7 +541,7 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                       if (r.emergency case final e?)
                         repo.emergency.plan?['baseline_mode'] == 'MANUAL'
                             ? 'Kebutuhan bulanan diisi manual.'
-                            : 'Periode baseline: ${DateFormatter.formatShort(e.historyStart)} – ${DateFormatter.formatShort(e.historyEnd.subtract(const Duration(days: 1)))}.',
+                            : 'Periode baseline: ${DateFormatter.formatShort(state.timeZone.at(e.historyStart))} – ${DateFormatter.formatShort(state.timeZone.at(e.historyEnd.subtract(const Duration(microseconds: 1))))}.',
                     ],
                   ),
                 ];

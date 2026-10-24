@@ -10,11 +10,13 @@ class ApiFailure implements Exception {
   final int? statusCode;
   final bool isTransient;
   final Duration? retryAfter;
+  final String? code;
   const ApiFailure(
     this.message, {
     this.statusCode,
     this.isTransient = false,
     this.retryAfter,
+    this.code,
   });
   @override
   String toString() => message;
@@ -178,6 +180,15 @@ class ApiClient {
       return envelope['data'];
     } on DioException catch (error) {
       final status = error.response?.statusCode;
+      // Older API envelopes expose this sync condition only as a stable public
+      // message. Recognize it narrowly; other validation errors must not replay.
+      final payload = error.response?.data;
+      final cursorAhead =
+          status == 422 &&
+          path == '/sync/pull' &&
+          payload is Map &&
+          payload['success'] == false &&
+          payload['message'] == 'Cursor sinkronisasi melebihi versi server.';
       if (authenticated &&
           retry &&
           status == 401 &&
@@ -204,16 +215,19 @@ class ApiClient {
       }
       // Never expose transport exceptions, request bodies, or server debug data.
       throw ApiFailure(
-        switch (status) {
-          400 ||
-          422 => 'Permintaan tidak valid. Periksa data yang Anda masukkan.',
-          401 => 'Email atau kata sandi salah, atau sesi telah berakhir.',
-          403 => 'Anda tidak memiliki akses untuk tindakan ini.',
-          409 => 'Data sudah digunakan atau bertentangan dengan data yang ada.',
-          429 => 'Server sedang membatasi permintaan. Silakan coba lagi nanti.',
-          _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
-        },
+        cursorAhead
+            ? 'Posisi sinkronisasi perangkat lebih tinggi daripada versi server.'
+            : switch (status) {
+                400 || 422 =>
+                  'Permintaan tidak valid. Periksa data yang Anda masukkan.',
+                401 => 'Email atau kata sandi salah, atau sesi telah berakhir.',
+                403 => 'Anda tidak memiliki akses untuk tindakan ini.',
+                409 => 'Data sudah digunakan atau bertentangan dengan data yang ada.',
+                429 => 'Server sedang membatasi permintaan. Silakan coba lagi nanti.',
+                _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
+              },
         statusCode: status,
+        code: cursorAhead ? 'SYNC_CURSOR_AHEAD' : null,
         retryAfter: status == 429
             ? Duration(
                 seconds:

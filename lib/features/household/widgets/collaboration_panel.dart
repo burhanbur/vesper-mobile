@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/network/api_client.dart';
 import '../data/collaboration_repository.dart';
 
@@ -248,7 +249,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Text(
-              'Online saja • Saldo akun CASH yang dibagikan, per mata uang. Kontribusi = pemasukan/pengeluaran berkategori terpetakan pada bulan UTC terpilih, bukan utang atau setoran anggota. Transfer dan investasi tidak dihitung.',
+              'Online saja • Saldo akun CASH yang dibagikan, per mata uang. Kontribusi = pemasukan/pengeluaran berkategori terpetakan pada bulan acuan server terpilih, bukan utang atau setoran anggota. Transfer dan investasi tidak dihitung.',
             ),
             if (_loading) const LinearProgressIndicator(),
             if (_error != null)
@@ -279,7 +280,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
               const Text('Aktivitas bulanan (tanpa catatan/akun pribadi)'),
               for (final row in _data!['feed'] as List)
                 Text(
-                  '${row['transacted_at']} • ${row['category']} • ${row['type']} ${row['currency']} ${row['amount']}',
+                  '${DateFormatter.timestamp(row['transacted_at'], timeZone: AppStateScope.of(context).timeZone)} • ${row['category']} • ${row['type']} ${row['currency']} ${row['amount']}',
                 ),
               _pagination(
                 'Aktivitas',

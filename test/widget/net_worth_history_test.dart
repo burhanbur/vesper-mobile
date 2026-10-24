@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
+import 'package:vesper_mobile/core/utils/app_time_zone.dart';
 import 'package:vesper_mobile/core/network/api_client.dart';
 import 'package:vesper_mobile/features/dashboard/pages/net_worth_assessment_page.dart';
 
@@ -41,6 +42,8 @@ void main() {
       ),
     );
     final state = cachedFinanceState(client: ApiClient(dio: dio));
+    state.currentUserId = 'user';
+    state.setTimeZone(AppTimeZone.wib);
     addTearDown(state.dispose);
     await tester.pumpWidget(
       AppStateScope(
@@ -61,7 +64,7 @@ void main() {
       await tester.tap(find.text('Muat penilaian'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Observasi historis pertama'), findsOneWidget);
-      expect(find.textContaining('2026-10-20T12:00:00Z'), findsOneWidget);
+      expect(find.textContaining('20 Okt 2026, 19:00 WIB'), findsOneWidget);
       expect(
         find.textContaining('Observasi ini masih parsial'),
         findsOneWidget,
@@ -83,7 +86,7 @@ void main() {
       state.setFlowStep(AppFlowStep.main);
       await tester.pumpAndSettle();
       expect(find.textContaining('Observasi historis pertama'), findsNothing);
-      expect(find.textContaining('2026-10-20T12:00:00Z'), findsNothing);
+      expect(find.textContaining('20 Okt 2026, 19:00 WIB'), findsNothing);
     },
   );
 
@@ -153,43 +156,46 @@ void main() {
     tester,
   ) async {
     final state = await mount(tester, snapshot());
-    await tester.tap(find.text('Tanggal: hari ini (UTC)'));
+    await tester.tap(find.text('Tanggal acuan: terbaru'));
     await tester.pumpAndSettle();
     state.currentUserId = 'other-owner';
     state.setFlowStep(AppFlowStep.main);
     await tester.pump();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    expect(find.text('Tanggal: hari ini (UTC)'), findsOneWidget);
-    expect(find.textContaining('Tanggal UTC:'), findsNothing);
-    expect(find.text('Kembali ke hari ini (UTC)'), findsNothing);
+    expect(find.text('Tanggal acuan: terbaru'), findsOneWidget);
+    expect(find.textContaining('Tanggal acuan:'), findsOneWidget);
+    expect(find.text('Gunakan tanggal terbaru'), findsNothing);
   });
 
-  testWidgets('day selection clears assessment and can reset to UTC today', (
-    tester,
-  ) async {
-    await mount(tester, snapshot());
-    await tester.tap(find.text('Muat penilaian'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tanggal: hari ini (UTC)'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Switch to input'));
-    await tester.pumpAndSettle();
-    final yesterday = DateTime.now().toUtc().subtract(const Duration(days: 1));
-    await tester.enterText(
-      find.byType(TextField),
-      '${yesterday.month}/${yesterday.day}/${yesterday.year}',
-    );
-    await tester.tap(find.text('OK'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Subtotal diketahui:'), findsNothing);
-    expect(find.textContaining('Tanggal UTC:'), findsOneWidget);
-    await tester.tap(find.text('Kembali ke hari ini (UTC)'));
-    await tester.pumpAndSettle();
-    expect(find.text('Tanggal: hari ini (UTC)'), findsOneWidget);
-    expect(find.text('Kembali ke hari ini (UTC)'), findsNothing);
-    await tester.tap(find.text('Muat penilaian'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Subtotal diketahui:'), findsOneWidget);
-  });
+  testWidgets(
+    'day selection preserves server reference dates and can reset to latest',
+    (tester) async {
+      await mount(tester, snapshot());
+      await tester.tap(find.text('Muat penilaian'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tanggal acuan: terbaru'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Switch to input'));
+      await tester.pumpAndSettle();
+      final yesterday = DateTime.now().toUtc().subtract(
+        const Duration(days: 1),
+      );
+      await tester.enterText(
+        find.byType(TextField),
+        '${yesterday.month}/${yesterday.day}/${yesterday.year}',
+      );
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Subtotal diketahui:'), findsNothing);
+      expect(find.textContaining('Tanggal acuan:'), findsOneWidget);
+      await tester.tap(find.text('Gunakan tanggal terbaru'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tanggal acuan: terbaru'), findsOneWidget);
+      expect(find.text('Gunakan tanggal terbaru'), findsNothing);
+      await tester.tap(find.text('Muat penilaian'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Subtotal diketahui:'), findsOneWidget);
+    },
+  );
 }

@@ -350,7 +350,7 @@ class FinanceRepository {
     String date,
     String price,
   ) {
-    final at = DateTime.tryParse(date);
+    final at = DateTime.tryParse('${date}T00:00:00Z');
     final match = RegExp(r'^(0|[1-9]\d{0,11})(\.\d{1,8})?$').firstMatch(price);
     if (row('instruments', instrumentId)?['currency'] != 'IDR' ||
         row('instruments', instrumentId)?['deleted_at'] != null ||
@@ -365,7 +365,7 @@ class FinanceRepository {
         match == null ||
         match.end != price.length ||
         !RegExp('[1-9]').hasMatch(price)) {
-      throw const ApiFailure('Instrumen, tanggal UTC, atau harga tidak valid.');
+      throw const ApiFailure('Instrumen, tanggal harga, atau harga tidak valid.');
     }
     if (pendingInvestmentCatalog.any(
       (r) =>
@@ -1048,9 +1048,74 @@ class FinanceRepository {
             old?['transfer_id'] != null)) {
       throw const ApiFailure('Gunakan perintah transfer atomik.');
     }
-    if (outbox.any(
+    final existingOutboxIndex = outbox.indexWhere(
       (e) => e['entity_type'] == type && e['entity_id'] == entityId,
-    )) {
+    );
+    if (existingOutboxIndex != -1) {
+      final existing = outbox[existingOutboxIndex] as Map;
+      if (operation == 'DELETE') {
+        if (existing['operation'] == 'CREATE') {
+          // The entity was created locally and never saved/accepted on server.
+          // Deleting drops the uncommitted/rejected CREATE mutation, deletes local record,
+          // and applies balanceDelta (reverting local balance changes).
+          atomic(() {
+            outbox.removeAt(existingOutboxIndex);
+            _put(type, entityId, null);
+            for (final entry in balanceDelta.entries) {
+              final account = row('accounts', entry.key);
+              if (account != null) {
+                final parts = (account['balance'] as String).split('.');
+                if (parts.length > 1 && int.parse(parts[1]) != 0) {
+                  throw const ApiFailure(
+                    'Saldo pecahan Rupiah belum didukung.',
+                  );
+                }
+                _put('accounts', entry.key, {
+                  ...account,
+                  'balance': '${int.parse(parts[0]) + entry.value}.00',
+                });
+              }
+            }
+          });
+          return entityId;
+        } else if (existing['operation'] == 'UPDATE') {
+          // Replace pending/rejected UPDATE with a DELETE mutation.
+          atomic(() {
+            outbox.removeAt(existingOutboxIndex);
+            outbox.add({
+              'id': const Uuid().v4(),
+              'entity_type': type,
+              'entity_id': entityId,
+              'operation': 'DELETE',
+              'payload': null,
+              'client_version':
+                  existing['client_version'] ?? old?['version'] ?? '0',
+              'created_at': DateTime.now().toUtc().toIso8601String(),
+              'attempts': 0,
+              'status': 'pending',
+              'balance_delta': balanceDelta,
+              'before': old,
+            });
+            _put(type, entityId, null);
+            for (final entry in balanceDelta.entries) {
+              final account = row('accounts', entry.key);
+              if (account != null) {
+                final parts = (account['balance'] as String).split('.');
+                if (parts.length > 1 && int.parse(parts[1]) != 0) {
+                  throw const ApiFailure(
+                    'Saldo pecahan Rupiah belum didukung.',
+                  );
+                }
+                _put('accounts', entry.key, {
+                  ...account,
+                  'balance': '${int.parse(parts[0]) + entry.value}.00',
+                });
+              }
+            }
+          });
+          return entityId;
+        }
+      }
       throw const ApiFailure(
         'Sinkronkan perubahan sebelumnya terlebih dahulu.',
       );
@@ -1635,6 +1700,7 @@ class FinanceRepository {
         }
       });
     }
+    var replayedAheadCursor = false;
     while (true) {
       await requireOnline();
       final compact = _compactPullSupported != false;
@@ -1652,11 +1718,38 @@ class FinanceRepository {
         );
         if (compact) _compactPullSupported = true;
       } on ApiFailure catch (error) {
+        if (error.code == 'SYNC_CURSOR_AHEAD' &&
+            error.statusCode == 422 &&
+            !replayedAheadCursor &&
+            state['cursor'] != '0') {
+          atomic(() {
+            // Restart only delivery progress. Keep financial rows, command IDs,
+            // outbox and optimistic balances; pull never resubmits those writes.
+            state['cursor'] = '0';
+            state.remove('investment_command_snapshots');
+            for (final key in [
+              'investment_history_coverage',
+              'obligation_history_coverage',
+              'bill_history_coverage',
+              'goal_history_coverage',
+              'emergency_plan_coverage',
+            ]) {
+              final coverage = state[key];
+              if (coverage is Map) {
+                state[key] = {...coverage, 'complete': false, 'cursor': '0'};
+              }
+            }
+          });
+          replayedAheadCursor = true;
+          onProgress?.call();
+          continue;
+        }
         // Older strict servers reject the additive query flag. Retry the same
         // cursor once in legacy mode; other failures retain normal retry policy.
         if (compact &&
             _compactPullSupported == null &&
-            error.statusCode == 422) {
+            error.statusCode == 422 &&
+            error.code != 'SYNC_CURSOR_AHEAD') {
           _compactPullSupported = false;
           continue;
         }

@@ -25,7 +25,7 @@ BigInt obligationMinor(String value, {bool signed = false}) {
 String obligationMoney(BigInt amount) =>
     '${amount.isNegative ? '-' : ''}${amount.abs() ~/ BigInt.from(100)}.${(amount.abs() % BigInt.from(100)).toString().padLeft(2, '0')}';
 String obligationDate(String value) {
-  final date = DateTime.tryParse(value);
+  final date = DateTime.tryParse('${value}T00:00:00Z');
   if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value) ||
       date == null ||
       date.year < 1 ||

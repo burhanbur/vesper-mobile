@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../bills/pages/bills_page.dart';
 import '../../obligations/pages/obligations_page.dart';
 import '../../reports/data/financial_export_repository.dart';
@@ -88,7 +89,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
                     ),
                     items: [
                       for (final e in {
-                        0: 'UTC',
+                        0: 'GMT+00:00',
                         420: 'WIB',
                         480: 'WITA',
                         540: 'WIT',
@@ -269,7 +270,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
             label: const Text('Ubah asumsi proyeksi'),
           ),
           Text(
-            'Horizon ${config['days']} hari; zona UTC${config['utc_offset_minutes'] == 0 ? '' : '+${(config['utc_offset_minutes'] as int) ~/ 60}'}. Termasuk hari pertama dan terakhir yang ditampilkan.',
+            'Horizon ${config['days']} hari; zona ${DateFormatter.fixedZone(config['utc_offset_minutes'] as int)}. Termasuk hari pertama dan terakhir yang ditampilkan.',
           ),
           Text(
             'Perkiraan: ${config['include_estimates'] == true ? 'termasuk' : 'dikecualikan'}; tunggakan: ${config['include_overdue'] == true ? 'dibawa ke awal' : 'dikecualikan'}; piutang: ${config['include_receivables'] == true ? 'diasumsikan masuk' : 'dikecualikan'}; alokasi goal: ${config['reserve_goals'] == true ? 'disisihkan' : 'tidak disisihkan'}.',
@@ -285,7 +286,7 @@ class _CashFlowPageState extends State<CashFlowPage> {
           if (state.dataError != null) Text(state.dataError!),
           if (result case final r?) ...[
             Text(
-              'Periode ${r.start} sampai ${r.end}; dihitung ${r.assessedAt.toIso8601String()}.',
+              'Periode ${r.start} sampai ${r.end}; dihitung ${DateFormatter.formatFull(r.assessedAt, timeZone: state.timeZone)}.',
             ),
             Card(
               child: Padding(

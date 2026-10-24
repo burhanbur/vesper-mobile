@@ -33,6 +33,39 @@ class DateFormatter {
     'Des',
   ];
 
+  /// API timestamps must carry an explicit offset. Calendar dates are separate.
+  static String timestamp(
+    Object? value, {
+    AppTimeZone timeZone = AppTimeZone.device,
+  }) {
+    final text = value?.toString() ?? '';
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}T.+(Z|[+-]\d{2}:?\d{2})$').hasMatch(text)) {
+      return 'Belum tersedia';
+    }
+    final parsed = DateTime.tryParse(text);
+    return parsed == null
+        ? 'Belum tersedia'
+        : formatFull(parsed, timeZone: timeZone);
+  }
+
+  static String calendarDate(Object? value) {
+    final text = value?.toString() ?? '';
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) return 'Belum tersedia';
+    final parsed = DateTime.tryParse('${text}T00:00:00Z');
+    if (parsed == null || parsed.toIso8601String().substring(0, 10) != text) {
+      return 'Belum tersedia';
+    }
+    return formatShort(parsed);
+  }
+
+  static String fixedZone(int offset) => switch (offset) {
+    420 => 'WIB',
+    480 => 'WITA',
+    540 => 'WIT',
+    _ =>
+      'GMT${offset < 0 ? '-' : '+'}${(offset.abs() ~/ 60).toString().padLeft(2, '0')}:${(offset.abs() % 60).toString().padLeft(2, '0')}',
+  };
+
   static String formatMonthShort(int month) {
     if (month < 1 || month > 12) return '';
     return _shortMonthsIndo[month - 1];

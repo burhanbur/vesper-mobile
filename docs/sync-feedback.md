@@ -15,3 +15,20 @@ The status sheet displays entity labels, statuses and server errors without raw
 financial payloads. Existing conflict resolution remains available. No command
 is deleted, reset, automatically retried or marked applied by these views.
 Only the repository's existing validated push/pull/recovery flow settles it.
+
+## Cursor ahead of server
+
+A restored/replaced development server can have a lower sync watermark than the
+device's saved delivery cursor. The API rejects that pull with 422. The mobile
+transport recognizes only the sync pull endpoint's exact public cursor-ahead
+response as `SYNC_CURSOR_AHEAD`; unrelated validation errors retain their normal
+failure behavior. This narrow legacy adapter is necessary because the current
+API error envelope does not expose the internal machine code.
+
+The pull loop may restart delivery from zero once per sync run. It marks history
+coverage incomplete and drops only disposable investment replay staging. It
+does not erase financial rows, reset balances, discard commands, change command
+IDs or repeat the push phase. Existing protected-command merge/reconciliation
+rules apply throughout replay. Interrupted pulls preserve local state and remain
+incomplete until resumed. A rejected zero cursor fails instead of looping or
+being mistaken for an unsupported compact query.

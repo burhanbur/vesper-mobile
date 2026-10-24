@@ -141,7 +141,7 @@ class PortfolioRepository {
       throw const ApiFailure('Akun tidak tersedia.');
     }
     if (date != null) {
-      final parsed = DateTime.tryParse(date);
+      final parsed = DateTime.tryParse('${date}T00:00:00Z');
       if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date) ||
           parsed == null ||
           parsed.toIso8601String().substring(0, 10) != date) {

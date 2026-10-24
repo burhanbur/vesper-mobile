@@ -316,7 +316,7 @@ class FinancialHealthRepository {
         !source.isSyncing) {
       final plan = emergency.plan;
       if (plan != null) {
-        emergencyResult = emergency.assess(plan, now: at);
+        emergencyResult = emergency.assess(plan, now: at, timeZone: timeZone);
         warnings.addAll(emergencyResult.warnings);
       } else {
         warnings.add('Atur rencana Dana Darurat untuk melihat cakupannya.');

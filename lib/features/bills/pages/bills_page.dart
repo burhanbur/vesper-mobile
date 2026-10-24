@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../goals/data/goals_repository.dart';
 import '../../obligations/pages/obligations_page.dart';
@@ -51,8 +52,15 @@ class _BillsPageState extends State<BillsPage> {
     final active = controller!, repo = active.repository;
     final title = TextEditingController(text: bill?['title'] as String?);
     final amount = TextEditingController(text: bill?['amount'] as String?);
+    final preferredOffset = AppStateScope.of(context).timeZone
+        .offsetMinutesAt(DateTime.now());
+    final defaultOffset = [0, 420, 480, 540].contains(preferredOffset)
+        ? preferredOffset
+        : 0;
     final anchor = TextEditingController(
-      text: bill?['anchor_date'] as String? ?? goalDay(DateTime.now()),
+      text:
+          bill?['anchor_date'] as String? ??
+          goalDay(DateTime.now().toUtc().add(Duration(minutes: defaultOffset))),
     );
     final end = TextEditingController(text: bill?['end_date'] as String?);
     final days = TextEditingController(text: '${bill?['reminder_days'] ?? 3}');
@@ -63,7 +71,7 @@ class _BillsPageState extends State<BillsPage> {
         category = bill?['category_id'] as String?,
         debt = bill?['obligation_id'] as String?,
         error;
-    int offset = bill?['utc_offset_minutes'] as int? ?? 420;
+    int offset = bill?['utc_offset_minutes'] as int? ?? defaultOffset;
     bool enabled = bill?['reminder_enabled'] as bool? ?? true,
         isActive = bill?['active'] as bool? ?? true,
         saved = false;
@@ -148,14 +156,10 @@ class _BillsPageState extends State<BillsPage> {
                         debt = v;
                         category = null;
                         if (v != null) {
-                          final d = repo.debts.firstWhere(
-                                (d) => d['id'] == v,
-                              ),
+                          final d = repo.debts.firstWhere((d) => d['id'] == v),
                               first = (d['installments'] as List).first;
                           frequency = 'INSTALLMENTS';
-                          type = d['kind'] == 'PAYABLE'
-                              ? 'EXPENSE'
-                              : 'INCOME';
+                          type = d['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME';
                           amountType = 'FIXED';
                           amount.text = '${first['principal']}';
                           anchor.text = '${first['due_date']}';
@@ -410,19 +414,10 @@ class _BillsPageState extends State<BillsPage> {
                         ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 0, child: Text('UTC')),
-                        DropdownMenuItem(
-                          value: 420,
-                          child: Text('WIB (UTC+07)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 480,
-                          child: Text('WITA (UTC+08)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 540,
-                          child: Text('WIT (UTC+09)'),
-                        ),
+                        DropdownMenuItem(value: 0, child: Text('GMT+00:00')),
+                        DropdownMenuItem(value: 420, child: Text('WIB')),
+                        DropdownMenuItem(value: 480, child: Text('WITA')),
+                        DropdownMenuItem(value: 540, child: Text('WIT')),
                       ],
                       onChanged: (v) => update(() => offset = v!),
                     ),
@@ -442,7 +437,10 @@ class _BillsPageState extends State<BillsPage> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
                       'Jadwal aktif',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     value: isActive,
                     onChanged: (v) => update(() => isActive = v),
@@ -451,7 +449,10 @@ class _BillsPageState extends State<BillsPage> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
                       'Pengingat dalam aplikasi',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     value: enabled,
                     onChanged: (v) => update(() => enabled = v),
@@ -678,7 +679,7 @@ class _BillsPageState extends State<BillsPage> {
                           DropdownMenuItem(
                             value: r['id'] as String,
                             child: Text(
-                              '${r['transacted_at']} • ${r['principal'] ?? r['amount']} IDR',
+                              '${DateFormatter.timestamp(r['transacted_at'], timeZone: AppStateScope.of(context).timeZone)} • ${r['principal'] ?? r['amount']} IDR',
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -789,8 +790,7 @@ class _BillsPageState extends State<BillsPage> {
     if (mounted && identical(controller, active)) {
       setState(() {
         if (saved) {
-          message =
-              'Kejadian tersimpan lokal; tunggu rekonsiliasi sebelum mengubah pembayaran lagi.';
+          message = 'Kejadian tersimpan lokal; tunggu rekonsiliasi sebelum mengubah pembayaran lagi.';
         }
       });
     }
@@ -801,9 +801,7 @@ class _BillsPageState extends State<BillsPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         actionsOverflowButtonSpacing: 8,
         backgroundColor: Colors.white,
         title: const Text(
@@ -815,10 +813,7 @@ class _BillsPageState extends State<BillsPage> {
         ),
         content: const Text(
           'Server membatalkan hanya jika perintah belum pernah diterapkan. Pembayaran yang sudah masuk tidak dibalik; keadaan server akan dipulihkan ke perangkat.',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
@@ -976,7 +971,9 @@ class _BillsPageState extends State<BillsPage> {
                 decoration: BoxDecoration(
                   color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: const Text(
                   'Sinkronkan riwayat awal sebelum mencatat kejadian. Jadwal baru dapat disimpan offline.',
@@ -1101,7 +1098,10 @@ class _BillsPageState extends State<BillsPage> {
                 children: [
                   Text(
                     '${item['entity_type']}: ${item['status']} — ${item['error'] ?? 'menunggu sinkronisasi'}',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   if (item['entity_type'] == 'bill_schedules' &&
                       ['rejected', 'conflict'].contains(item['status']))
@@ -1228,7 +1228,7 @@ class _BillsPageState extends State<BillsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${o.date} • UTC${(o.bill['utc_offset_minutes'] as int) == 0 ? '' : '+${(o.bill['utc_offset_minutes'] as int) ~/ 60}'} • ${o.status}${o.overdue && o.status == 'PENDING' ? ' — lewat tempo' : ''}',
+                    '${DateFormatter.calendarDate(o.date)} • ${DateFormatter.fixedZone(o.bill['utc_offset_minutes'] as int)} • ${o.status}${o.overdue && o.status == 'PENDING' ? ' — lewat tempo' : ''}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -1365,10 +1365,7 @@ class _BillsPageState extends State<BillsPage> {
           for (final bill in repo.schedules)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),

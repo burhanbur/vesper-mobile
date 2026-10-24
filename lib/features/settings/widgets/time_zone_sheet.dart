@@ -100,7 +100,7 @@ class TimeZoneSheet {
                     ),
                   const Divider(color: AppColors.borderSubtle),
                   const Text(
-                    'Periode budget tetap memakai kalender UTC. Tagihan mengikuti zona jadwal masing-masing. Pilihan ini tersimpan untuk akun ini di perangkat ini.',
+                    'Transaksi, laporan pribadi, ekspor, dan indikator mengikuti pilihan ini. Tanggal acuan server dan zona jadwal tagihan mengikuti aturannya masing-masing. Pilihan tersimpan untuk akun ini di perangkat ini.',
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.5,

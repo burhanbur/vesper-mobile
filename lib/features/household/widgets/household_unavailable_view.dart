@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../models/household.dart';
 import 'create_group_sheet.dart';
@@ -936,7 +937,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Laporan Kategori Grup — Bulan UTC',
+                    'Laporan Kategori Grup — Bulan',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -966,7 +967,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                     child: Row(
                       children: [
                         IconButton(
-                          tooltip: 'Bulan UTC sebelumnya',
+                          tooltip: 'Bulan sebelumnya',
                           onPressed: () => _changeMonth(state, -1),
                           icon: const Icon(
                             Icons.chevron_left,
@@ -976,7 +977,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                         ),
                         Expanded(
                           child: Text(
-                            '${state.householdReportPeriod} (UTC)',
+                            state.householdReportPeriod,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
@@ -986,7 +987,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Bulan UTC berikutnya',
+                          tooltip: 'Bulan berikutnya',
                           onPressed: () => _changeMonth(state, 1),
                           icon: const Icon(
                             Icons.chevron_right,
@@ -1004,7 +1005,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                   const SizedBox(height: 12),
                   if (state.householdCategoryReport case final report?) ...[
                     Text(
-                      'Cache lokal • Diambil: ${report.fetchedAt.toUtc().toIso8601String()} (UTC)',
+                      'Cache lokal • Diambil: ${DateFormatter.formatFull(report.fetchedAt, timeZone: state.timeZone)}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.textMuted,
@@ -1227,7 +1228,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                             ),
                           ),
                           subtitle: const Text(
-                            'Ketuk untuk pemetaan kategori pribadi (online). Nominal ada pada laporan bulan UTC di atas.',
+                            'Ketuk untuk pemetaan kategori pribadi (online). Nominal ada pada laporan bulan acuan server di atas.',
                             style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,

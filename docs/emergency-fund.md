@@ -9,7 +9,7 @@ rewrite any goal target. One undeleted plan per owner is enforced on the server.
 
 Manual mode accepts a positive monthly essential-expense baseline with up to two
 decimal places. History mode estimates a monthly baseline from explicitly selected
-owned EXPENSE categories over the last 3, 6 or 12 **completed UTC calendar months**.
+owned EXPENSE categories over the last 3, 6 or 12 **completed calendar months in the Settings timezone**.
 The current month is excluded. The date interval is half-open, from the first day
 of the oldest month to the first day of the current month.
 
@@ -95,7 +95,7 @@ the new sync entity. No existing balances or transactions are migrated. The
 optional goal reference remains valid across soft archival; eligibility is
 re-evaluated in the assessment and when settings are saved.
 
-Tests cover exact arithmetic, zero/unknown baseline, full UTC windows and sparse
+Tests cover exact arithmetic, zero/unknown baseline, selected-zone full-month windows, UTC query boundaries and sparse
 months, paging, ownership/liquidity exclusions, WM-08 reservation/backing reuse,
 offline persistence/retry/bootstrap, recovery/session isolation, UI form feedback,
 and PostgreSQL versioning/private publications/singleton concurrency. Exact check
