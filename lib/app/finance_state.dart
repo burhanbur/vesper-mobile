@@ -32,6 +32,7 @@ import '../features/bills/data/bills_repository.dart';
 import '../features/reports/models/budget.dart';
 import '../features/sync/data/finance_repository.dart';
 import '../features/sync/models/sync_conflict.dart';
+import '../features/sync/models/sync_status.dart';
 import '../features/transactions/models/transaction.dart';
 
 /// Integer Rupiah presentation adapter. Never parse financial amounts as double.
@@ -1715,99 +1716,102 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       return true;
     }).toList();
 
-    return budgetRows.map((r) {
-      final cacheKey = 'progress:${r['id']}:$period';
-      final fallbackKey = 'progress:${r['id']}';
-      final periodProgress = repository?.state[cacheKey] as Map?;
-      final fallbackProgress = repository?.state[fallbackKey] as Map?;
-      final cachedProgress = periodProgress ?? fallbackProgress;
+    return budgetRows
+        .map((r) {
+          final cacheKey = 'progress:${r['id']}:$period';
+          final fallbackKey = 'progress:${r['id']}';
+          final periodProgress = repository?.state[cacheKey] as Map?;
+          final fallbackProgress = repository?.state[fallbackKey] as Map?;
+          final cachedProgress = periodProgress ?? fallbackProgress;
 
-      final parsedAnchor = DateTime.parse(r['anchor_date'] as String);
-      final anchorDate = parsedAnchor.isUtc
-          ? parsedAnchor
-          : DateTime.utc(
-              parsedAnchor.year,
-              parsedAnchor.month,
-              parsedAnchor.day,
-            );
-      final pType = r['period_type'] as String;
-      BudgetPeriodRange? range;
-      try {
-        range = budgetPeriodRange(anchorDate, pType, period);
-      } catch (_) {
-        // period might be for a different periodType
-      }
-
-      final categoryName =
-          categories
-              .where((c) => c.id == r['category_id'])
-              .map((c) => c.name)
-              .firstOrNull ??
-          '';
-
-      if (cachedProgress != null &&
-          (periodProgress != null ||
-              cachedProgress == fallbackProgress ||
-              cachedProgress['period'] == null ||
-              cachedProgress['period'] == period)) {
-        return BudgetItem(
-          id: r['id'],
-          categoryId: r['category_id'],
-          categoryName: categoryName,
-          icon: r['icon'] ?? 'category',
-          allocatedAmount: parseBudgetInteger(
-            cachedProgress['allowance'] ?? r['current_amount'],
-          ),
-          spentAmount: parseBudgetInteger(cachedProgress['total_amount']),
-          periodType: pType,
-          anchorDate: anchorDate,
-          period: period,
-          periodRange: range,
-          rawAllowance: cachedProgress['allowance']?.toString(),
-          rawSpent: cachedProgress['total_amount']?.toString(),
-          periodDays:
-              cachedProgress['period_days'] as int? ??
-              (range?.daysInPeriod ?? 0),
-          isLocalEstimate: false,
-        );
-      }
-
-      // Offline or un-cached: calculate local estimate from transactions
-      int localSpent = 0;
-      if (range != null) {
-        for (final tx in transactions) {
-          if (tx.type == TransactionType.expense &&
-              tx.categoryId == r['category_id'] &&
-              range.contains(tx.date)) {
-            localSpent += tx.amount;
+          final parsedAnchor = DateTime.parse(r['anchor_date'] as String);
+          final anchorDate = parsedAnchor.isUtc
+              ? parsedAnchor
+              : DateTime.utc(
+                  parsedAnchor.year,
+                  parsedAnchor.month,
+                  parsedAnchor.day,
+                );
+          final pType = r['period_type'] as String;
+          BudgetPeriodRange? range;
+          try {
+            range = budgetPeriodRange(anchorDate, pType, period);
+          } catch (_) {
+            // period might be for a different periodType
           }
-        }
-      }
 
-      final isFutureBudget =
-          range != null &&
-          (anchorDate.isAfter(range.end) ||
-              anchorDate.isAtSameMomentAs(range.end));
-      final currentAmountInt = isFutureBudget
-          ? 0
-          : parseBudgetInteger(r['current_amount']);
-      return BudgetItem(
-        id: r['id'],
-        categoryId: r['category_id'],
-        categoryName: categoryName,
-        icon: r['icon'] ?? 'category',
-        allocatedAmount: currentAmountInt,
-        spentAmount: localSpent,
-        periodType: pType,
-        anchorDate: anchorDate,
-        period: period,
-        periodRange: range,
-        rawAllowance: '$currentAmountInt.00',
-        rawSpent: '$localSpent.00',
-        periodDays: range?.daysInPeriod ?? 0,
-        isLocalEstimate: true,
-      );
-    }).where((item) => item.allocatedAmount > 0).toList();
+          final categoryName =
+              categories
+                  .where((c) => c.id == r['category_id'])
+                  .map((c) => c.name)
+                  .firstOrNull ??
+              '';
+
+          if (cachedProgress != null &&
+              (periodProgress != null ||
+                  cachedProgress == fallbackProgress ||
+                  cachedProgress['period'] == null ||
+                  cachedProgress['period'] == period)) {
+            return BudgetItem(
+              id: r['id'],
+              categoryId: r['category_id'],
+              categoryName: categoryName,
+              icon: r['icon'] ?? 'category',
+              allocatedAmount: parseBudgetInteger(
+                cachedProgress['allowance'] ?? r['current_amount'],
+              ),
+              spentAmount: parseBudgetInteger(cachedProgress['total_amount']),
+              periodType: pType,
+              anchorDate: anchorDate,
+              period: period,
+              periodRange: range,
+              rawAllowance: cachedProgress['allowance']?.toString(),
+              rawSpent: cachedProgress['total_amount']?.toString(),
+              periodDays:
+                  cachedProgress['period_days'] as int? ??
+                  (range?.daysInPeriod ?? 0),
+              isLocalEstimate: false,
+            );
+          }
+
+          // Offline or un-cached: calculate local estimate from transactions
+          int localSpent = 0;
+          if (range != null) {
+            for (final tx in transactions) {
+              if (tx.type == TransactionType.expense &&
+                  tx.categoryId == r['category_id'] &&
+                  range.contains(tx.date)) {
+                localSpent += tx.amount;
+              }
+            }
+          }
+
+          final isFutureBudget =
+              range != null &&
+              (anchorDate.isAfter(range.end) ||
+                  anchorDate.isAtSameMomentAs(range.end));
+          final currentAmountInt = isFutureBudget
+              ? 0
+              : parseBudgetInteger(r['current_amount']);
+          return BudgetItem(
+            id: r['id'],
+            categoryId: r['category_id'],
+            categoryName: categoryName,
+            icon: r['icon'] ?? 'category',
+            allocatedAmount: currentAmountInt,
+            spentAmount: localSpent,
+            periodType: pType,
+            anchorDate: anchorDate,
+            period: period,
+            periodRange: range,
+            rawAllowance: '$currentAmountInt.00',
+            rawSpent: '$localSpent.00',
+            periodDays: range?.daysInPeriod ?? 0,
+            isLocalEstimate: true,
+          );
+        })
+        .where((item) => item.allocatedAmount > 0)
+        .toList();
   }
 
   Future<void> loadBudgetProgressForPeriod(
@@ -2023,6 +2027,28 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       )
       .toList();
   int get pendingSyncCount => syncQueue.length;
+  SyncStatusSummary get syncStatus => SyncStatusSummary([
+    for (final row in repository?.outbox ?? const [])
+      SyncStatusEntry.fromRow(row as Map),
+  ]);
+
+  String get syncFeedbackMessage {
+    if (dataError != null) {
+      return 'Data belum berhasil dimuat. Coba lagi nanti.';
+    }
+    final status = syncStatus;
+    if (status.reviewCount > 0) {
+      return '${status.reviewCount} perubahan perlu diperiksa. Lihat rincian sinkronisasi.';
+    }
+    if (status.waitingCount > 0) {
+      return '${status.waitingCount} perubahan masih menunggu konfirmasi server.';
+    }
+    if (pendingSyncCount > 0) {
+      return '$pendingSyncCount perubahan masih menunggu dikirim.';
+    }
+    return 'Data berhasil diperbarui.';
+  }
+
   List<SyncConflictItem> get conflicts => (repository?.outbox ?? [])
       .where((e) => e['status'] == 'conflict')
       .map(

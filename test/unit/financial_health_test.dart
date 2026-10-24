@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:vesper_mobile/core/network/api_client.dart';
+import 'package:vesper_mobile/core/utils/app_time_zone.dart';
 import 'package:vesper_mobile/database/local_store.dart';
 import 'package:vesper_mobile/features/financial_health/data/financial_health_repository.dart';
 import 'package:vesper_mobile/features/goals/data/goals_repository.dart';
@@ -135,6 +136,33 @@ void main() {
         }
       });
       HealthAssessment assess() => repo.assess(now: DateTime.utc(2026, 10, 21));
+
+      test(
+        'selected-zone completed months include the correct midnight boundary',
+        () {
+          healthTransaction(
+            source,
+            'boundary',
+            'EXPENSE',
+            '100.00',
+            date: '2026-09-30T16:00:00Z',
+          );
+          final before = jsonEncode(source.state);
+          final wib = repo.assess(
+            now: DateTime.utc(2026, 10, 24),
+            timeZone: AppTimeZone.wib,
+          );
+          final wit = repo.assess(
+            now: DateTime.utc(2026, 10, 24),
+            timeZone: AppTimeZone.wit,
+          );
+          expect(wib.end, DateTime.utc(2026, 9, 30, 17));
+          expect(wit.end, DateTime.utc(2026, 9, 30, 15));
+          expect(wib.expenses, goalMinor('100'));
+          expect(wit.expenses, BigInt.zero);
+          expect(jsonEncode(source.state), before);
+        },
+      );
 
       test('actual debt costs count once, principal is not spending and reads do not mutate money', () {
         healthTransaction(source, 'salary', 'INCOME', '1000.00');

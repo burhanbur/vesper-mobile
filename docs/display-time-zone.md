@@ -38,9 +38,10 @@ rewrites or resyncs existing transactions, balances or investment positions.
 Budget allowance periods remain the existing UTC anchored calendar; both the
 budget page and dashboard budget attention keep that rule. Bill due dates retain
 each schedule's explicit timezone. Cash-flow planning retains its own saved
-planning timezone. Backend as-of valuation dates, market price reference dates,
-financial-health assessment windows and export contracts retain their explicit
-domain rules. The settings sheet explains the budget/bill distinction.
+planning timezone. Financial-health assessment windows also follow the selected
+display timezone; see [Financial health](financial-health.md). Backend as-of
+valuation dates, market price reference dates and export contracts retain their
+explicit domain rules. The settings sheet explains the budget/bill distinction.
 
 ## Validation
 

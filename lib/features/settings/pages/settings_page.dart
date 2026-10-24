@@ -154,17 +154,25 @@ class SettingsPage extends StatelessWidget {
               ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: state.pendingSyncCount > 0
-                  ? () {
-                      state.syncPendingNow();
+              onPressed: state.pendingSyncCount > 0 && !state.loading
+                  ? () async {
+                      final session = state.netWorthSessionKey;
+                      await state.syncPendingNow();
+                      if (!ctx.mounted ||
+                          !context.mounted ||
+                          session != state.netWorthSessionKey) {
+                        return;
+                      }
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           behavior: SnackBarBehavior.floating,
-                          backgroundColor: AppColors.primary,
-                          content: Text(
-                            'Semua mutasi berhasil disinkronkan ke server!',
-                          ),
+                          backgroundColor:
+                              state.dataError == null &&
+                                  state.pendingSyncCount == 0
+                              ? AppColors.primary
+                              : AppColors.warning,
+                          content: Text(state.syncFeedbackMessage),
                         ),
                       );
                     }

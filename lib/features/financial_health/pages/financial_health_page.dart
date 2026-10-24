@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../bills/pages/bills_page.dart';
 import '../../emergency_funds/pages/emergency_fund_page.dart';
-import '../../goals/data/goals_repository.dart';
 import '../data/financial_health_repository.dart';
 
 class FinancialHealthPage extends StatefulWidget {
@@ -16,6 +17,7 @@ class FinancialHealthPage extends StatefulWidget {
 
 class _FinancialHealthPageState extends State<FinancialHealthPage> {
   FinancialHealthRepository? repository;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -74,7 +76,7 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                   initialValue: months,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Bulan UTC yang sudah selesai',
+                    labelText: 'Periode evaluasi (bulan penuh)',
                     labelStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
@@ -196,78 +198,163 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     if (mounted) setState(() {});
   }
 
-  Widget indicator(
-    String title,
-    String value,
-    String formula,
-    List<String> details,
-  ) => Container(
-    margin: const EdgeInsets.only(bottom: 14),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: AppColors.border),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.015),
-          blurRadius: 6,
-          offset: const Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: value == 'Belum tersedia'
-                ? AppColors.textMuted
-                : AppColors.primary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            formula,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
+  void showDetails(String title, List<Widget> children) {
+    final state = AppStateScope.of(context);
+    final session = state.netWorthSessionKey;
+    final hidden = state.isBalanceHidden;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final current = AppStateScope.of(ctx);
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(ctx).height * .85,
             ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final text in details)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-                height: 1.35,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Tutup',
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (current.netWorthSessionKey == session &&
+                      current.isBalanceHidden == hidden)
+                    ...children
+                  else
+                    detailText(
+                      'Tampilan telah berubah. Buka kembali rincian untuk melanjutkan.',
+                    ),
+                ],
               ),
             ),
           ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget detailText(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        height: 1.5,
+        color: AppColors.textSecondary,
+      ),
+    ),
+  );
+
+  Widget metric(
+    String id,
+    String title,
+    String value,
+    String subtitle,
+    IconData icon,
+    String formula,
+    List<String> details,
+  ) => Material(
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: const BorderSide(color: AppColors.border),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: ValueKey('health_$id'),
+      onTap: () => showDetails(title, [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        detailText(formula),
+        for (final detail in details) detailText(detail),
+        detailText(
+          'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+        ),
+      ]),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 19, color: AppColors.accentDark),
+                const Spacer(),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 38),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: value == 'Belum tersedia' ? 18 : 25,
+                fontWeight: FontWeight.w700,
+                color: value == 'Belum tersedia'
+                    ? AppColors.textMuted
+                    : AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 
@@ -277,388 +364,278 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     if (repo == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          title: const Text('Indikator Keuangan'),
-          backgroundColor: Colors.white,
-          elevation: 0,
-        ),
+        appBar: AppBar(title: const Text('Indikator Keuangan')),
         body: const Center(
-          child: Text(
-            'Masuk untuk membuka indikator keuangan.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
+          child: Text('Masuk untuk membuka indikator keuangan.'),
         ),
       );
     }
     HealthAssessment? result;
     String? error;
     try {
-      result = repo.assess();
+      result = repo.assess(timeZone: state.timeZone);
     } catch (e) {
       error = e.toString();
     }
-    String money(BigInt? v) => v == null
+    String money(BigInt? value) => value == null
         ? 'Belum tersedia'
         : state.isBalanceHidden
         ? '••••••'
-        : '${healthDecimal(v)} IDR';
-    String ratio(BigInt? v, String unit) => v == null
+        : CurrencyFormatter.formatMinorRupiah(value);
+    String ratio(BigInt? value, String unit) => value == null
         ? 'Belum tersedia'
         : state.isBalanceHidden
         ? '••••••'
-        : '${healthDecimal(v)}$unit';
+        : '${healthDecimal(value).replaceAll('.', ',')}$unit';
+    void open(Widget page) =>
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => page));
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Indikator Keuangan'),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 1,
         actions: [
           IconButton(
             tooltip: 'Sinkronkan indikator',
-            icon: const Icon(Icons.sync),
             onPressed: state.loading
                 ? null
                 : () async {
                     await state.refresh();
                     if (mounted) setState(() {});
                   },
+            icon: const Icon(Icons.sync_rounded),
           ),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
-          // Header Intro Card
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentLight,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.health_and_safety_rounded,
-                        color: AppColors.primary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Lihat angka dan dasar perhitungannya',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Ringkasan catatan pribadi, tanpa skor gabungan atau rekomendasi finansial. Nilai tidak tersedia berarti belum dapat dinilai, bukan nol.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                  ),
-                  onPressed: configure,
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: const Text('Ubah asumsi'),
-                ),
-              ],
-            ),
-          ),
-
-          if (state.dataError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                state.dataError!,
-                style: const TextStyle(color: AppColors.expense),
-              ),
-            ),
-          if (error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                error,
-                style: const TextStyle(color: AppColors.expense),
-              ),
-            ),
-
+          if (error != null) detailText(error),
           if (result case final r?) ...[
-            const SizedBox(height: 16),
-            // Audit Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.015),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Dasar perhitungan & periode',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Periode arus kas: ${goalDay(r.start)} sampai ${goalDay(r.end.subtract(const Duration(days: 1)))} UTC; ${r.months} bulan penuh.',
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${r.months} bulan penuh',
                     style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Snapshot perhitungan: ${r.assessedAt.toIso8601String()}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Akun: ${r.accountNames.isEmpty ? 'Belum dipilih' : r.accountNames.join(', ')}. ${r.transactionCount} transaksi pemasukan/pengeluaran dihitung.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Dividen neto: ${repo.assumptions['include_dividends'] == true ? 'termasuk' : 'tidak termasuk'} pemasukan.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+                ),
+                TextButton(
+                  onPressed: configure,
+                  child: const Text('Ubah asumsi'),
+                ),
+              ],
+            ),
+            Text(
+              '${DateFormatter.formatShort(state.timeZone.at(r.start))} – ${DateFormatter.formatShort(state.timeZone.at(r.end.subtract(const Duration(microseconds: 1))))}',
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
               ),
             ),
-
-            const SizedBox(height: 16),
-            indicator(
-              'Rasio tabungan',
-              ratio(r.savingPercent, '%'),
-              '(Pemasukan − pengeluaran) ÷ pemasukan × 100%.',
-              [
-                'Pemasukan: ${money(r.income)}. Pengeluaran: ${money(r.expenses)}.',
-                'Surplus arus kas tercatat; transfer, pokok utang dan jual/beli investasi dikecualikan. Bunga/biaya tetap masuk pengeluaran. Bukan ukuran pertumbuhan aset.',
-              ],
-            ),
-            indicator(
-              'Beban pembayaran utang',
-              ratio(r.debtPercent, '%'),
-              '(Pokok + bunga + biaya pelunasan utang aktual) ÷ pemasukan × 100%.',
-              [
-                'Pembayaran aktual: ${money(r.debtService)}; pokok: ${money(r.debtPrincipal)}.',
-                'Hanya utang yang dibayar dari akun terpilih pada periode tersebut. Piutang dan pembayaran yang dibalik dikecualikan. Nilai dapat melebihi 100%.',
-              ],
-            ),
-            indicator(
-              'Likuiditas kas bebas',
-              ratio(r.liquidityMonths, ' bulan'),
-              'Kas bebas saat ini ÷ ((pengeluaran + pokok utang dibayar) ÷ jumlah bulan).',
-              [
-                'Kas bebas: ${money(r.freeCash)}.',
-                'Saldo positif dikurangi alokasi goal sekali per akun. Rata-rata mencakup bulan tanpa catatan. Bukan prediksi saldo atau jaminan dana bank tersedia.',
-              ],
-            ),
-            indicator(
-              'Cakupan dana darurat',
-              ratio(r.emergencyMonths, ' bulan'),
-              'Dana likuid ÷ baseline pengeluaran wajib bulanan (Dana Darurat).',
-              [
-                'Dana likuid: ${money(r.emergency?.liquid)}. Baseline: ${money(r.emergency?.baseline)}.',
-                'Mengikuti akun, kategori dan goal terpilih di Dana Darurat, terpisah dari asumsi arus kas di atas.',
-                if (r.emergency case final e?)
-                  repo.emergency.plan?['baseline_mode'] == 'MANUAL'
-                      ? 'Baseline manual, diisi sendiri; tidak dihitung dari histori transaksi.'
-                      : 'Periode baseline estimasi: ${goalDay(e.historyStart)} sampai ${goalDay(e.historyEnd.subtract(const Duration(days: 1)))} UTC.',
-              ],
-            ),
-
             const SizedBox(height: 6),
             const Text(
-              'Persentase dan bulan ditampilkan dua desimal, dipotong menuju nol tanpa pembulatan naik. Pemasukan nol atau kebutuhan bulanan nol tidak menghasilkan rasio tak terbatas.',
+              'Berdasarkan catatan pribadi. Ketuk angka untuk melihat perhitungannya.',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
+                height: 1.5,
                 color: AppColors.textMuted,
-                height: 1.35,
               ),
             ),
-
-            if (r.warnings.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Kelengkapan dan batas data',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final warning in r.warnings)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              Icons.warning_amber_rounded,
-                              size: 16,
-                              color: AppColors.warning,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                warning,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                  height: 1.35,
-                                ),
+            if (r.warnings.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Material(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    key: const ValueKey('health_notes'),
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => showDetails('Catatan data', [
+                      for (final warning in r.warnings) detailText(warning),
+                    ]),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: AppColors.accentDark,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${r.warnings.length} catatan tentang kelengkapan data',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                          ],
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: AppColors.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cards = [
+                  metric(
+                    'saving',
+                    'Rasio tabungan',
+                    ratio(r.savingPercent, '%'),
+                    'Pemasukan yang tersisa.',
+                    Icons.savings_outlined,
+                    '(Pemasukan − pengeluaran) ÷ pemasukan × 100%.',
+                    [
+                      'Pemasukan: ${money(r.income)}\nPengeluaran: ${money(r.expenses)}',
+                      'Transfer, pokok utang dan jual/beli investasi dikecualikan. Bunga dan biaya termasuk pengeluaran. Rasio ini bukan pertumbuhan aset.',
+                    ],
+                  ),
+                  metric(
+                    'debt',
+                    'Beban pembayaran utang',
+                    ratio(r.debtPercent, '%'),
+                    'Pemasukan untuk membayar utang.',
+                    Icons.credit_card_outlined,
+                    '(Pokok + bunga + biaya pelunasan aktual) ÷ pemasukan × 100%.',
+                    [
+                      'Pembayaran aktual: ${money(r.debtService)}\nPokok dibayar: ${money(r.debtPrincipal)}',
+                      'Hanya utang yang dibayar dari akun terpilih. Piutang dan pembayaran yang dibalik dikecualikan. Nilai dapat melebihi 100%.',
+                    ],
+                  ),
+                  metric(
+                    'liquidity',
+                    'Likuiditas kas bebas',
+                    ratio(r.liquidityMonths, ' bulan'),
+                    'Cakupan kebutuhan rutin.',
+                    Icons.account_balance_wallet_outlined,
+                    'Kas bebas ÷ rata-rata bulanan (pengeluaran + pokok utang dibayar).',
+                    [
+                      'Kas bebas saat ini: ${money(r.freeCash)}',
+                      'Saldo positif dikurangi alokasi tujuan sekali per akun. Rata-rata mencakup bulan tanpa catatan. Ini bukan prediksi saldo bank.',
+                    ],
+                  ),
+                  metric(
+                    'emergency',
+                    'Cakupan dana darurat',
+                    ratio(r.emergencyMonths, ' bulan'),
+                    'Cakupan pengeluaran wajib.',
+                    Icons.shield_outlined,
+                    'Dana likuid ÷ baseline pengeluaran wajib bulanan.',
+                    [
+                      'Dana likuid: ${money(r.emergency?.liquid)}\nKebutuhan bulanan: ${money(r.emergency?.baseline)}',
+                      'Mengikuti akun, kategori dan tujuan terpilih di Dana Darurat, terpisah dari asumsi arus kas halaman ini.',
+                      if (r.emergency case final e?)
+                        repo.emergency.plan?['baseline_mode'] == 'MANUAL'
+                            ? 'Kebutuhan bulanan diisi manual.'
+                            : 'Periode baseline: ${DateFormatter.formatShort(e.historyStart)} – ${DateFormatter.formatShort(e.historyEnd.subtract(const Duration(days: 1)))}.',
+                    ],
+                  ),
+                ];
+                if (constraints.maxWidth < 350 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 19) {
+                  return Column(
+                    children: [
+                      for (final card in cards)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SizedBox(width: double.infinity, child: card),
+                        ),
+                    ],
+                  );
+                }
+                return Column(
+                  children: [
+                    for (var i = 0; i < cards.length; i += 2)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: cards[i]),
+                              const SizedBox(width: 12),
+                              Expanded(child: cards[i + 1]),
+                            ],
+                          ),
                         ),
                       ),
                   ],
-                ),
-              ),
-            ],
-          ],
-
-          const SizedBox(height: 16),
-          // Related navigation card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+                );
+              },
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Perencanaan & Jadwal Terkait',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
+            ListTile(
+              key: const ValueKey('health_basis'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Dasar perhitungan',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                '${r.accountNames.length} akun · ${r.transactionCount} transaksi',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => showDetails('Dasar perhitungan', [
+                detailText(
+                  'Zona waktu: ${state.timeZone.label}\nDihitung ${DateFormatter.formatFull(r.assessedAt, timeZone: state.timeZone)}',
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                detailText(
+                  'Pemasukan tercatat pada ${r.incomeMonths}/${r.months} bulan. Pengeluaran tercatat pada ${r.expenseMonths}/${r.months} bulan.',
+                ),
+                detailText(
+                  repo.assumptions['include_dividends'] == true
+                      ? 'Dividen neto termasuk pemasukan.'
+                      : 'Dividen tidak termasuk pemasukan.',
+                ),
+                ExpansionTile(
+                  title: Text(
+                    'Akun terpilih (${r.accountNames.length})',
+                    style: const TextStyle(fontSize: 14),
                   ),
+                  children: [
+                    for (final name in r.accountNames)
+                      ListTile(
+                        dense: true,
+                        title: Text(name, style: const TextStyle(fontSize: 13)),
+                      ),
+                  ],
+                ),
+                detailText(
+                  'Saldo kas memakai kondisi saat ini. Dana Darurat tetap mengikuti periode dan asumsi rencananya sendiri.',
+                ),
+              ]),
+            ),
+            const Divider(color: AppColors.borderSubtle),
+            Wrap(
+              spacing: 12,
+              children: [
+                TextButton.icon(
                   onPressed: () => open(const EmergencyFundPage()),
                   icon: const Icon(Icons.shield_outlined, size: 18),
-                  label: const Text('Buka Dana Darurat'),
+                  label: const Text('Dana darurat'),
                 ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Tagihan yang belum dibayar dan jadwal cicilan tidak dihitung sebagai pembayaran aktual. Menautkan pembayaran yang sudah dicatat tidak menambah pengeluaran.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                TextButton.icon(
                   onPressed: () => open(const BillsPage()),
-                  icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                  label: const Text('Buka Tagihan & Jadwal'),
+                  icon: const Icon(Icons.event_note_outlined, size: 18),
+                  label: const Text('Tagihan'),
                 ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -292,8 +292,9 @@ class _BudgetPageState extends State<BudgetPage> {
                           errorMessage = null;
                         });
 
-                        final targetPeriodType =
-                            isYearly ? 'ANNUAL' : 'MONTHLY';
+                        final targetPeriodType = isYearly
+                            ? 'ANNUAL'
+                            : 'MONTHLY';
                         final targetAnchor = isYearly
                             ? '$_currentYear-01-01'
                             : '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}-01';
@@ -435,8 +436,8 @@ class _BudgetPageState extends State<BudgetPage> {
         : (totalSpent > 0 ? 1.0 : 0.0);
     final remainingPct = totalAllocated > 0
         ? (isOverBudget
-            ? 0.0
-            : ((totalAllocated - totalSpent) / totalAllocated) * 100)
+              ? 0.0
+              : ((totalAllocated - totalSpent) / totalAllocated) * 100)
         : 0.0;
 
     return Scaffold(
@@ -631,9 +632,7 @@ class _BudgetPageState extends State<BudgetPage> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              !isOverBudget
-                                  ? '✅ On Track'
-                                  : '⚠️ Over Budget',
+                              !isOverBudget ? '✅ On Track' : '⚠️ Over Budget',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
@@ -679,16 +678,16 @@ class _BudgetPageState extends State<BudgetPage> {
                             isOverBudget
                                 ? 'Terlampaui: ${CurrencyFormatter.formatRupiah(totalSpent - totalAllocated)}'
                                 : (isYearly
-                                    ? 'Sisa Tahun Ini: ${CurrencyFormatter.formatCompact(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)'
-                                    : 'Tersisa: ${CurrencyFormatter.formatRupiah(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)'),
+                                      ? 'Sisa Tahun Ini: ${CurrencyFormatter.formatCompact(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)'
+                                      : 'Tersisa: ${CurrencyFormatter.formatRupiah(totalRemaining)} (${remainingPct.toStringAsFixed(0)}%)'),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: isOverBudget
                                   ? AppColors.expense
                                   : (totalAllocated == 0
-                                      ? AppColors.textMuted
-                                      : AppColors.accentDark),
+                                        ? AppColors.textMuted
+                                        : AppColors.accentDark),
                             ),
                           ),
                         ),
@@ -850,79 +849,79 @@ class _BudgetPageState extends State<BudgetPage> {
                                   color: statusColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                              child: Icon(
-                                _getCategoryIcon(item.icon),
-                                color: statusColor,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.categoryName,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    isYearly
-                                        ? 'YTD: ${CurrencyFormatter.formatCompact(spent)} / Thn: ${CurrencyFormatter.formatCompact(allocated)}'
-                                        : '${CurrencyFormatter.formatRupiah(spent)} / ${CurrencyFormatter.formatRupiah(allocated)}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isExceeded && allocated > 0
-                                    ? '$pct%'
-                                    : (allocated == 0 && spent > 0
-                                        ? '>100%'
-                                        : '$pct%'),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
+                                child: Icon(
+                                  _getCategoryIcon(item.icon),
                                   color: statusColor,
+                                  size: 20,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 8,
-                            backgroundColor: AppColors.surfaceVariant,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              statusColor,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.categoryName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isYearly
+                                          ? 'YTD: ${CurrencyFormatter.formatCompact(spent)} / Thn: ${CurrencyFormatter.formatCompact(allocated)}'
+                                          : '${CurrencyFormatter.formatRupiah(spent)} / ${CurrencyFormatter.formatRupiah(allocated)}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  isExceeded && allocated > 0
+                                      ? '$pct%'
+                                      : (allocated == 0 && spent > 0
+                                            ? '>100%'
+                                            : '$pct%'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 8,
+                              backgroundColor: AppColors.surfaceVariant,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                statusColor,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
 
               const SizedBox(height: 20),
 

@@ -1,5 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../../../database/transaction_query.dart';
+import '../../../core/utils/app_time_zone.dart';
 import '../../emergency_funds/data/emergency_fund_repository.dart';
 import '../../goals/data/goals_repository.dart';
 import '../../reports/data/financial_export_repository.dart';
@@ -107,20 +108,27 @@ class FinancialHealthRepository {
         c['cursor'] == source.state['cursor'];
   }
 
-  HealthAssessment assess({DateTime? now}) {
+  HealthAssessment assess({DateTime? now, AppTimeZone? timeZone}) {
     final at = (now ?? DateTime.now()).toUtc(), config = assumptions;
     final months = config['months'] as int;
     if (![3, 6, 12].contains(months)) {
       throw const ApiFailure('Periode tidak valid.');
     }
-    final end = DateTime.utc(at.year, at.month, 1);
-    final start = DateTime.utc(end.year, end.month - months, 1);
+    final calendar = timeZone?.at(at) ?? at;
+    final calendarEnd = DateTime.utc(calendar.year, calendar.month, 1);
+    final calendarStart = DateTime.utc(
+      calendar.year,
+      calendar.month - months,
+      1,
+    );
+    final end = timeZone?.fromCalendar(calendarEnd) ?? calendarEnd;
+    final start = timeZone?.fromCalendar(calendarStart) ?? calendarStart;
     final ids = (config['account_ids'] as List).cast<String>().toSet();
     final selected = accounts.where((a) => ids.contains(a['id'])).toList();
     final eligible = selected.map((a) => a['id']).toSet();
     final warnings = <String>[
       'Estimasi pribadi dari catatan lokal IDR. Snapshot tersinkron bukan bukti seluruh transaksi bank sudah dicatat.',
-      'Saldo memakai kondisi sekarang; arus kas memakai bulan UTC yang sudah selesai. Akun historis yang kini dihapus, menjadi induk atau dipetakan ke utang tidak disertakan.',
+      'Saldo memakai kondisi sekarang; arus kas memakai bulan penuh yang sudah selesai dalam zona perhitungan. Akun historis yang kini dihapus, menjadi induk atau dipetakan ke utang tidak disertakan.',
     ];
     final scopeValid = selected.isNotEmpty && selected.length == ids.length;
     if (!scopeValid) {
@@ -208,8 +216,8 @@ class FinancialHealthRepository {
             evidenceValid = false;
             continue;
           }
-          final month = DateTime.parse('${t['transacted_at']}')
-              .toUtc()
+          final instant = DateTime.parse('${t['transacted_at']}').toUtc();
+          final month = (timeZone?.at(instant) ?? instant)
               .toIso8601String()
               .substring(0, 7);
           if (kind == 'INCOME') {
