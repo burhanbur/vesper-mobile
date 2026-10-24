@@ -8,7 +8,7 @@ import 'package:vesper_mobile/features/sync/data/finance_repository.dart';
 
 const insightBillId = '11111111-1111-4111-8111-111111111111';
 
-FinanceRepository insightRepository({bool indexed = false}) {
+FinanceRepository insightRepository({bool indexed = false, ApiClient? client}) {
   final directory = indexed
       ? Directory.systemTemp.createTempSync('vesper-insights-test-')
       : null;
@@ -32,7 +32,7 @@ FinanceRepository insightRepository({bool indexed = false}) {
           userId: 'user',
         )
       : LocalStore(sqlite3.openInMemory());
-  final source = FinanceRepository(ApiClient(), store, 'user');
+  final source = FinanceRepository(client ?? ApiClient(), store, 'user');
   source.atomic(() {
     source.entities['accounts'] = <String, dynamic>{
       'cash': {

@@ -37,7 +37,7 @@ class BudgetItem {
   int get remainingAmount => allocatedAmount - spentAmount;
 
   double get progressPercentage {
-    if (allocatedAmount <= 0) return 0.0;
+    if (allocatedAmount <= 0) return spentAmount > 0 ? 1.0 : 0.0;
     return (spentAmount / allocatedAmount).clamp(0.0, 1.5);
   }
 
@@ -45,22 +45,34 @@ class BudgetItem {
 
   String get allocatedDisplay => _formatAmount(rawAllowance, allocatedAmount);
   String get spentDisplay => _formatAmount(rawSpent, spentAmount);
-  String get remainingDisplay =>
-      CurrencyFormatter.formatRupiah(remainingAmount);
+  String get remainingDisplay {
+    if (remainingAmount < 0) {
+      return '-${CurrencyFormatter.formatRupiah(remainingAmount.abs())}';
+    }
+    return CurrencyFormatter.formatRupiah(remainingAmount);
+  }
 
   static String _formatAmount(String? raw, int fallback) {
     if (raw == null || raw.isEmpty) {
-      return CurrencyFormatter.formatRupiah(fallback);
+      return fallback < 0
+          ? '-${CurrencyFormatter.formatRupiah(fallback.abs())}'
+          : CurrencyFormatter.formatRupiah(fallback);
     }
-    final match = RegExp(r'^(-?\d+)(?:\.(\d+))?$').firstMatch(raw.trim());
-    if (match == null) return CurrencyFormatter.formatRupiah(fallback);
-    final integerPart = int.tryParse(match.group(1)!) ?? fallback;
+    final match = RegExp(r'^(-)?(\d+)(?:\.(\d+))?$').firstMatch(raw.trim());
+    if (match == null) {
+      return fallback < 0
+          ? '-${CurrencyFormatter.formatRupiah(fallback.abs())}'
+          : CurrencyFormatter.formatRupiah(fallback);
+    }
+    final isNegative = match.group(1) != null;
+    final integerPart = int.tryParse(match.group(2)!) ?? fallback.abs();
     final formattedInt = CurrencyFormatter.formatRupiah(integerPart);
-    final fraction = match.group(2) ?? '';
+    final fraction = match.group(3) ?? '';
+    final sign = isNegative ? '-' : '';
     if (fraction.isNotEmpty && fraction != '00' && fraction != '0') {
-      return '$formattedInt,${fraction.length > 2 ? fraction.substring(0, 2) : fraction}';
+      return '$sign$formattedInt,${fraction.length > 2 ? fraction.substring(0, 2) : fraction}';
     }
-    return formattedInt;
+    return '$sign$formattedInt';
   }
 
   BudgetItem copyWith({

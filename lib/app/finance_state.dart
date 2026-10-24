@@ -628,7 +628,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           );
           final res = repo.state['progress:${budget['id']}'];
           if (res is Map) {
-            repo.state['progress:${budget['id']}:$period'] = res;
+            // The indexed store tracks metadata mutations too. Persist this
+            // alias before publishing a rebuild that queries transaction history.
+            repo.atomic(() {
+              repo.state['progress:${budget['id']}:$period'] = res;
+            });
           }
         } catch (error) {
           handleError(error);
@@ -1704,6 +1708,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String? periodType,
   }) {
     final budgetRows = _rows('budgets').where((r) {
+      if (r['deleted_at'] != null) return false;
       if (periodType != null && r['period_type'] != periodType) {
         return false;
       }
@@ -1779,7 +1784,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
-      final currentAmountInt = parseBudgetInteger(r['current_amount']);
+      final isFutureBudget =
+          range != null &&
+          (anchorDate.isAfter(range.end) ||
+              anchorDate.isAtSameMomentAs(range.end));
+      final currentAmountInt = isFutureBudget
+          ? 0
+          : parseBudgetInteger(r['current_amount']);
       return BudgetItem(
         id: r['id'],
         categoryId: r['category_id'],
@@ -1796,7 +1807,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         periodDays: range?.daysInPeriod ?? 0,
         isLocalEstimate: true,
       );
-    }).toList();
+    }).where((item) => item.allocatedAmount > 0).toList();
   }
 
   Future<void> loadBudgetProgressForPeriod(
