@@ -1083,7 +1083,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'category_id': category.id,
         'type': type == TransactionType.income ? 'INCOME' : 'EXPENSE',
         'amount': '$amount.00',
-        'transacted_at': date.toUtc().toIso8601String(),
+        'transacted_at': DateTime.fromMillisecondsSinceEpoch(
+          date.millisecondsSinceEpoch,
+          isUtc: true,
+        ).toIso8601String(),
         'description': note?.trim().isEmpty == true ? null : note,
       },
       local: {'created_by': currentUserId},
@@ -1161,7 +1164,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'category_id': category.id,
         'type': type == TransactionType.income ? 'INCOME' : 'EXPENSE',
         'amount': '$amount.00',
-        'transacted_at': date.toUtc().toIso8601String(),
+        'transacted_at': DateTime.fromMillisecondsSinceEpoch(
+          date.millisecondsSinceEpoch,
+          isUtc: true,
+        ).toIso8601String(),
         'description': note?.trim().isEmpty == true ? null : note?.trim(),
       },
       id: id,
@@ -2074,6 +2080,35 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void resolveConflictUseServer(String id) {
     _repo.resolve(id, useMine: false);
     _changed();
+  }
+
+  void retryOutboxEntry(SyncStatusEntry entry) {
+    if (entry.id.isEmpty) return;
+    _repo.atomic(() {
+      final item = _repo.outbox.firstWhere(
+        (e) => e['id'] == entry.id,
+        orElse: () => null,
+      );
+      if (item != null) {
+        if (item['payload'] is Map) {
+          final payload = Map<String, dynamic>.from(item['payload'] as Map);
+          if (payload['transacted_at'] != null) {
+            final parsed = DateTime.tryParse('${payload['transacted_at']}');
+            if (parsed != null) {
+              payload['transacted_at'] = DateTime.fromMillisecondsSinceEpoch(
+                parsed.millisecondsSinceEpoch,
+                isUtc: true,
+              ).toIso8601String();
+              item['payload'] = payload;
+            }
+          }
+        }
+        item['status'] = 'pending';
+        item.remove('error');
+      }
+    });
+    _changed();
+    requestAutomaticSync();
   }
 
   void discardOutboxEntry(SyncStatusEntry entry) {

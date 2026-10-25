@@ -113,7 +113,10 @@ class InvestmentTradeCommand {
       quantity: quantity,
       pricePerUnit: pricePerUnit,
       fee: fee,
-      transactedAt: at.toIso8601String(),
+      transactedAt: DateTime.fromMillisecondsSinceEpoch(
+        at.millisecondsSinceEpoch,
+        isUtc: true,
+      ).toIso8601String(),
       description: note == null || note.isEmpty ? null : note,
       settlement: settlement,
       positionAfter: position,
