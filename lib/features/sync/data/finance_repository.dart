@@ -365,7 +365,9 @@ class FinanceRepository {
         match == null ||
         match.end != price.length ||
         !RegExp('[1-9]').hasMatch(price)) {
-      throw const ApiFailure('Instrumen, tanggal harga, atau harga tidak valid.');
+      throw const ApiFailure(
+        'Instrumen, tanggal harga, atau harga tidak valid.',
+      );
     }
     if (pendingInvestmentCatalog.any(
       (r) =>
@@ -1914,19 +1916,27 @@ class FinanceRepository {
             type,
             (row['id'] ?? row['user_id']) as String,
             type == 'groups' && row['code'] == null
-                ? {...row, 'code': this.row(type, row['id'] as String)?['code']}
+                ? {
+                    ...row,
+                    'code': this.row(
+                      type,
+                      (row['id'] ?? row['user_id']) as String,
+                    )?['code'],
+                  }
                 : row,
           ),
       };
       if (type == 'instruments') {
         for (final local
             in this.rows(type).where((r) => r['pending_catalog'] == true)) {
-          table[local['id'] as String] = local;
+          final id = local['id'] as String?;
+          if (id != null) table[id] = local;
         }
       }
       // Preserve local edits across online refreshes.
       for (final item in outbox.where((e) => e['entity_type'] == type)) {
-        final id = item['entity_id'] as String;
+        final id = item['entity_id'] as String?;
+        if (id == null) continue;
         final local = row(type, id);
         if (local == null) {
           table.remove(id);
@@ -1936,21 +1946,35 @@ class FinanceRepository {
       }
       if (type == 'transactions') {
         for (final local in this.rows(type)) {
-          if (_pendingLeg(local['id'] as String)) {
-            table[local['id'] as String] = local;
+          final id = local['id'] as String?;
+          if (id != null && _pendingLeg(id)) {
+            table[id] = local;
           }
         }
       }
       if (type == 'accounts') {
         for (final local in this.rows(type)) {
-          if (_transferTouches(local['id'] as String)) {
-            table[local['id'] as String] = local;
+          final id = local['id'] as String?;
+          if (id != null && _transferTouches(id)) {
+            table[id] = local;
           }
         }
       }
-      for (final local in this.rows(type)) {
-        if (_tradeTouches(type, local['id'] as String)) {
-          table[local['id'] as String] = local;
+      const tradeRelevantTypes = {
+        'bill_schedules',
+        'transactions',
+        'account_types',
+        'categories',
+        'accounts',
+        'instruments',
+        'investment_transactions',
+      };
+      if (tradeRelevantTypes.contains(type)) {
+        for (final local in this.rows(type)) {
+          final id = (local['id'] ?? local['user_id']) as String?;
+          if (id != null && _tradeTouches(type, id)) {
+            table[id] = local;
+          }
         }
       }
       entities[type] = table;

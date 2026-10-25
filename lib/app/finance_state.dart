@@ -586,14 +586,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
       for (final group in repo.rows('groups')) {
         if (!active()) return;
+        final groupId = (group['id'] ?? group['user_id']) as String?;
+        if (groupId == null || groupId.isEmpty) continue;
         try {
           await repo.refreshList(
-            'members:${group['id']}',
-            '/groups/${group['id']}/members',
+            'members:$groupId',
+            '/groups/$groupId/members',
           );
           await repo.refreshList(
-            'group_categories:${group['id']}',
-            '/groups/${group['id']}/categories',
+            'group_categories:$groupId',
+            '/groups/$groupId/categories',
           );
         } catch (error) {
           handleError(error);
@@ -1325,31 +1327,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Household> get households => _rows('groups')
       .map(
         (r) => Household(
-          id: r['id'],
-          name: r['name'],
+          id: (r['id'] as String?) ?? '',
+          name: (r['name'] as String?) ?? '',
           type: GroupType.other,
-          inviteCode: r['code'] ?? '',
+          inviteCode: (r['code'] as String?) ?? '',
           sharedBalance: 0,
-          members: _rows('members:${r['id']}')
-              .map(
-                (m) => HouseholdMember(
-                  id: m['user_id'],
-                  name: m['name'],
-                  roleName: m['role'] == 'OWNER' ? 'Owner' : 'Anggota',
-                  role: m['role'] == 'OWNER'
-                      ? MemberRole.admin
-                      : MemberRole.member,
-                  avatarInitials: (m['name'] as String)
+          members: _rows('members:${r['id']}').map((m) {
+            final name = (m['name'] as String?) ?? '';
+            final initials = name.isNotEmpty
+                ? name
                       .split(' ')
                       .where((s) => s.isNotEmpty)
                       .take(2)
                       .map((s) => s[0])
                       .join()
-                      .toUpperCase(),
-                  email: '',
-                ),
-              )
-              .toList(),
+                      .toUpperCase()
+                : '?';
+            return HouseholdMember(
+              id: (m['user_id'] as String?) ?? (m['id'] as String?) ?? '',
+              name: name,
+              roleName: m['role'] == 'OWNER' ? 'Owner' : 'Anggota',
+              role: m['role'] == 'OWNER' ? MemberRole.admin : MemberRole.member,
+              avatarInitials: initials.isEmpty ? '?' : initials,
+              email: (m['email'] as String?) ?? '',
+            );
+          }).toList(),
         ),
       )
       .toList();
@@ -1693,10 +1695,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _rows('group_categories:${activeHousehold.id}')
           .map(
             (r) => GroupCategory(
-              id: r['id'],
-              groupId: r['group_id'],
-              name: r['name'],
-              type: r['type'],
+              id: (r['id'] as String?) ?? '',
+              groupId: (r['group_id'] as String?) ?? activeHousehold.id,
+              name: (r['name'] as String?) ?? '',
+              type: (r['type'] as String?) ?? '',
               mappedUserCategories: [],
               totalAggregatedAmount: 0,
             ),

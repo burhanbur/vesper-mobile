@@ -130,11 +130,12 @@ class _GroupAccountSharingSheetState extends State<GroupAccountSharingSheet> {
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Akun pribadi'),
                 items: accounts
+                    .where((row) => row['id'] != null && row['name'] != null)
                     .map(
                       (row) => DropdownMenuItem(
-                        value: row['id'] as String,
+                        value: row['id'].toString(),
                         child: Text(
-                          row['name'] as String,
+                          row['name'].toString(),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

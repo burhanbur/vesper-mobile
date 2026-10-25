@@ -643,8 +643,9 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                             radius: 14,
                             backgroundColor: AppColors.accentLight,
                             child: Text(
-                              (row['user_id'] as String).isNotEmpty
-                                  ? (row['user_id'] as String)[0].toUpperCase()
+                              ((row['user_id'] as String?) ?? '').isNotEmpty
+                                  ? ((row['user_id'] as String?) ?? '')[0]
+                                        .toUpperCase()
                                   : '?',
                               style: const TextStyle(
                                 fontSize: 11,
@@ -938,8 +939,8 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                         ? AppColors.gold.withValues(alpha: 0.2)
                         : AppColors.accentLight,
                     child: Text(
-                      (member['name'] as String).isNotEmpty
-                          ? (member['name'] as String)[0].toUpperCase()
+                      ((member['name'] as String?) ?? '').isNotEmpty
+                          ? ((member['name'] as String?) ?? '')[0].toUpperCase()
                           : '?',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
@@ -951,7 +952,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                     ),
                   ),
                   title: Text(
-                    '${member['name']} • ${member['role']}',
+                    '${member['name'] ?? ''} • ${member['role'] ?? ''}',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -993,8 +994,13 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                               (owner ||
                                   member['user_id'] ==
                                       state.repository?.userId),
-                          onSelected: (action) =>
-                              _manage(member['user_id'] as String, action),
+                          onSelected: (action) {
+                            final targetUserId =
+                                (member['user_id'] as String?) ?? '';
+                            if (targetUserId.isNotEmpty) {
+                              _manage(targetUserId, action);
+                            }
+                          },
                           itemBuilder: (_) => [
                             const PopupMenuItem(
                               value: 'REMOVE',

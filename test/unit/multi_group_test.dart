@@ -17,6 +17,12 @@ class _GroupClient extends ApiClient {
     bool retry = true,
   }) async {
     calls.add({'method': method, 'path': path, 'body': body});
+    if (method == 'GET' && path == '/groups/family/members') {
+      return [
+        {'user_id': 'user', 'name': 'Fixture Owner', 'role': 'OWNER'},
+        {'user_id': 'member2', 'name': 'Second Member', 'role': 'MEMBER'},
+      ];
+    }
     if (method == 'POST' && path.endsWith('/join')) {
       return {'id': path.split('/')[2], 'name': 'Joined group'};
     }
@@ -208,6 +214,15 @@ void main() {
       }
       expect(client.calls, isEmpty);
       expect(repo.outbox, isEmpty);
+    });
+    test('refreshList for group members with user_id key refreshes without type cast error', () async {
+      seed();
+      final repo = state.repository!;
+      await repo.refreshList('members:family', '/groups/family/members');
+      expect(state.activeHousehold.members, hasLength(2));
+      expect(state.activeHousehold.members.first.name, 'Fixture Owner');
+      expect(state.activeHousehold.members.last.name, 'Second Member');
+      expect(state.dataError, isNull);
     });
   });
 }

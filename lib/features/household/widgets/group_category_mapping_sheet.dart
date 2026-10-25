@@ -128,10 +128,11 @@ class _GroupCategoryMappingSheetState extends State<GroupCategoryMappingSheet> {
                   labelText: 'Kategori pribadi',
                 ),
                 items: categories
+                    .where((row) => row['id'] != null && row['name'] != null)
                     .map(
                       (row) => DropdownMenuItem<String>(
-                        value: row['id'] as String,
-                        child: Text(row['name'] as String),
+                        value: row['id'].toString(),
+                        child: Text(row['name'].toString()),
                       ),
                     )
                     .toList(),
