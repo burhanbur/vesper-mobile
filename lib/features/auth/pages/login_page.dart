@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/security/local_data_failure.dart';
+import '../../../core/utils/string_formatter.dart';
 import '../data/auth_repository.dart';
 
 class LoginPage extends StatefulWidget {
@@ -60,7 +62,10 @@ class _LoginPageState extends State<LoginPage>
         .trim();
     final password =
         (register ? _regPasswordController : _loginPasswordController).text;
-    final name = register ? _regNameController.text.trim() : null;
+    final rawName = register ? _regNameController.text.trim() : null;
+    final name = rawName != null
+        ? StringFormatter.capitalizeWords(rawName)
+        : null;
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email) ||
         password.isEmpty ||
         password.length > 128 ||
@@ -99,9 +104,9 @@ class _LoginPageState extends State<LoginPage>
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.expense,
         content: Text(message),
+        backgroundColor: AppColors.expense,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -385,6 +390,8 @@ class _LoginPageState extends State<LoginPage>
           label: 'Nama Lengkap',
           hint: 'Contoh: Ahmad Rizki',
           icon: Icons.person_outline_rounded,
+          textCapitalization: TextCapitalization.words,
+          inputFormatters: const [CapitalizeWordsInputFormatter()],
         ),
         const SizedBox(height: 14),
         _buildInputField(
@@ -461,6 +468,8 @@ class _LoginPageState extends State<LoginPage>
     required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
     bool obscureText = false,
     Widget? suffixIcon,
   }) {
@@ -485,6 +494,8 @@ class _LoginPageState extends State<LoginPage>
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
             obscureText: obscureText,
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(

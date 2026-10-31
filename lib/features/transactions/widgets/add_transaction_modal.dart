@@ -7,6 +7,8 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/string_formatter.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../accounts/widgets/account_picker_sheet.dart';
 import '../../categories/models/category.dart';
 import '../models/transaction.dart';
@@ -155,21 +157,13 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     if (!availableIds.contains(_selectedAccountId) ||
         (_selectedType == TransactionType.transfer &&
             !availableIds.contains(_selectedToAccountId))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih akun yang tersedia.')),
-      );
+      AppToast.showError(context, 'Pilih akun yang tersedia.');
       return;
     }
 
     final amount = CurrencyFormatter.parseRupiah(_amountController.text);
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.expense,
-          content: Text('Nominal harus lebih dari Rp 0'),
-        ),
-      );
+      AppToast.showError(context, 'Nominal harus lebih dari Rp 0');
       return;
     }
 
@@ -182,12 +176,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
               : state.selectableAccounts.first.id);
 
       if (accountId == toAccountId) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppColors.expense,
-            content: Text('Akun asal dan akun tujuan transfer harus berbeda!'),
-          ),
+        AppToast.showError(
+          context,
+          'Akun asal dan akun tujuan transfer harus berbeda!',
         );
         return;
       }
@@ -200,19 +191,12 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+        AppToast.showError(context, error.toString());
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppColors.expense,
-            content: Text('Gagal menyimpan transaksi: $e'),
-          ),
-        );
+        AppToast.showError(context, 'Gagal menyimpan transaksi: $e');
       }
     }
   }
@@ -293,6 +277,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         content: TextField(
           controller: textController,
           autofocus: true,
+          textCapitalization: TextCapitalization.words,
           decoration: const InputDecoration(
             hintText: 'Nama kategori baru...',
             border: OutlineInputBorder(),
@@ -305,8 +290,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
           ),
           ElevatedButton(
             onPressed: () {
-              final name = textController.text.trim();
-              if (name.isNotEmpty) {
+              final rawName = textController.text.trim();
+              if (rawName.isNotEmpty) {
+                final name = StringFormatter.capitalizeWords(rawName);
                 state.addCategory(
                   name: name,
                   type: isIncome ? CategoryType.income : CategoryType.expense,

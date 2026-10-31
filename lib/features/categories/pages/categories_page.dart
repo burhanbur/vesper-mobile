@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/string_formatter.dart';
 import '../models/category.dart';
 
 class CategoriesPage extends StatefulWidget {
@@ -264,6 +265,8 @@ class _CategoriesPageState extends State<CategoriesPage>
                     TextField(
                       controller: nameController,
                       autofocus: existing == null,
+                      textCapitalization: TextCapitalization.words,
+                      inputFormatters: const [CapitalizeWordsInputFormatter()],
                       onChanged: (_) => setModalState(() {}),
                       decoration: InputDecoration(
                         labelText: 'Nama Kategori',
@@ -376,8 +379,9 @@ class _CategoriesPageState extends State<CategoriesPage>
                     // Save Button
                     ElevatedButton(
                       onPressed: () {
-                        final name = nameController.text.trim();
-                        if (name.isEmpty) return;
+                        final rawName = nameController.text.trim();
+                        if (rawName.isEmpty) return;
+                        final name = StringFormatter.capitalizeWords(rawName);
 
                         if (existing != null) {
                           state.updateCategory(

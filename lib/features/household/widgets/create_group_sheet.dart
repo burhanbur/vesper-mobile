@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/string_formatter.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../models/household.dart';
 
 class CreateOrJoinGroupSheet extends StatefulWidget {
@@ -28,8 +30,8 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _codeController = TextEditingController();
-  final _groupIdController = TextEditingController();
   bool _joining = false;
+  String? _errorMessage;
   GroupType _selectedType = GroupType.roommates;
 
   @override
@@ -43,21 +45,21 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
     _nameController.dispose();
     _descController.dispose();
     _codeController.dispose();
-    _groupIdController.dispose();
     super.dispose();
   }
 
   Future<void> _handleCreate(AppState state) async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silakan masukkan nama grup terlebih dahulu'),
-          behavior: SnackBarBehavior.floating,
-        ),
+    final rawName = _nameController.text.trim();
+    if (rawName.isEmpty) {
+      setState(
+        () => _errorMessage = 'Silakan masukkan nama grup terlebih dahulu',
       );
+      AppToast.showError(context, 'Silakan masukkan nama grup terlebih dahulu');
       return;
     }
+
+    final name = StringFormatter.capitalizeWords(rawName);
+    setState(() => _errorMessage = null);
 
     try {
       await state.createHousehold(
@@ -69,42 +71,48 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
       );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+        final message = error.toString();
+        setState(() => _errorMessage = message);
+        AppToast.showError(context, message);
       }
       return;
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Grup "$name" berhasil dibuat & diaktifkan!'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.primaryDark,
-      ),
-    );
+    AppToast.showSuccess(context, 'Grup "$name" berhasil dibuat & diaktifkan!');
   }
 
   Future<void> _handleJoin(AppState state) async {
     if (_joining) return;
-    final code = _codeController.text.trim();
+    final code = _codeController.text.trim().toUpperCase();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Masukkan kode undangan grup'),
-          behavior: SnackBarBehavior.floating,
-        ),
+      setState(() => _errorMessage = 'Masukkan kode undangan grup');
+      AppToast.showError(context, 'Masukkan kode undangan grup');
+      return;
+    }
+
+    if (!RegExp(r'^[A-Z0-9]{12}$').hasMatch(code)) {
+      setState(
+        () => _errorMessage = 'Kode undangan harus 12 karakter alfanumerik (contoh: ABCD1234EFGH)',
+      );
+      AppToast.showError(
+        context,
+        'Kode undangan harus 12 karakter alfanumerik (contoh: ABCD1234EFGH)',
       );
       return;
     }
 
-    setState(() => _joining = true);
+    setState(() {
+      _joining = true;
+      _errorMessage = null;
+    });
     try {
-      await state.joinHousehold(groupId: _groupIdController.text, code: code);
+      await state.joinHousehold(code: code);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
+        final message = error.toString();
+        setState(() => _errorMessage = message);
+        AppToast.showError(context, message);
       }
       return;
     } finally {
@@ -112,12 +120,9 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
     }
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Berhasil bergabung ke grup dengan kode $code!'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.primaryDark,
-        ),
+      AppToast.showSuccess(
+        context,
+        'Berhasil bergabung ke grup dengan kode $code!',
       );
     }
   }
@@ -165,7 +170,10 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _activeTab = 0),
+                      onTap: () => setState(() {
+                        _activeTab = 0;
+                        _errorMessage = null;
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
@@ -202,7 +210,10 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _activeTab = 1),
+                      onTap: () => setState(() {
+                        _activeTab = 1;
+                        _errorMessage = null;
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
@@ -256,6 +267,8 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
               const SizedBox(height: 6),
               TextField(
                 controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: const [CapitalizeWordsInputFormatter()],
                 decoration: InputDecoration(
                   hintText: 'Misal: Kosan Senopati, Trip Bali, Kas Usaha',
                   prefixIcon: const Icon(
@@ -357,7 +370,8 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              _buildErrorBanner(),
               ElevatedButton(
                 onPressed: () => _handleCreate(state),
                 style: ElevatedButton.styleFrom(
@@ -377,12 +391,6 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                 ),
               ),
             ] else ...[
-              // The server requires both group identity and invitation code.
-              TextField(
-                controller: _groupIdController,
-                decoration: const InputDecoration(labelText: 'ID Grup (UUID)'),
-              ),
-              const SizedBox(height: 12),
               const Text(
                 'Kode Undangan Grup',
                 style: TextStyle(
@@ -414,7 +422,8 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              _buildErrorBanner(),
               ElevatedButton(
                 onPressed: _joining ? null : () => _handleJoin(state),
                 style: ElevatedButton.styleFrom(
@@ -424,18 +433,60 @@ class _CreateOrJoinGroupSheetState extends State<CreateOrJoinGroupSheet> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text(
-                  'Gabung ke Grup Sekarang',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
+                child: _joining
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Gabung ke Grup Sekarang',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    if (_errorMessage == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.expense.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.expense.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.expense,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.expense,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

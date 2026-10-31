@@ -6,6 +6,8 @@ import '../../../app/theme/app_colors.dart';
 import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/string_formatter.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../transactions/models/transaction.dart';
 import '../../transactions/widgets/add_transaction_modal.dart';
 import '../models/household.dart';
@@ -120,13 +122,12 @@ class HouseholdPage extends StatelessWidget {
                       ),
                       TextButton.icon(
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Kode undangan ${household.inviteCode} disalin!',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                          Clipboard.setData(
+                            ClipboardData(text: household.inviteCode),
+                          );
+                          AppToast.showSuccess(
+                            context,
+                            'Kode undangan ${household.inviteCode} disalin!',
                           );
                         },
                         icon: const Icon(Icons.copy_rounded, size: 14),
@@ -154,6 +155,8 @@ class HouseholdPage extends StatelessWidget {
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameController,
+                  textCapitalization: TextCapitalization.words,
+                  inputFormatters: const [CapitalizeWordsInputFormatter()],
                   decoration: const InputDecoration(
                     hintText: 'Misal: Sarah Mafazi',
                     prefixIcon: Icon(Icons.person_outline_rounded),
@@ -237,7 +240,8 @@ class HouseholdPage extends StatelessWidget {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
-                    final name = nameController.text.trim();
+                    final rawName = nameController.text.trim();
+                    final name = StringFormatter.capitalizeWords(rawName);
                     final email = emailController.text.trim();
 
                     if (name.isNotEmpty) {
@@ -252,16 +256,11 @@ class HouseholdPage extends StatelessWidget {
                     }
 
                     Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: AppColors.primary,
-                        content: Text(
-                          name.isNotEmpty
-                              ? '$name berhasil ditambahkan ke grup!'
-                              : 'Tautan & kode undangan siap dibagikan!',
-                        ),
-                      ),
+                    AppToast.showSuccess(
+                      context,
+                      name.isNotEmpty
+                          ? '$name berhasil ditambahkan ke grup!'
+                          : 'Tautan & kode undangan siap dibagikan!',
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -342,6 +341,8 @@ class HouseholdPage extends StatelessWidget {
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  inputFormatters: const [CapitalizeWordsInputFormatter()],
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.edit_outlined),
                     border: OutlineInputBorder(
@@ -399,7 +400,9 @@ class HouseholdPage extends StatelessWidget {
                     state.updateActiveHousehold(
                       name: nameCtrl.text.trim().isEmpty
                           ? household.name
-                          : nameCtrl.text.trim(),
+                          : StringFormatter.capitalizeWords(
+                              nameCtrl.text.trim(),
+                            ),
                       type: selectedType,
                       description: descCtrl.text.trim().isEmpty
                           ? null

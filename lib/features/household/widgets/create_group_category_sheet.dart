@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/utils/string_formatter.dart';
 
 class CreateGroupCategorySheet extends StatefulWidget {
   final String? categoryId, groupId;
@@ -45,19 +46,22 @@ class _CreateGroupCategorySheetState extends State<CreateGroupCategorySheet> {
       _error = null;
     });
     try {
+      final formattedName = StringFormatter.capitalizeWords(_name.text);
       if (widget.categoryId != null) {
         await state.updateGroupCategory(
           categoryId: widget.categoryId!,
           groupId: widget.groupId ?? '',
-          name: _name.text,
+          name: formattedName,
           type: _type,
         );
       } else {
-        await state.createGroupCategory(name: _name.text, type: _type);
+        await state.createGroupCategory(name: formattedName, type: _type);
       }
       if (mounted) Navigator.pop(context);
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = error.toString());
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -134,6 +138,8 @@ class _CreateGroupCategorySheetState extends State<CreateGroupCategorySheet> {
             controller: _name,
             enabled: !_saving,
             maxLength: 120,
+            textCapitalization: TextCapitalization.words,
+            inputFormatters: const [CapitalizeWordsInputFormatter()],
             decoration: const InputDecoration(labelText: 'Nama kategori grup'),
           ),
           DropdownButtonFormField<String>(

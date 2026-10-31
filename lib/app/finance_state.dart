@@ -1396,25 +1396,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await refresh();
   }
 
-  Future<void> joinHousehold({
-    required String groupId,
-    required String code,
-  }) async {
-    final id = groupId.trim();
+  Future<void> joinHousehold({String? groupId, required String code}) async {
     final invitation = code.trim().toUpperCase();
-    if (!RegExp(
-          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-        ).hasMatch(id) ||
-        !RegExp(r'^[A-Z0-9]{12}$').hasMatch(invitation)) {
+    if (!RegExp(r'^[A-Z0-9]{12}$').hasMatch(invitation)) {
       throw const ApiFailure(
-        'Masukkan ID grup UUID dan kode undangan 12 karakter.',
+        'Kode undangan harus 12 karakter alfanumerik (contoh: ABCD1234EFGH).',
       );
     }
+    final id = groupId?.trim();
+    if (id != null && id.isNotEmpty) {
+      if (!RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(id)) {
+        throw const ApiFailure('Format ID grup tidak valid.');
+      }
+    }
+    final path = (id != null && id.isNotEmpty)
+        ? '/groups/$id/join'
+        : '/groups/join';
     final repo = _repo;
     final generation = _generation;
-    final result = await repo.writeOnline('POST', '/groups/$id/join', {
-      'code': invitation,
-    });
+    final result = await repo.writeOnline('POST', path, {'code': invitation});
     if (_disposed ||
         generation != _generation ||
         !identical(repository, repo)) {

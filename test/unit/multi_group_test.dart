@@ -23,6 +23,9 @@ class _GroupClient extends ApiClient {
         {'user_id': 'member2', 'name': 'Second Member', 'role': 'MEMBER'},
       ];
     }
+    if (method == 'POST' && path == '/groups/join') {
+      return {'id': 'joined-group-by-code', 'name': 'Joined group by code'};
+    }
     if (method == 'POST' && path.endsWith('/join')) {
       return {'id': path.split('/')[2], 'name': 'Joined group'};
     }
@@ -108,6 +111,20 @@ void main() {
         expect(state.activeHousehold.name, 'Joined group');
         expect(state.repository!.store.read(), state.repository!.state);
         expect(state.repository!.outbox, isEmpty);
+      },
+    );
+    test(
+      'Join with code only uses /groups/join and sets active household',
+      () async {
+        await state.joinHousehold(code: 'xyz987654321');
+        expect(client.calls.first, {
+          'method': 'POST',
+          'path': '/groups/join',
+          'body': {'code': 'XYZ987654321'},
+        });
+        expect(state.activeHouseholdId, 'joined-group-by-code');
+        expect(state.activeHousehold.name, 'Joined group by code');
+        expect(state.repository!.store.read(), state.repository!.state);
       },
     );
     test(
