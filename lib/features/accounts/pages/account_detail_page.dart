@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../database/transaction_query.dart';
+import '../../obligations/data/obligations_repository.dart';
+import '../../obligations/pages/obligations_page.dart';
 import '../../transactions/models/transaction.dart';
 import '../../transactions/widgets/add_transaction_modal.dart';
 import '../../transactions/widgets/transaction_item_tile.dart';
@@ -78,6 +81,22 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
         ? state.getChildrenForAccount(account.id)
         : const <Account>[];
     final hasChildren = children.isNotEmpty;
+    final source = state.repository;
+    final mapped = source?.isMappedObligationAccount(widget.accountId) ?? false;
+    final legacyLoan =
+        account != null &&
+        RegExp(
+          r'hutang|utang|piutang|loan|debt|paylater|kredit',
+          caseSensitive: false,
+        ).hasMatch('${account.name} ${account.institution}');
+    final canRegister =
+        source != null &&
+        legacyLoan &&
+        ObligationsRepository(source).cashAccounts.any(
+          (row) =>
+              row['id'] == widget.accountId &&
+              obligationMinor('${row['balance']}', signed: true) != BigInt.zero,
+        );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -127,39 +146,68 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                             ),
                           ),
                         ],
+                        if (mapped || canRegister) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            mapped
+                                ? 'Saldo ini terhubung ke Utang & Piutang. Catat pelunasan di sana agar sisa pinjaman dan kas tetap sesuai.'
+                                : 'Punya pinjaman berjalan? Catat pihak dan sisa pokok dengan menghubungkan saldo akun ini, tanpa membuat uang keluar/masuk lagi.',
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.handshake_outlined),
+                            label: Text(
+                              mapped
+                                  ? 'Kelola Utang & Piutang'
+                                  : 'Hubungkan ke Utang & Piutang',
+                            ),
+                            onPressed: () => ShellManagementScope.open(
+                              context,
+                              ObligationsPage(
+                                initialLinkedAccountId: mapped
+                                    ? null
+                                    : account.id,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 12,
                           children: [
                             OutlinedButton(
-                              onPressed: () {
-                                if (account.ownerUserId !=
-                                        state.currentUserId ||
-                                    state.currentUserId.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Hanya pemilik akun dapat menyesuaikan saldo.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                showDialog<void>(
-                                  context: context,
-                                  builder: (_) => BalanceAdjustmentDialog(
-                                    state: state,
-                                    accountId: account.id,
-                                  ),
-                                );
-                              },
+                              onPressed: mapped
+                                  ? null
+                                  : () {
+                                      if (account.ownerUserId !=
+                                              state.currentUserId ||
+                                          state.currentUserId.isEmpty) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Hanya pemilik akun dapat menyesuaikan saldo.',
+                                                ),
+                                              ),
+                                            );
+                                        return;
+                                      }
+                                      showDialog<void>(
+                                        context: context,
+                                        builder: (_) => BalanceAdjustmentDialog(
+                                          state: state,
+                                          accountId: account.id,
+                                        ),
+                                      );
+                                    },
                               child: const Text('Ubah Saldo'),
                             ),
                             OutlinedButton(
                               onPressed:
-                                  state.selectableAccounts.any(
-                                    (candidate) => candidate.id == account.id,
-                                  )
+                                  !mapped &&
+                                      state.selectableAccounts.any(
+                                        (candidate) =>
+                                            candidate.id == account.id,
+                                      )
                                   ? () => AddTransactionModal.show(
                                       context,
                                       initialType: TransactionType.transfer,
@@ -248,7 +296,8 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                                     (account.ownerUserId !=
                                                 state.currentUserId &&
                                             state.currentUserId.isNotEmpty) ||
-                                        hasChildren
+                                        hasChildren ||
+                                        mapped
                                     ? null
                                     : (val) async {
                                         try {

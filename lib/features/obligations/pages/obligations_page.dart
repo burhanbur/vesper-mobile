@@ -8,7 +8,10 @@ import '../data/obligations_controller.dart';
 import '../data/obligations_repository.dart';
 
 class ObligationsPage extends StatefulWidget {
-  const ObligationsPage({super.key});
+  const ObligationsPage({super.key, this.initialLinkedAccountId});
+
+  final String? initialLinkedAccountId;
+
   @override
   State<ObligationsPage> createState() => _ObligationsPageState();
 }
@@ -16,6 +19,7 @@ class ObligationsPage extends StatefulWidget {
 class _ObligationsPageState extends State<ObligationsPage> {
   ObligationsController? controller;
   String? error;
+  bool _initialFormOpened = false;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -36,6 +40,17 @@ class _ObligationsPageState extends State<ObligationsPage> {
         state.obligationSaved,
       );
     }
+    if (!_initialFormOpened &&
+        controller != null &&
+        widget.initialLinkedAccountId != null) {
+      _initialFormOpened = true;
+      final active = controller;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && identical(controller, active)) {
+          form(linkedAccountId: widget.initialLinkedAccountId);
+        }
+      });
+    }
   }
 
   @override
@@ -44,17 +59,40 @@ class _ObligationsPageState extends State<ObligationsPage> {
     super.dispose();
   }
 
-  Future<void> form({Map<String, dynamic>? debt}) async {
+  Future<void> form({
+    Map<String, dynamic>? debt,
+    String? linkedAccountId,
+  }) async {
     final active = controller!;
     final repo = active.repository;
+    final linkedAccount = repo.cashAccounts
+        .where((account) => account['id'] == linkedAccountId)
+        .firstOrNull;
+    if (linkedAccountId != null &&
+        (linkedAccount == null ||
+            repo.source.isMappedObligationAccount(linkedAccountId))) {
+      setState(
+        () => error = 'Akun tidak tersedia atau sudah terhubung ke pinjaman.',
+      );
+      return;
+    }
+    final balance = linkedAccount == null
+        ? BigInt.zero
+        : obligationMinor('${linkedAccount['balance']}', signed: true);
     final counterparty = TextEditingController();
     final principal = TextEditingController();
     final interest = TextEditingController(text: '0');
     final fee = TextEditingController(text: '0');
     final due = TextEditingController();
     final schedule = TextEditingController();
-    String kind = 'PAYABLE';
-    String? cashId, mappedId, interestCategory, feeCategory, saveError;
+    String kind = linkedAccount != null && !balance.isNegative
+        ? 'RECEIVABLE'
+        : 'PAYABLE';
+    String? cashId, interestCategory, feeCategory, saveError;
+    String? mappedId = linkedAccountId;
+    if (linkedAccount != null) {
+      principal.text = obligationMoney(balance.abs());
+    }
     bool existing = true;
     bool savedOnce = false;
     try {
@@ -252,6 +290,11 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
+                      if (linkedAccount != null)
+                        Text(
+                          'Menghubungkan akun ${linkedAccount['name']}. Tidak membuat arus kas baru. Saldo positif adalah piutang; saldo negatif adalah utang. Isi nama orang yang terkait, bukan nama akun.',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text(
@@ -262,11 +305,13 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           ),
                         ),
                         value: existing,
-                        onChanged: (v) => update(() {
-                          existing = v;
-                          cashId = null;
-                          mappedId = null;
-                        }),
+                        onChanged: linkedAccount != null
+                            ? null
+                            : (v) => update(() {
+                                existing = v;
+                                cashId = null;
+                                mappedId = null;
+                              }),
                       ),
                       if (existing) ...[
                         const Text(
@@ -277,11 +322,12 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        accounts(
-                          'Akun lama (opsional)',
-                          mappedId,
-                          (v) => mappedId = v,
-                        ),
+                        if (linkedAccount == null)
+                          accounts(
+                            'Akun lama (opsional)',
+                            mappedId,
+                            (v) => mappedId = v,
+                          ),
                       ] else ...[
                         const Text(
                           'Pendanaan baru akan menambah kas untuk utang atau mengurangi kas untuk piutang.',

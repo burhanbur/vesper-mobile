@@ -16,8 +16,15 @@ import '../widgets/group_switcher_sheet.dart';
 import '../widgets/household_unavailable_view.dart';
 import '../../accounts/pages/accounts_page.dart';
 
-class HouseholdPage extends StatelessWidget {
+class HouseholdPage extends StatefulWidget {
   const HouseholdPage({super.key});
+
+  @override
+  State<HouseholdPage> createState() => _HouseholdPageState();
+}
+
+class _HouseholdPageState extends State<HouseholdPage> {
+  int _selectedTab = 0; // 0: Mutasi & Feed, 1: Anggota & Porsi, 2: Pengaturan
 
   void _showInviteModal(BuildContext context, Household household) {
     final nameController = TextEditingController();
@@ -1064,10 +1071,12 @@ class HouseholdPage extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
 
-              // Active Group Main Emerald Hero Card
+              // ==========================================
+              // BANK JAGO-STYLE SHARED POCKET HERO CARD
+              // ==========================================
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppColors.primaryDark, AppColors.primary],
@@ -1077,8 +1086,8 @@ class HouseholdPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 16,
+                      color: AppColors.primary.withValues(alpha: 0.28),
+                      blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -1086,65 +1095,15 @@ class HouseholdPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top row: Type badge & Edit action
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                household.type.emoji,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                household.type.displayName,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: Colors.white70,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Ubah Info Grup',
-                          onPressed: () =>
-                              _showEditGroupModal(context, household),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Middle row: Icon, Name & Members
+                    // Top header: Pocket Icon & Title, Type Tag, Invite Code & Edit
                     Row(
                       children: [
                         Container(
-                          width: 46,
-                          height: 46,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(14),
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.2),
                             ),
@@ -1152,11 +1111,11 @@ class HouseholdPage extends StatelessWidget {
                           child: Center(
                             child: Text(
                               household.type.emoji,
-                              style: const TextStyle(fontSize: 22),
+                              style: const TextStyle(fontSize: 20),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1164,7 +1123,7 @@ class HouseholdPage extends StatelessWidget {
                               Text(
                                 household.name,
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 17,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
                                 ),
@@ -1172,74 +1131,50 @@ class HouseholdPage extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                '${household.memberCount} Anggota Terhubung',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (household.description != null &&
-                        household.description!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        household.description!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 1,
-                      color: Colors.white.withValues(alpha: 0.15),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Balance & Invite Code Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Saldo Kas Bersama',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                isHidden
-                                    ? '••••••••'
-                                    : CurrencyFormatter.formatRupiah(
-                                        household.sharedBalance,
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent.withValues(
+                                        alpha: 0.25,
                                       ),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: -0.3,
-                                ),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: AppColors.accent.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        width: 0.5,
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Kantong Bersama',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.accentLight,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    household.type.displayName,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.75,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
+                        // Invite code pill
                         InkWell(
                           onTap: () {
                             Clipboard.setData(
@@ -1257,14 +1192,14 @@ class HouseholdPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                              horizontal: 8,
+                              vertical: 5,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.25),
+                                color: Colors.white.withValues(alpha: 0.2),
                               ),
                             ),
                             child: Row(
@@ -1273,17 +1208,168 @@ class HouseholdPage extends StatelessWidget {
                                 Text(
                                   household.inviteCode,
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                const SizedBox(width: 5),
+                                const SizedBox(width: 4),
                                 const Icon(
                                   Icons.copy_rounded,
-                                  size: 13,
+                                  size: 12,
                                   color: Colors.white,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.more_horiz_rounded,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Ubah Info Grup',
+                          onPressed: () =>
+                              _showEditGroupModal(context, household),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Balance section
+                    Text(
+                      'Saldo Kantong Bersama',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isHidden
+                          ? '••••••••'
+                          : CurrencyFormatter.formatRupiah(
+                              household.sharedBalance,
+                            ),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Sub-row: Expense badge + Avatars stack
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.arrow_outward_rounded,
+                                size: 12,
+                                color: AppColors.accentLight,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Bln ini: ${isHidden ? "••••••" : CurrencyFormatter.formatRupiah(totalExpense)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.accentLight,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Overlapping avatars + Member count
+                        InkWell(
+                          onTap: () => setState(() => _selectedTab = 1),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width:
+                                      (household.members.length.clamp(1, 3) *
+                                          16.0) +
+                                      12.0,
+                                  height: 24,
+                                  child: Stack(
+                                    children: [
+                                      for (
+                                        int i = 0;
+                                        i < household.members.take(3).length;
+                                        i++
+                                      )
+                                        Positioned(
+                                          left: i * 16.0,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: AppColors.primary,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: CircleAvatar(
+                                              radius: 10,
+                                              backgroundColor:
+                                                  AppColors.accentLight,
+                                              child: Text(
+                                                household
+                                                    .members[i]
+                                                    .avatarInitials,
+                                                style: const TextStyle(
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: AppColors.primaryDark,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${household.memberCount} Anggota',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 14,
+                                  color: Colors.white70,
                                 ),
                               ],
                             ),
@@ -1292,436 +1378,585 @@ class HouseholdPage extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
 
-                    // Quick Actions Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => AddTransactionModal.show(
+                    // Bank Jago 4-Action Button Bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildPocketAction(
+                            icon: Icons.add_rounded,
+                            label: 'Catat Kas',
+                            onTap: () => AddTransactionModal.show(
+                              context,
+                              initialType: TransactionType.income,
+                            ),
+                          ),
+                          _buildPocketAction(
+                            icon: Icons.remove_rounded,
+                            label: 'Pakai Kas',
+                            onTap: () => AddTransactionModal.show(
                               context,
                               initialType: TransactionType.expense,
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.primaryDark,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 11),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const Icon(Icons.add_rounded, size: 16),
-                            label: const Text(
-                              'Catat Kas',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _showInviteModal(context, household),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.4),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 11),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.person_add_rounded,
-                              size: 16,
-                            ),
-                            label: const Text(
-                              'Undang',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          _buildPocketAction(
+                            icon: Icons.person_add_outlined,
+                            label: 'Undang',
+                            onTap: () => _showInviteModal(context, household),
                           ),
-                        ),
-                      ],
+                          _buildPocketAction(
+                            icon: Icons.donut_small_outlined,
+                            label: 'Porsi',
+                            onTap: () => setState(() => _selectedTab = 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
               // ==========================================
-              // HIGHLIGHT: SIAPA BAYAR APA (KONTRIBUSI PASANGAN)
+              // 3-TAB SEGMENTED CONTROLLER (MUTASI / PORSI / PENGATURAN)
               // ==========================================
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Siapa Bayar Apa Bulan Ini',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+              Container(
+                height: 44,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    _buildSegmentTab(
+                      index: 0,
+                      label: 'Mutasi (${groupTransactions.length})',
                     ),
-                  ),
+                    _buildSegmentTab(index: 1, label: 'Anggota & Porsi'),
+                    _buildSegmentTab(index: 2, label: 'Pengaturan'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ==========================================
+              // TAB 0: MUTASI (FEED TRANSAKSI BERSAMA)
+              // ==========================================
+              if (_selectedTab == 0) ...[
+                if (groupTransactions.isEmpty)
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                      horizontal: 20,
+                      vertical: 32,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.accentLight.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
                     ),
-                    child: Text(
-                      isHidden
-                          ? '••••••'
-                          : CurrencyFormatter.formatRupiah(totalExpense),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              if (totalExpense == 0 || contributions.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.pie_chart_outline_rounded,
-                          size: 32,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Belum Ada Pengeluaran Bersama',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Catat pengeluaran grup bulan ini untuk melihat rasio pembagian dan kontribusi tiap anggota secara otomatis.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: () => AddTransactionModal.show(
-                          context,
-                          initialType: TransactionType.expense,
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: const BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            shape: BoxShape.circle,
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
+                          child: const Icon(
+                            Icons.receipt_long_outlined,
+                            size: 36,
+                            color: AppColors.primary,
                           ),
                         ),
-                        icon: const Icon(Icons.add_rounded, size: 16),
-                        label: const Text(
-                          'Catat Pengeluaran Pertama',
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Belum Ada Mutasi di Kantong Ini',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Semua pengeluaran atau pemasukan bersama yang dialokasikan ke kantong ini akan tampil rapi di sini.',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Multi-Segment Visual Split Bar
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Row(
-                          children: contributions
-                              .where((c) => c.amount > 0)
-                              .map((c) {
-                                final colors = [
-                                  AppColors.primary,
-                                  AppColors.accent,
-                                  AppColors.gold,
-                                  AppColors.investment,
-                                ];
-                                final colorIndex =
-                                    contributions.indexOf(c) % colors.length;
-                                return Expanded(
-                                  flex: c.percentage > 0 ? c.percentage : 1,
-                                  child: Container(
-                                    height: 8,
-                                    color: colors[colorIndex],
-                                  ),
-                                );
-                              })
-                              .toList(),
+                        const SizedBox(height: 18),
+                        ElevatedButton.icon(
+                          onPressed: () => AddTransactionModal.show(
+                            context,
+                            initialType: TransactionType.expense,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text(
+                            'Catat Mutasi Pertama',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Member rows
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: contributions.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 16, color: AppColors.divider),
-                        itemBuilder: (context, index) {
-                          final c = contributions[index];
-                          final colors = [
-                            AppColors.primary,
-                            AppColors.accentDark,
-                            AppColors.gold,
-                            AppColors.investment,
-                          ];
-                          final dotColor = colors[index % colors.length];
-
-                          return Row(
+                      ],
+                    ),
+                  )
+                else
+                  Material(
+                    color: AppColors.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            border: Border(
+                              bottom: BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              CircleAvatar(
+                              Text(
+                                '${groupTransactions.length} Mutasi Terakhir',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                'Bulan Ini: -${CurrencyFormatter.formatRupiah(totalExpense)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.expense,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: groupTransactions.length,
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 1,
+                            color: AppColors.border,
+                            indent: 64,
+                          ),
+                          itemBuilder: (context, index) {
+                            final tx = groupTransactions[index];
+                            final isExpense =
+                                tx.type == TransactionType.expense;
+                            final isIncome = tx.type == TransactionType.income;
+
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 2,
+                              ),
+                              leading: CircleAvatar(
                                 radius: 18,
-                                backgroundColor: dotColor.withValues(
-                                  alpha: 0.15,
-                                ),
-                                child: Text(
-                                  c.member.avatarInitials,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: dotColor,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            c.member.name,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.textPrimary,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 1,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.surfaceVariant,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            c.member.roleName,
-                                            style: const TextStyle(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${c.transactionCount} transaksi dicatat',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textMuted,
-                                      ),
-                                    ),
-                                  ],
+                                backgroundColor: isExpense
+                                    ? AppColors.expenseLight
+                                    : isIncome
+                                    ? AppColors.incomeLight
+                                    : AppColors.transferLight,
+                                child: Icon(
+                                  isExpense
+                                      ? Icons.shopping_bag_outlined
+                                      : isIncome
+                                      ? Icons.account_balance_wallet_outlined
+                                      : Icons.swap_horiz_rounded,
+                                  color: isExpense
+                                      ? AppColors.expense
+                                      : isIncome
+                                      ? AppColors.income
+                                      : AppColors.transfer,
+                                  size: 18,
                                 ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                              title: Row(
                                 children: [
+                                  Expanded(
+                                    child: Text(
+                                      tx.categoryName,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                   Text(
                                     isHidden
                                         ? '••••••'
-                                        : CurrencyFormatter.formatRupiah(
-                                            c.amount,
-                                          ),
+                                        : (isExpense
+                                              ? '- ${CurrencyFormatter.formatRupiah(tx.amount)}'
+                                              : isIncome
+                                              ? '+ ${CurrencyFormatter.formatRupiah(tx.amount)}'
+                                              : CurrencyFormatter.formatRupiah(
+                                                  tx.amount,
+                                                )),
                                     style: TextStyle(
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w800,
-                                      color: c.amount > 0
-                                          ? AppColors.textPrimary
-                                          : AppColors.textMuted,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${c.percentage}% dari total',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: dotColor,
+                                      color: isExpense
+                                          ? AppColors.expense
+                                          : isIncome
+                                          ? AppColors.income
+                                          : AppColors.transfer,
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-
-              // ==========================================
-              // HIGHLIGHT: FEED TRANSAKSI BERSAMA TERAKHIR
-              // ==========================================
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Riwayat Transaksi Grup',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                              subtitle: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceVariant,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      tx.createdByName.split(" ").first,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      (tx.note != null && tx.note!.isNotEmpty)
+                                          ? tx.note!
+                                          : DateFormatter.formatRelativeOrDate(
+                                              tx.date,
+                                              timeZone: state.timeZone,
+                                            ),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textMuted,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
+              ],
+
+              // ==========================================
+              // TAB 1: ANGGOTA & PORSI
+              // ==========================================
+              if (_selectedTab == 1) ...[
+                // Highlight Siapa Bayar Apa
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Porsi Pengeluaran Bulan Ini',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isHidden
+                            ? '••••••'
+                            : CurrencyFormatter.formatRupiah(totalExpense),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                if (totalExpense == 0 || contributions.isEmpty)
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+                      horizontal: 20,
+                      vertical: 24,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
                     ),
-                    child: Text(
-                      '${groupTransactions.length} Transaksi',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.pie_chart_outline_rounded,
+                            size: 32,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Belum Ada Pengeluaran Bersama',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Catat pengeluaran kantong bulan ini untuk melihat rasio pembagian dan kontribusi tiap anggota secara otomatis.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        // Multi-Segment Visual Split Bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Row(
+                            children: contributions
+                                .where((c) => c.amount > 0)
+                                .map((c) {
+                                  final colors = [
+                                    AppColors.primary,
+                                    AppColors.accent,
+                                    AppColors.gold,
+                                    AppColors.investment,
+                                  ];
+                                  final colorIndex =
+                                      contributions.indexOf(c) % colors.length;
+                                  return Expanded(
+                                    flex: c.percentage > 0 ? c.percentage : 1,
+                                    child: Container(
+                                      height: 8,
+                                      color: colors[colorIndex],
+                                    ),
+                                  );
+                                })
+                                .toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
-              if (groupTransactions.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 24,
+                        // Member rows
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: contributions.length,
+                          separatorBuilder: (context, index) => const Divider(
+                            height: 14,
+                            color: AppColors.divider,
+                          ),
+                          itemBuilder: (context, index) {
+                            final c = contributions[index];
+                            final colors = [
+                              AppColors.primary,
+                              AppColors.accentDark,
+                              AppColors.gold,
+                              AppColors.investment,
+                            ];
+                            final dotColor = colors[index % colors.length];
+
+                            return Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 17,
+                                  backgroundColor: dotColor.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  child: Text(
+                                    c.member.avatarInitials,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: dotColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c.member.name,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        '${c.transactionCount} transaksi dicatat',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      isHidden
+                                          ? '••••••'
+                                          : CurrencyFormatter.formatRupiah(
+                                              c.amount,
+                                            ),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: c.amount > 0
+                                            ? AppColors.textPrimary
+                                            : AppColors.textMuted,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      '${c.percentage}% porsi',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: dotColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.receipt_long_outlined,
-                          size: 32,
-                          color: AppColors.textMuted,
-                        ),
+
+                const SizedBox(height: 20),
+
+                // Anggota Roster & Invite Section
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Anggota Kantong Bersama',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Belum Ada Transaksi Grup',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Semua pengeluaran atau pemasukan yang dialokasikan ke grup ini akan tercatat di sini.',
-                        textAlign: TextAlign.center,
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _showInviteModal(context, household),
+                      icon: const Icon(Icons.person_add_outlined, size: 16),
+                      label: const Text(
+                        'Undang',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
-                  ),
-                )
-              else
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
                 Material(
                   color: AppColors.surface,
                   shape: RoundedRectangleBorder(
@@ -1732,224 +1967,89 @@ class HouseholdPage extends StatelessWidget {
                   child: ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: groupTransactions.take(5).length,
+                    itemCount: household.members.length,
                     separatorBuilder: (context, index) => const Divider(
                       height: 1,
                       color: AppColors.border,
                       indent: 64,
                     ),
                     itemBuilder: (context, index) {
-                      final tx = groupTransactions[index];
-                      final isExpense = tx.type == TransactionType.expense;
-                      final isIncome = tx.type == TransactionType.income;
+                      final member = household.members[index];
+                      final isAdmin = member.role == MemberRole.admin;
 
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: isExpense
-                              ? AppColors.expenseLight
-                              : isIncome
-                              ? AppColors.incomeLight
-                              : AppColors.transferLight,
-                          child: Icon(
-                            isExpense
-                                ? Icons.shopping_bag_outlined
-                                : isIncome
-                                ? Icons.account_balance_wallet_outlined
-                                : Icons.swap_horiz_rounded,
-                            color: isExpense
-                                ? AppColors.expense
-                                : isIncome
-                                ? AppColors.income
-                                : AppColors.transfer,
-                            size: 20,
+                          backgroundColor: isAdmin
+                              ? AppColors.primary
+                              : AppColors.accentLight,
+                          child: Text(
+                            member.avatarInitials,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isAdmin
+                                  ? Colors.white
+                                  : AppColors.accentDark,
+                            ),
                           ),
                         ),
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                tx.categoryName,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Text(
-                              isHidden
-                                  ? '••••••'
-                                  : (isExpense
-                                        ? '- ${CurrencyFormatter.formatRupiah(tx.amount)}'
-                                        : isIncome
-                                        ? '+ ${CurrencyFormatter.formatRupiah(tx.amount)}'
-                                        : CurrencyFormatter.formatRupiah(
-                                            tx.amount,
-                                          )),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: isExpense
-                                    ? AppColors.expense
-                                    : isIncome
-                                    ? AppColors.income
-                                    : AppColors.transfer,
-                              ),
-                            ),
-                          ],
+                        title: Text(
+                          member.name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                        subtitle: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceVariant,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                tx.createdByName.split(" ").first,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
-                                ),
-                              ),
+                        subtitle: Text(
+                          member.email,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isAdmin
+                                ? AppColors.primaryLight.withValues(alpha: 0.1)
+                                : AppColors.surfaceVariant,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            member.roleName,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isAdmin
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                (tx.note != null && tx.note!.isNotEmpty)
-                                    ? tx.note!
-                                    : DateFormatter.formatRelativeOrDate(
-                                        tx.date,
-                                        timeZone: state.timeZone,
-                                      ),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       );
                     },
                   ),
                 ),
-
-              const SizedBox(height: 24),
+              ],
 
               // ==========================================
-              // ANGGOTA LIST
+              // TAB 2: PENGATURAN KANTONG
               // ==========================================
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Daftar Anggota Grup',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+              if (_selectedTab == 2) ...[
+                const Text(
+                  'Fitur & Pengaturan Kantong',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${household.members.length} Orang',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 10),
 
-              if (household.members.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 24,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          color: AppColors.accentLight,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.people_outline_rounded,
-                          size: 32,
-                          color: AppColors.accentDark,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Belum Ada Anggota Terdaftar',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Undang pasangan atau teman untuk bergabung dan kelola keuangan bersama.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: () => _showInviteModal(context, household),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                        ),
-                        icon: const Icon(Icons.person_add_rounded, size: 16),
-                        label: const Text(
-                          'Undang Anggota Sekarang',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
                 Material(
                   color: AppColors.surface,
                   shape: RoundedRectangleBorder(
@@ -1959,282 +2059,39 @@ class HouseholdPage extends StatelessWidget {
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: household.members.length,
-                        separatorBuilder: (context, index) => const Divider(
-                          height: 1,
-                          color: AppColors.border,
-                          indent: 64,
-                        ),
-                        itemBuilder: (context, index) {
-                          final member = household.members[index];
-                          final isAdmin = member.role == MemberRole.admin;
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: isAdmin
-                                  ? AppColors.primary
-                                  : AppColors.accentLight,
-                              child: Text(
-                                member.avatarInitials,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isAdmin
-                                      ? Colors.white
-                                      : AppColors.accentDark,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              member.name,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            subtitle: Text(
-                              member.email,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isAdmin
-                                    ? AppColors.primaryLight.withValues(
-                                        alpha: 0.1,
-                                      )
-                                    : AppColors.surfaceVariant,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                member.roleName,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isAdmin
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, color: AppColors.border),
-                      InkWell(
-                        onTap: () => _showInviteModal(context, household),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 13,
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_rounded,
-                                size: 18,
-                                color: AppColors.primary,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                'Undang Anggota Lain',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
+                          child: const Icon(
+                            Icons.category_outlined,
+                            color: AppColors.primary,
+                            size: 20,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-
-              // ==========================================
-              // FITUR & PENGATURAN GRUP
-              // ==========================================
-              const Text(
-                'Fitur & Pengaturan Grup',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Material(
-                color: AppColors.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: const BorderSide(color: AppColors.border),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight,
-                          borderRadius: BorderRadius.circular(10),
+                        title: const Text(
+                          'Kategori Gabungan & Mapping',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.category_outlined,
-                          color: AppColors.primary,
-                          size: 20,
+                        subtitle: const Text(
+                          'Agregasi pengeluaran bersama lintas anggota grup',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                      title: const Text(
-                        'Kategori Gabungan & Mapping',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
                         ),
+                        onTap: () => _showGroupCategoriesModal(context),
                       ),
-                      subtitle: const Text(
-                        'Agregasi pengeluaran bersama lintas anggota grup',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
-                      ),
-                      onTap: () => _showGroupCategoriesModal(context),
-                    ),
-                    const Divider(
-                      height: 1,
-                      indent: 56,
-                      color: AppColors.border,
-                    ),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.account_balance_outlined,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                      ),
-                      title: const Text(
-                        'Akun yang Di-share ke Grup',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        sharedAccountsSubtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
-                      ),
-                      onTap: () => _showSharedAccountsModal(context, household),
-                    ),
-                    const Divider(
-                      height: 1,
-                      indent: 56,
-                      color: AppColors.border,
-                    ),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.swap_horiz_rounded,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                      ),
-                      title: const Text(
-                        'Ganti / Pilih Grup Finansial',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Tergabung dalam ${households.length} grup bersama',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
-                      ),
-                      onTap: () => GroupSwitcherSheet.show(context),
-                    ),
-                    const Divider(
-                      height: 1,
-                      indent: 56,
-                      color: AppColors.border,
-                    ),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.group_add_outlined,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                      ),
-                      title: const Text(
-                        'Buat Grup Baru atau Gabung via Kode',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'Mulai grup kosan, trip, bisnis, atau proyek lain',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
-                      ),
-                      onTap: () => CreateOrJoinGroupSheet.show(context),
-                    ),
-                    if (households.length > 1) ...[
                       const Divider(
                         height: 1,
                         indent: 56,
@@ -2244,94 +2101,293 @@ class HouseholdPage extends StatelessWidget {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppColors.expenseLight,
+                            color: AppColors.accentLight,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
-                            Icons.exit_to_app_rounded,
-                            color: AppColors.expense,
+                            Icons.account_balance_outlined,
+                            color: AppColors.primary,
                             size: 20,
                           ),
                         ),
                         title: const Text(
-                          'Keluar dari Grup Ini',
+                          'Akun yang Di-share ke Kantong',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.expense,
                           ),
                         ),
-                        subtitle: const Text(
-                          'Hapus grup ini dari daftar grup finansial kamu',
-                          style: TextStyle(
-                            fontSize: 12,
+                        subtitle: Text(
+                          sharedAccountsSubtitle,
+                          style: const TextStyle(
+                            fontSize: 11,
                             color: AppColors.textSecondary,
                           ),
                         ),
                         trailing: const Icon(
                           Icons.chevron_right_rounded,
-                          color: AppColors.expense,
+                          color: AppColors.textMuted,
                         ),
-                        onTap: () {
-                          showDialog<void>(
-                            context: context,
-                            builder: (dlgCtx) => AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              title: Text(
-                                'Keluar dari ${household.name}?',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              content: const Text(
-                                'Kamu akan berhenti berbagi saldo dan pencatatan transaksi bersama di grup ini.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(dlgCtx).pop(),
-                                  child: const Text('Batal'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    state.deleteOrLeaveHousehold(household.id);
-                                    Navigator.of(dlgCtx).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Keluar dari grup ${household.name}',
-                                        ),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.expense,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Text('Ya, Keluar'),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                        onTap: () =>
+                            _showSharedAccountsModal(context, household),
                       ),
+                      const Divider(
+                        height: 1,
+                        indent: 56,
+                        color: AppColors.border,
+                      ),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.swap_horiz_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: const Text(
+                          'Ganti / Pilih Kantong Finansial',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Tergabung dalam ${households.length} kantong bersama',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                        onTap: () => GroupSwitcherSheet.show(context),
+                      ),
+                      const Divider(
+                        height: 1,
+                        indent: 56,
+                        color: AppColors.border,
+                      ),
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.group_add_outlined,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        title: const Text(
+                          'Buat Kantong Baru atau Gabung via Kode',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Mulai kantong kosan, trip, bisnis, atau proyek lain',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                        onTap: () => CreateOrJoinGroupSheet.show(context),
+                      ),
+                      if (households.length > 1) ...[
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          color: AppColors.border,
+                        ),
+                        ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.expenseLight,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.exit_to_app_rounded,
+                              color: AppColors.expense,
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text(
+                            'Keluar dari Kantong Ini',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.expense,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Hapus kantong ini dari daftar kantong finansial kamu',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.expense,
+                          ),
+                          onTap: () {
+                            showDialog<void>(
+                              context: context,
+                              builder: (dlgCtx) => AlertDialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                title: Text(
+                                  'Keluar dari ${household.name}?',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                                content: const Text(
+                                  'Kamu akan berhenti berbagi saldo dan pencatatan transaksi bersama di grup ini.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(dlgCtx).pop(),
+                                    child: const Text('Batal'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      state.deleteOrLeaveHousehold(
+                                        household.id,
+                                      );
+                                      Navigator.of(dlgCtx).pop();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Keluar dari grup ${household.name}',
+                                          ),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.expense,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child: const Text('Ya, Keluar'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 32),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPocketAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 20, color: AppColors.primaryDark),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentTab({required int index, required String label}) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+            ),
           ),
         ),
       ),

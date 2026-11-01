@@ -11,6 +11,65 @@ import '../unit/obligations_test.dart'
     show seedObligations, acceptProjection, cashId;
 
 void main() {
+  for (final balance in ['1000.00', '-1000.00']) {
+    testWidgets(
+      'legacy balance $balance opens a mapped record without new cash',
+      (tester) async {
+        final store = LocalStore(sqlite3.openInMemory());
+        final repo = FinanceRepository(ApiClient(), store, 'owner')
+          ..offline = true;
+        seedObligations(repo);
+        repo.atomic(
+          () => repo.entities['accounts']![cashId]!['balance'] = balance,
+        );
+        final state = AppState(repository: repo)..currentUserId = 'owner';
+        addTearDown(state.dispose);
+        await tester.pumpWidget(
+          AppStateScope(
+            state: state,
+            child: const MaterialApp(
+              home: ObligationsPage(initialLinkedAccountId: cashId),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.text(balance.startsWith('-') ? 'Utang saya' : 'Piutang saya'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
+              .controller!
+              .text,
+          '1000.00',
+        );
+        expect(
+          tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+          isNull,
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Nama pihak'),
+          'Budi',
+        );
+        await tester.tap(find.text('Simpan lokal'));
+        await tester.pumpAndSettle();
+        final record = repo.rows('obligations').single;
+        expect(
+          record['kind'],
+          balance.startsWith('-') ? 'PAYABLE' : 'RECEIVABLE',
+        );
+        expect(record['linked_account_id'], cashId);
+        expect(record['outstanding'], '1000.00');
+        expect(repo.row('accounts', cashId)!['balance'], balance);
+        expect(repo.rows('transactions'), isEmpty);
+        expect(repo.outbox.single['payload']['cash_account_id'], isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'offline obligation, installment and payment forms preserve invalid input and show history',
     (tester) async {
