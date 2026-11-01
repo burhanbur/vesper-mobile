@@ -148,28 +148,30 @@ class _PortfolioPageState extends State<PortfolioPage> {
                   children: [
                     // Top Info Banner
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(14),
+                        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.border),
                       ),
                       child: const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.info_outline_rounded,
                             size: 16,
-                            color: AppColors.textMuted,
+                            color: AppColors.textSecondary,
                           ),
-                          SizedBox(width: 10),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Hanya baca • Data server, bukan ledger lokal tersinkron lengkap. Beli/jual dan pembaruan harga tidak tersedia di layar ini.',
+                              'Hanya baca • Data server, bukan ledger lokal tersinkron lengkap.',
                               style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                                height: 1.35,
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -365,39 +367,63 @@ class _PortfolioPageState extends State<PortfolioPage> {
                       if (read != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(bottom: 14),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant.withValues(
-                              alpha: 0.5,
+                            color: controller.stale
+                                ? AppColors.warningLight.withValues(alpha: 0.4)
+                                : AppColors.surfaceVariant.withValues(
+                                    alpha: 0.4,
+                                  ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: controller.stale
+                                  ? AppColors.warning.withValues(alpha: 0.3)
+                                  : AppColors.border,
                             ),
-                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(
-                                'Cache diambil: ${DateFormatter.formatFull(read.fetchedAt, timeZone: AppStateScope.of(context).timeZone)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
+                              Icon(
                                 controller.stale
-                                    ? 'Data cache usang / belum diverifikasi ulang.'
-                                    : 'Terakhir berhasil dimuat dari server; bukan harga real-time.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: controller.stale
-                                      ? AppColors.warning
-                                      : AppColors.textMuted,
-                                  fontWeight: controller.stale
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.schedule_rounded,
+                                size: 16,
+                                color: controller.stale
+                                    ? AppColors.warning
+                                    : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Cache diambil: ${DateFormatter.formatFull(read.fetchedAt, timeZone: AppStateScope.of(context).timeZone)}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      controller.stale
+                                          ? 'Data cache usang / belum diverifikasi ulang.'
+                                          : 'Terakhir berhasil dimuat dari server; bukan harga real-time.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: controller.stale
+                                            ? AppColors.warning
+                                            : AppColors.textMuted,
+                                        fontWeight: controller.stale
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -423,7 +449,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           ),
                         for (final position in read.positions)
                           Container(
-                            margin: const EdgeInsets.only(bottom: 10),
+                            margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: Colors.white,
@@ -465,7 +491,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        '${position.code} • ${position.name}',
+                                        position.name,
                                         style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700,
@@ -474,53 +500,83 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceVariant,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'Jumlah: ${hidden ? '••••••' : position.quantity}',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                const Divider(height: 18),
-                                Text(
-                                  'Jumlah: ${hidden ? '••••••' : position.quantity}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textSecondary,
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceVariant.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Harga modal rata-rata: ${amount(position.average)}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      if (controller.date != null) ...[
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'Harga pasar: ${amount(position.marketPrice)}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textMuted,
+                                              ),
+                                            ),
+                                            Text(
+                                              'Nilai pasar: ${amount(position.marketValue)}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Laba/rugi belum terealisasi: ${amount(position.unrealizedPl)}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.accentDark,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Harga modal rata-rata: ${amount(position.average)}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textMuted,
-                                  ),
-                                ),
-                                if (controller.date != null) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Harga pasar: ${amount(position.marketPrice)}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Nilai pasar: ${amount(position.marketValue)}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Laba/rugi belum terealisasi: ${amount(position.unrealizedPl)}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.accentDark,
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                           ),

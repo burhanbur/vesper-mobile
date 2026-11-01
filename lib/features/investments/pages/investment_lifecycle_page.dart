@@ -331,6 +331,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                         'Laba/rugi jual terealisasi: ${money(overview.realized)}',
                         style: TextStyle(
                           fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
                           color: !overview.realized.startsWith('-')
                               ? AppColors.income
                               : AppColors.expense,
@@ -363,6 +364,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                         'Laba/rugi belum terealisasi: ${money(overview.unrealized)}',
                         style: TextStyle(
                           fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
                           color:
                               overview.unrealized != null &&
                                   !overview.unrealized!.startsWith('-')
@@ -455,14 +457,58 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage> {
                           child: const Text('Harga'),
                         ),
                       ),
-                    for (final quote in source.rows('instrument_prices'))
-                      Text(
-                        '${source.row('instruments', '${quote['instrument_id']}')?['code'] ?? quote['instrument_id']}: ${money(quote['close_price'] as String?)} • ${DateFormatter.calendarDate(quote['price_date'])}${quote['pending_catalog'] == true ? ' • lokal/pending' : ''}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
+                    if (source.rows('instrument_prices').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.price_check_rounded,
+                                  size: 15,
+                                  color: AppColors.primary,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Harga Terakhir Disimpan',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            for (final quote in source.rows(
+                              'instrument_prices',
+                            ))
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Text(
+                                  '${source.row('instruments', '${quote['instrument_id']}')?['code'] ?? quote['instrument_id']}: ${money(quote['close_price'] as String?)} • ${DateFormatter.calendarDate(quote['price_date'])}${quote['pending_catalog'] == true ? ' • lokal/pending' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
+                    ],
                     if (source.pendingInvestmentCatalog.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Container(

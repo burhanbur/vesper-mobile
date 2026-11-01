@@ -619,16 +619,6 @@ class _CategoriesPageState extends State<CategoriesPage>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditCategoryModal(),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Kategori Baru',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
     );
   }
 

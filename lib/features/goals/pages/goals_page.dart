@@ -558,6 +558,27 @@ class _GoalsPageState extends State<GoalsPage> {
         elevation: 0,
         scrolledUnderElevation: 1,
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: FilledButton.tonalIcon(
+              onPressed: () => edit(),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Buat goal'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                foregroundColor: AppColors.primary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                textStyle: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Sinkronkan goal',
             onPressed: state.loading
@@ -566,19 +587,13 @@ class _GoalsPageState extends State<GoalsPage> {
                     await state.refresh();
                     if (mounted) setState(() {});
                   },
-            icon: const Icon(Icons.sync),
+            icon: const Icon(Icons.sync_rounded),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        onPressed: () => edit(),
-        icon: const Icon(Icons.add),
-        label: const Text('Buat goal'),
-      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           // Header Info Banner
           Container(

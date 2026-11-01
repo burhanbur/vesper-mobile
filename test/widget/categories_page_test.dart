@@ -60,8 +60,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Salary'), findsOneWidget);
 
-        // 4. Tap "Kategori Baru" FAB
-        await tester.tap(find.text('Kategori Baru'));
+        // Verify FloatingActionButton has been removed
+        expect(find.byType(FloatingActionButton), findsNothing);
+
+        // 4. Tap "Tambah Kategori" action button in AppBar
+        await tester.tap(find.byTooltip('Tambah Kategori'));
         await tester.pumpAndSettle();
 
         expect(find.text('Tambah Kategori Baru'), findsOneWidget);

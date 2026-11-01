@@ -472,7 +472,7 @@ class SettingsPage extends StatelessWidget {
                     const Divider(height: 1, indent: 56),
                     ListTile(
                       leading: const Icon(
-                        Icons.pie_chart_outline_rounded,
+                        Icons.savings_rounded,
                         color: AppColors.primary,
                       ),
                       title: const Text(

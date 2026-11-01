@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
-import '../models/household.dart';
 import 'create_group_sheet.dart';
 import 'create_group_category_sheet.dart';
 import 'group_category_mapping_sheet.dart';
@@ -181,14 +180,14 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
           if (!hasGroup) ...[
             // Hero Onboarding Card
             Container(
-              padding: const EdgeInsets.all(22),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.primaryDark, AppColors.primary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.primary.withValues(alpha: 0.22),
@@ -202,22 +201,22 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.diversity_3_rounded,
-                          size: 14,
+                          size: 13,
                           color: AppColors.accent,
                         ),
-                        SizedBox(width: 6),
+                        SizedBox(width: 5),
                         Text(
                           'Kolaborasi Finansial',
                           style: TextStyle(
@@ -229,162 +228,144 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   const Text(
-                    'Kelola Keuangan Bersama Lebih Terbuka & Rapi',
+                    'Kelola Keuangan Bersama',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       height: 1.25,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   const Text(
-                    'Belum ada grup tersimpan di perangkat. Muat ulang saat terhubung untuk memeriksa keanggotaan.',
+                    'Bagi pengeluaran, pantau kas bersama, dan kelola keuangan terbuka.',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       color: Colors.white70,
-                      height: 1.45,
+                      height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => CreateOrJoinGroupSheet.show(
-                        context,
-                        initialTabIndex: 0,
-                      ),
-                      icon: const Icon(
-                        Icons.add_circle_outline_rounded,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Buat Grup Baru',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => CreateOrJoinGroupSheet.show(
+                            context,
+                            initialTabIndex: 0,
+                          ),
+                          icon: const Icon(
+                            Icons.add_circle_outline_rounded,
+                            size: 16,
+                          ),
+                          label: const Text(
+                            'Buat Grup',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppColors.primaryDark,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primaryDark,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => CreateOrJoinGroupSheet.show(
+                            context,
+                            initialTabIndex: 1,
+                          ),
+                          icon: const Icon(Icons.vpn_key_outlined, size: 16),
+                          label: const Text(
+                            'Gabung Kode',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.45),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => CreateOrJoinGroupSheet.show(
-                        context,
-                        initialTabIndex: 1,
-                      ),
-                      icon: const Icon(Icons.vpn_key_outlined, size: 18),
-                      label: const Text(
-                        'Gabung via Kode Undangan',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.45),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             // Server check card
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.border),
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentLight.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.sync_rounded,
-                      color: state.loading
-                          ? AppColors.accentDark
-                          : AppColors.primary,
-                      size: 20,
-                    ),
+                  Icon(
+                    Icons.sync_rounded,
+                    color: state.loading
+                        ? AppColors.accentDark
+                        : AppColors.primary,
+                    size: 18,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Sudah tergabung di grup?',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Tarik status keanggotaan terbaru dari server.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'Sudah tergabung di grup?',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   TextButton(
                     onPressed: state.loading || state.isOfflineMode
                         ? null
                         : state.refresh,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
+                      visualDensity: VisualDensity.compact,
                       backgroundColor: AppColors.surfaceVariant,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: state.loading
                         ? const SizedBox(
-                            width: 14,
-                            height: 14,
+                            width: 12,
+                            height: 12,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text(
                             'Muat ulang data grup',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primary,
                             ),
@@ -394,18 +375,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
               ),
             ),
 
-            const SizedBox(height: 22),
-
-            // Features list
-            const Text(
-              'Keuntungan Ruang Finansial Grup',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             _buildFeatureTile(
               icon: Icons.pie_chart_rounded,
@@ -414,7 +384,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
               title: 'Catat Pengeluaran Bersama',
               description: 'Bagi beban biaya rumah tangga, kosan, atau liburan secara transparan.',
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _buildFeatureTile(
               icon: Icons.account_balance_wallet_rounded,
               iconColor: AppColors.accentDark,
@@ -422,27 +392,27 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
               title: 'Kas & Rekening Terintegrasi',
               description: 'Tautkan rekening kas yang ingin dibagikan tanpa khawatir saldo pribadi tercampur.',
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _buildFeatureTile(
               icon: Icons.shield_outlined,
               iconColor: AppColors.gold,
               iconBgColor: AppColors.gold.withValues(alpha: 0.15),
-              title: 'Privasi Terjamin 100%',
+              title: 'Privasi Terjamin',
               description: 'Hanya transaksi kategori yang dibagikan yang terlihat oleh anggota grup.',
             ),
           ] else ...[
             // Group Header & Invite Code Card
             Container(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: AppColors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -452,8 +422,8 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                   Row(
                     children: [
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 44,
+                        height: 44,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -464,17 +434,17 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: AppColors.accent.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Text(
                           group.type.emoji,
-                          style: const TextStyle(fontSize: 24),
+                          style: const TextStyle(fontSize: 22),
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,15 +452,15 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                             Text(
                               group.name,
                               style: const TextStyle(
-                                fontSize: 18,
+                                fontSize: 17,
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.textPrimary,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 2),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
+                                horizontal: 6,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
@@ -518,22 +488,26 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                           icon: const Icon(
                             Icons.swap_horiz_rounded,
                             color: AppColors.primary,
-                            size: 20,
+                            size: 18,
                           ),
                           style: IconButton.styleFrom(
                             backgroundColor: AppColors.surfaceVariant,
+                            visualDensity: VisualDensity.compact,
                           ),
                           onPressed: () => GroupSwitcherSheet.show(context),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  // Invite Code & Group ID block
+                  const SizedBox(height: 12),
+                  // Invite Code block
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.borderSubtle),
                     ),
                     child: Column(
@@ -546,14 +520,14 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                               children: [
                                 Icon(
                                   Icons.vpn_key_rounded,
-                                  size: 15,
+                                  size: 14,
                                   color: AppColors.primary,
                                 ),
                                 SizedBox(width: 6),
                                 Text(
-                                  'Kode Undangan Grup',
+                                  'Kode Undangan',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.textPrimary,
                                   ),
@@ -583,15 +557,15 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                                             .showSnackBar(
                                               const SnackBar(
                                                 content: Text(
-                                                  'Kode tidak dapat disalin. Silakan salin secara manual.',
+                                                  'Kode tidak dapat disalin.',
                                                 ),
                                               ),
                                             );
                                       }
                                     },
-                              icon: const Icon(Icons.copy_rounded, size: 13),
+                              icon: const Icon(Icons.copy_rounded, size: 12),
                               label: const Text(
-                                'Salin kode',
+                                'Salin',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -617,7 +591,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: AppColors.border),
                           ),
                           child: SelectableText(
@@ -626,7 +600,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                                 : group.inviteCode,
                             key: const ValueKey('household_invite_code'),
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
                               color: AppColors.primaryDark,
@@ -634,32 +608,85 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'ID Grup',
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // Members summary
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.people_alt_rounded,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      membersLoaded
+                          ? '${group.members.length} anggota tersimpan'
+                          : 'Daftar anggota belum tersedia di perangkat.',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // Financial Notice Card
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Saldo Kas Bersama',
                           style: TextStyle(
-                            fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textMuted,
-                            letterSpacing: 0.3,
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        SelectableText(
-                          group.id,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Bagikan ID grup dan kode undangan. Menambahkan anggota langsung belum didukung.',
+                        SizedBox(height: 2),
+                        Text(
+                          'Data belum dimuat bukan saldo nol. Muat panel kolaborasi online di bawah untuk melihat saldo kas bersama dan transaksi grup.',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondary,
-                            height: 1.3,
+                            height: 1.35,
                           ),
                         ),
                       ],
@@ -669,429 +696,89 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
 
-            // Members Card
+            const CollaborationPanel(),
+
+            const SizedBox(height: 10),
+
+            // Shared Accounts Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.people_alt_rounded,
-                          size: 16,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          membersLoaded
-                              ? '${group.members.length} anggota tersimpan'
-                              : 'Daftar anggota belum tersedia di perangkat.',
-                          style: const TextStyle(
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentLight.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.share_outlined,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pembagian Akun',
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  if (group.members.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    for (final member in group.members)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 6),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant.withValues(
-                            alpha: 0.45,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderSubtle),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundColor: member.role == MemberRole.admin
-                                  ? AppColors.gold.withValues(alpha: 0.2)
-                                  : AppColors.accentLight,
-                              child: Text(
-                                member.avatarInitials,
-                                style: TextStyle(
-                                  color: member.role == MemberRole.admin
-                                      ? AppColors.gold
-                                      : AppColors.primary,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    member.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 13,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 1),
-                                  Text(
-                                    member.roleName,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: member.role == MemberRole.admin
-                                    ? AppColors.gold.withValues(alpha: 0.15)
-                                    : AppColors.surfaceVariant,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                member.role == MemberRole.admin
-                                    ? '👑 ${member.roleName}'
-                                    : member.roleName,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: member.role == MemberRole.admin
-                                      ? AppColors.gold
-                                      : AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // Financial Notice Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppColors.sageMuted.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.verified_user_outlined,
-                          size: 16,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Status Integrasi Kas Grup',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 16,
-                          color: AppColors.primary,
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Saldo Kas Bersama',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Muat panel kolaborasi online di bawah. Data yang belum dimuat bukan saldo nol.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
+                        SizedBox(height: 1),
+                        Text(
+                          'Pilih akun kas atau bank yang dibagikan.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.sync_alt_rounded,
-                          size: 16,
-                          color: AppColors.accentDark,
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Kontribusi & Riwayat Transaksi Grup',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  color: AppColors.textPrimary,
-                                ),
+                  TextButton.icon(
+                    onPressed: state.isOfflineMode
+                        ? null
+                        : () => showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (_) => AppStateScope(
+                              state: state,
+                              child: GroupAccountSharingSheet(
+                                groupId: group.id,
                               ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Panel kolaborasi menampilkan transaksi berkategori terpetakan pada akun dibagikan; transaksi pribadi tidak otomatis dibagikan.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderSubtle),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.manage_accounts_outlined,
-                          size: 16,
-                          color: AppColors.textMuted,
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Pencatatan & Pengelolaan Grup',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Keluar, hapus anggota dan alihkan pemilik tersedia online di panel kolaborasi. Perubahan informasi grup belum tersedia.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            const CollaborationPanel(),
-
-            const SizedBox(height: 14),
-
-            // Shared Accounts Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.share_outlined,
-                          color: AppColors.primary,
-                          size: 18,
-                        ),
+                    icon: const Icon(Icons.tune_rounded, size: 14),
+                    label: const Text(
+                      'Kelola',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Pembagian Akun',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Pilih akun kas atau bank yang dibagikan.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      backgroundColor: AppColors.surfaceVariant,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: state.isOfflineMode
-                          ? null
-                          : () => showModalBottomSheet<void>(
-                              context: context,
-                              isScrollControlled: true,
-                              builder: (_) => AppStateScope(
-                                state: state,
-                                child: GroupAccountSharingSheet(
-                                  groupId: group.id,
-                                ),
-                              ),
-                            ),
-                      icon: const Icon(Icons.tune_rounded, size: 16),
-                      label: const Text(
-                        'Kelola pembagian akun (online)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        backgroundColor: AppColors.surfaceVariant.withValues(
-                          alpha: 0.5,
-                        ),
-                        side: BorderSide(
-                          color: AppColors.primary.withValues(alpha: 0.25),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
@@ -1099,14 +786,14 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
 
             // Category Report Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.border),
               ),
               child: Column(
@@ -1115,29 +802,20 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                   const Text(
                     'Laporan Kategori Grup — Bulan',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Agregat server untuk akun yang dibagikan dalam grup ini; bukan transaksi pribadi perangkat.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
-                      vertical: 4,
+                      vertical: 2,
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.borderSubtle),
                     ),
                     child: Row(
@@ -1157,7 +835,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 14,
+                              fontSize: 13,
                               color: AppColors.textPrimary,
                             ),
                           ),
@@ -1178,7 +856,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                     const SizedBox(height: 8),
                     const LinearProgressIndicator(),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   if (state.householdCategoryReport case final report?) ...[
                     Text(
                       'Cache lokal • Diambil: ${DateFormatter.formatFull(report.fetchedAt, timeZone: state.timeZone)}',
@@ -1187,10 +865,10 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                         color: AppColors.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     if (report.categories.isEmpty)
                       const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
+                        padding: EdgeInsets.symmetric(vertical: 6),
                         child: Text(
                           'Laporan server tidak memiliki kategori untuk periode ini.',
                           style: TextStyle(
@@ -1206,12 +884,12 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                           contentPadding: EdgeInsets.zero,
                           visualDensity: VisualDensity.compact,
                           leading: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: category.type == 'INCOME'
                                   ? AppColors.incomeLight
                                   : AppColors.expenseLight,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
                               category.type == 'INCOME'
@@ -1220,7 +898,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                               color: category.type == 'INCOME'
                                   ? AppColors.income
                                   : AppColors.expense,
-                              size: 16,
+                              size: 14,
                             ),
                           ),
                           title: Text(
@@ -1257,7 +935,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                       ),
                   ] else ...[
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
+                      padding: EdgeInsets.symmetric(vertical: 4),
                       child: Text(
                         'Agregat belum tersedia untuk bulan ini; bukan nominal nol.',
                         style: TextStyle(
@@ -1277,7 +955,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
@@ -1285,11 +963,15 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                           state.householdReportLoading || state.isOfflineMode
                           ? null
                           : () => state.loadHouseholdCategoryReport(),
-                      icon: const Icon(Icons.refresh_rounded, size: 14),
-                      label: const Text('Muat ulang laporan kategori'),
+                      icon: const Icon(Icons.refresh_rounded, size: 13),
+                      label: const Text(
+                        'Muat ulang laporan kategori',
+                        style: TextStyle(fontSize: 11),
+                      ),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
                       ),
                     ),
                   ),
@@ -1297,14 +979,14 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
 
             // Group Categories Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.border),
               ),
               child: Column(
@@ -1316,7 +998,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                       const Text(
                         'Kategori Grup',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
@@ -1333,22 +1015,26 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                                     child: const CreateGroupCategorySheet(),
                                   ),
                                 ),
-                          icon: const Icon(Icons.add, size: 14),
+                          icon: const Icon(Icons.add, size: 13),
                           label: const Text(
-                            'Tambah kategori grup (online)',
+                            'Tambah',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.primary,
                             visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                           ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   if (!categoriesLoaded)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 4),
@@ -1374,17 +1060,17 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                   else ...[
                     for (final category in state.groupCategories)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 1),
                         child: ListTile(
                           contentPadding: EdgeInsets.zero,
                           visualDensity: VisualDensity.compact,
                           leading: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: category.type == 'INCOME'
                                   ? AppColors.incomeLight
                                   : AppColors.expenseLight,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
                               category.type == 'INCOME'
@@ -1393,7 +1079,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                               color: category.type == 'INCOME'
                                   ? AppColors.income
                                   : AppColors.expense,
-                              size: 16,
+                              size: 14,
                             ),
                           ),
                           title: Text(
@@ -1404,7 +1090,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                             ),
                           ),
                           subtitle: const Text(
-                            'Ketuk untuk pemetaan kategori pribadi (online). Nominal ada pada laporan bulan acuan server di atas.',
+                            'Ketuk untuk pemetaan kategori pribadi.',
                             style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -1433,6 +1119,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView> {
                                     Icons.edit_outlined,
                                     size: 16,
                                   ),
+                                  visualDensity: VisualDensity.compact,
                                   onPressed: state.isOfflineMode
                                       ? null
                                       : () => showModalBottomSheet<void>(

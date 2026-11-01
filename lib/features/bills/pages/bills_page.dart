@@ -903,6 +903,27 @@ class _BillsPageState extends State<BillsPage> {
         elevation: 0,
         scrolledUnderElevation: 1,
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: FilledButton.tonalIcon(
+              onPressed: () => schedule(),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Buat jadwal'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                foregroundColor: AppColors.primary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                textStyle: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Sinkronkan',
             onPressed: state.loading
@@ -911,19 +932,13 @@ class _BillsPageState extends State<BillsPage> {
                     await state.refresh();
                     if (mounted) setState(() {});
                   },
-            icon: const Icon(Icons.sync),
+            icon: const Icon(Icons.sync_rounded),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        onPressed: () => schedule(),
-        label: const Text('Buat jadwal'),
-        icon: const Icon(Icons.add),
-      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           // Header Info Banner
           Container(
