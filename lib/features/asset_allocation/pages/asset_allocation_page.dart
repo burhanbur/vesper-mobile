@@ -221,9 +221,17 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Alokasi Aset'),
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          title: const Text(
+            'Alokasi Aset',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
         body: const Center(
           child: Text(
@@ -274,10 +282,17 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Alokasi Aset'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Alokasi Aset',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -361,8 +376,8 @@ class _AssetAllocationPageState extends State<AssetAllocationPage> {
                     ),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
+                        foregroundColor: AppColors.textPrimary,
+                        side: const BorderSide(color: AppColors.border),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

@@ -851,13 +851,23 @@ class HouseholdPage extends StatelessWidget {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          scrolledUnderElevation: 0,
           title: const Text(
             'Grup Finansial',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.group_add_outlined),
+              icon: const Icon(
+                Icons.group_add_outlined,
+                color: AppColors.primary,
+              ),
               tooltip: 'Buat / Gabung Grup',
               onPressed: () => CreateOrJoinGroupSheet.show(context),
             ),
@@ -882,6 +892,9 @@ class HouseholdPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: InkWell(
           onTap: () => GroupSwitcherSheet.show(context),
           borderRadius: BorderRadius.circular(12),
@@ -900,20 +913,28 @@ class HouseholdPage extends StatelessWidget {
                     household.name,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
               ],
             ),
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.swap_horiz_rounded),
+            icon: const Icon(
+              Icons.swap_horiz_rounded,
+              color: AppColors.textPrimary,
+            ),
             tooltip: 'Ganti Grup',
             onPressed: () => GroupSwitcherSheet.show(context),
           ),
@@ -945,17 +966,18 @@ class HouseholdPage extends StatelessWidget {
                           padding: const EdgeInsets.only(right: 8),
                           child: InkWell(
                             onTap: () => state.switchHousehold(h.id),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
+                            borderRadius: BorderRadius.circular(20),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 14,
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? AppColors.primary
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(14),
+                                    : AppColors.surface,
+                                borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: isSelected
                                       ? AppColors.primary
@@ -965,7 +987,7 @@ class HouseholdPage extends StatelessWidget {
                                     ? [
                                         BoxShadow(
                                           color: AppColors.primary.withValues(
-                                            alpha: 0.25,
+                                            alpha: 0.2,
                                           ),
                                           blurRadius: 6,
                                           offset: const Offset(0, 2),
@@ -1002,16 +1024,18 @@ class HouseholdPage extends StatelessWidget {
                       // Button to add new group
                       InkWell(
                         onTap: () => CreateOrJoinGroupSheet.show(context),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(20),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
+                            horizontal: 12,
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceVariant,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
+                            color: AppColors.accentLight.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.4),
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1043,7 +1067,7 @@ class HouseholdPage extends StatelessWidget {
               // Active Group Main Emerald Hero Card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppColors.primaryDark, AppColors.primary],
@@ -1053,7 +1077,7 @@ class HouseholdPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primaryDark.withValues(alpha: 0.25),
+                      color: AppColors.primary.withValues(alpha: 0.25),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -1069,22 +1093,32 @@ class HouseholdPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
-                            vertical: 4,
+                            vertical: 5,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.2),
                             ),
                           ),
-                          child: Text(
-                            '${household.type.emoji} ${household.type.displayName}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                household.type.emoji,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                household.type.displayName,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         IconButton(
@@ -1100,17 +1134,17 @@ class HouseholdPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
                     // Middle row: Icon, Name & Members
                     Row(
                       children: [
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.2),
                             ),
@@ -1118,7 +1152,7 @@ class HouseholdPage extends StatelessWidget {
                           child: Center(
                             child: Text(
                               household.type.emoji,
-                              style: const TextStyle(fontSize: 24),
+                              style: const TextStyle(fontSize: 22),
                             ),
                           ),
                         ),
@@ -1140,9 +1174,9 @@ class HouseholdPage extends StatelessWidget {
                               const SizedBox(height: 2),
                               Text(
                                 '${household.memberCount} Anggota Terhubung',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.white70,
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                               ),
                             ],
@@ -1156,9 +1190,9 @@ class HouseholdPage extends StatelessWidget {
                       const SizedBox(height: 10),
                       Text(
                         household.description!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.white70,
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -1181,14 +1215,15 @@ class HouseholdPage extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Saldo Kas Bersama',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 3),
                               Text(
                                 isHidden
                                     ? '••••••••'
@@ -1196,7 +1231,7 @@ class HouseholdPage extends StatelessWidget {
                                         household.sharedBalance,
                                       ),
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
                                   letterSpacing: -0.3,
@@ -1272,7 +1307,7 @@ class HouseholdPage extends StatelessWidget {
                               backgroundColor: Colors.white,
                               foregroundColor: AppColors.primaryDark,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -1297,7 +1332,7 @@ class HouseholdPage extends StatelessWidget {
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: 0.4),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -1326,34 +1361,40 @@ class HouseholdPage extends StatelessWidget {
               // ==========================================
               // HIGHLIGHT: SIAPA BAYAR APA (KONTRIBUSI PASANGAN)
               // ==========================================
-              SizedBox(
-                width: double.infinity,
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text(
-                      'Siapa Bayar Apa Bulan Ini',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Siapa Bayar Apa Bulan Ini',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
-                    Text(
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentLight.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
                       isHidden
                           ? '••••••'
                           : CurrencyFormatter.formatRupiah(totalExpense),
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               if (totalExpense == 0 || contributions.isEmpty)
                 Container(
@@ -1363,7 +1404,7 @@ class HouseholdPage extends StatelessWidget {
                     vertical: 24,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
                   ),
@@ -1431,16 +1472,16 @@ class HouseholdPage extends StatelessWidget {
                 )
               else
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -1600,32 +1641,38 @@ class HouseholdPage extends StatelessWidget {
               // ==========================================
               // HIGHLIGHT: FEED TRANSAKSI BERSAMA TERAKHIR
               // ==========================================
-              SizedBox(
-                width: double.infinity,
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text(
-                      'Riwayat Transaksi Grup',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Riwayat Transaksi Grup',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
-                    Text(
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
                       '${groupTransactions.length} Transaksi',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               if (groupTransactions.isEmpty)
                 Container(
@@ -1635,7 +1682,7 @@ class HouseholdPage extends StatelessWidget {
                     vertical: 24,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
                   ),
@@ -1676,7 +1723,7 @@ class HouseholdPage extends StatelessWidget {
                 )
               else
                 Material(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                     side: const BorderSide(color: AppColors.border),
@@ -1688,7 +1735,7 @@ class HouseholdPage extends StatelessWidget {
                     itemCount: groupTransactions.take(5).length,
                     separatorBuilder: (context, index) => const Divider(
                       height: 1,
-                      color: AppColors.divider,
+                      color: AppColors.border,
                       indent: 64,
                     ),
                     itemBuilder: (context, index) {
@@ -1799,30 +1846,36 @@ class HouseholdPage extends StatelessWidget {
               // ==========================================
               // ANGGOTA LIST
               // ==========================================
-              SizedBox(
-                width: double.infinity,
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text(
-                      'Daftar Anggota Grup',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Daftar Anggota Grup',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
-                    Text(
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
                       '${household.members.length} Orang',
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
@@ -1834,7 +1887,7 @@ class HouseholdPage extends StatelessWidget {
                     vertical: 24,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
                   ),
@@ -1898,7 +1951,7 @@ class HouseholdPage extends StatelessWidget {
                 )
               else
                 Material(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                     side: const BorderSide(color: AppColors.border),
@@ -1912,7 +1965,7 @@ class HouseholdPage extends StatelessWidget {
                         itemCount: household.members.length,
                         separatorBuilder: (context, index) => const Divider(
                           height: 1,
-                          color: AppColors.divider,
+                          color: AppColors.border,
                           indent: 64,
                         ),
                         itemBuilder: (context, index) {
@@ -1977,13 +2030,13 @@ class HouseholdPage extends StatelessWidget {
                           );
                         },
                       ),
-                      const Divider(height: 1, color: AppColors.divider),
+                      const Divider(height: 1, color: AppColors.border),
                       InkWell(
                         onTap: () => _showInviteModal(context, household),
                         child: const Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 16,
-                            vertical: 12,
+                            vertical: 13,
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -2026,7 +2079,7 @@ class HouseholdPage extends StatelessWidget {
               const SizedBox(height: 12),
 
               Material(
-                color: Colors.white,
+                color: AppColors.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: const BorderSide(color: AppColors.border),
@@ -2061,10 +2114,17 @@ class HouseholdPage extends StatelessWidget {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
                       onTap: () => _showGroupCategoriesModal(context),
                     ),
-                    const Divider(height: 1, indent: 56),
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      color: AppColors.border,
+                    ),
                     ListTile(
                       leading: Container(
                         padding: const EdgeInsets.all(8),
@@ -2092,10 +2152,17 @@ class HouseholdPage extends StatelessWidget {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
                       onTap: () => _showSharedAccountsModal(context, household),
                     ),
-                    const Divider(height: 1, indent: 56),
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      color: AppColors.border,
+                    ),
                     ListTile(
                       leading: Container(
                         padding: const EdgeInsets.all(8),
@@ -2123,10 +2190,17 @@ class HouseholdPage extends StatelessWidget {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
                       onTap: () => GroupSwitcherSheet.show(context),
                     ),
-                    const Divider(height: 1, indent: 56),
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      color: AppColors.border,
+                    ),
                     ListTile(
                       leading: Container(
                         padding: const EdgeInsets.all(8),
@@ -2154,11 +2228,18 @@ class HouseholdPage extends StatelessWidget {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
                       onTap: () => CreateOrJoinGroupSheet.show(context),
                     ),
                     if (households.length > 1) ...[
-                      const Divider(height: 1, indent: 56),
+                      const Divider(
+                        height: 1,
+                        indent: 56,
+                        color: AppColors.border,
+                      ),
                       ListTile(
                         leading: Container(
                           padding: const EdgeInsets.all(8),
@@ -2195,9 +2276,22 @@ class HouseholdPage extends StatelessWidget {
                           showDialog<void>(
                             context: context,
                             builder: (dlgCtx) => AlertDialog(
-                              title: Text('Keluar dari ${household.name}?'),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              title: Text(
+                                'Keluar dari ${household.name}?',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 18,
+                                ),
+                              ),
                               content: const Text(
                                 'Kamu akan berhenti berbagi saldo dan pencatatan transaksi bersama di grup ini.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
                               actions: [
                                 TextButton(
@@ -2220,6 +2314,9 @@ class HouseholdPage extends StatelessWidget {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppColors.expense,
                                     foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   child: const Text('Ya, Keluar'),
                                 ),

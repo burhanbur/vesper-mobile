@@ -533,9 +533,17 @@ class _GoalsPageState extends State<GoalsPage> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Goal & Target'),
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          title: const Text(
+            'Goal & Target',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
         body: const Center(
           child: Text(
@@ -553,28 +561,35 @@ class _GoalsPageState extends State<GoalsPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Goal & Target'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Goal & Target',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: FilledButton.tonalIcon(
+            child: FilledButton.icon(
               onPressed: () => edit(),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Buat goal'),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                foregroundColor: AppColors.primary,
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 textStyle: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),

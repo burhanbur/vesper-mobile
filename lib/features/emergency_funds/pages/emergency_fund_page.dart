@@ -430,9 +430,17 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Dana Darurat'),
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.background,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          title: const Text(
+            'Dana Darurat',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ),
         body: const Center(
           child: Text(
@@ -463,10 +471,17 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Dana Darurat'),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Dana Darurat',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Sinkronkan rencana',
@@ -476,7 +491,7 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                     await state.refresh();
                     if (mounted) setState(() {});
                   },
-            icon: const Icon(Icons.sync),
+            icon: const Icon(Icons.sync_rounded),
           ),
         ],
       ),

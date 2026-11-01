@@ -394,7 +394,17 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Indikator Keuangan'),
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Text(
+          'Indikator Keuangan',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: 'Sinkronkan indikator',

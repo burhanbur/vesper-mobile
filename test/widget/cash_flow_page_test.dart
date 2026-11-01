@@ -39,16 +39,17 @@ void main() {
           child: const MaterialApp(home: CashFlowPage()),
         ),
       );
-      expect(find.text('Saldo aktual gabungan: 1000.00 IDR'), findsOneWidget);
-      expect(find.text('Proyeksi penutup: -200.00 IDR'), findsOneWidget);
+      expect(find.text('Saldo aktual gabungan: Rp 1.000'), findsOneWidget);
+      expect(find.text('Proyeksi penutup: -Rp 200'), findsOneWidget);
       expect(
         find.textContaining('Potensi kekurangan gabungan pertama'),
         findsOneWidget,
       );
       state.toggleHideBalance();
       await tester.pumpAndSettle();
-      expect(find.textContaining('-200.00'), findsNothing);
-      expect(find.textContaining('1000.00 IDR'), findsNothing);
+      expect(find.textContaining('-Rp 200'), findsNothing);
+      expect(find.textContaining('Rp 1.000'), findsNothing);
+      expect(find.textContaining('••••••'), findsWidgets);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Ubah asumsi proyeksi'));

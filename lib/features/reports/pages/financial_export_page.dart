@@ -201,9 +201,16 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
+          backgroundColor: AppColors.background,
+          elevation: 0,
+          scrolledUnderElevation: 0,
           title: const Text(
             'Ekspor & Rekonsiliasi',
-            style: TextStyle(fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         body: const Center(
@@ -232,36 +239,56 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: const Text(
           'Ekspor & Rekonsiliasi',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
           // Section 1: Ekspor CSV Card
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.border),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
                         Icons.table_chart_rounded,
                         size: 20,
                         color: AppColors.primary,
                       ),
-                      SizedBox(width: 8),
-                      Text(
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
                         'Ekspor transaksi CSV',
                         style: TextStyle(
                           fontSize: 16,
@@ -269,279 +296,338 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                           color: AppColors.textPrimary,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Hanya akun aktif milik sendiri, termasuk akun tersembunyi dan '
+                          'transaksi lokal yang belum tersinkron. Data pribadi anggota rumah tangga lain '
+                          'tidak disertakan. Periode mengikuti zona waktu pilihan di Pengaturan; timestamp CSV memakai format UTC untuk pertukaran data. '
+                          'Berkas berisi data keuangan pribadi.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: saving ? null : () => pickDate(true),
+                        icon: const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 15,
+                          color: AppColors.primary,
+                        ),
+                        label: Text(
+                          'Dari ${date(start)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textPrimary,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: saving ? null : () => pickDate(false),
+                        icon: const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 15,
+                          color: AppColors.primary,
+                        ),
+                        label: Text(
+                          'Sampai ${date(end)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('currency:$currency'),
+                  initialValue: currency,
+                  decoration: InputDecoration(
+                    labelText: 'Mata uang',
+                    labelStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  items: [
+                    for (final code in currencies)
+                      DropdownMenuItem(value: code, child: Text(code)),
+                  ],
+                  onChanged: saving
+                      ? null
+                      : (v) => setState(() {
+                          currency = v!;
+                          accountId = null;
+                          result = null;
+                          message = null;
+                        }),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('export-account:$selectedAccount:$currency'),
+                  initialValue: selectedAccount,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Akun ekspor',
+                    labelStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('Semua akun milik sendiri'),
+                    ),
+                    for (final a in accounts)
+                      DropdownMenuItem(
+                        value: a['id'] as String,
+                        child: Text('${a['name']}'),
+                      ),
+                  ],
+                  onChanged: saving
+                      ? null
+                      : (v) => setState(() {
+                          accountId = v;
+                          result = null;
+                          message = null;
+                        }),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: saving
+                      ? null
+                      : () => perform(() {
+                          if (end.isBefore(start)) {
+                            throw StateError(
+                              'Tanggal akhir harus setelah tanggal awal.',
+                            );
+                          }
+                          result = repo.exportCalendar(
+                            startDate: start,
+                            endDate: end,
+                            timeZone: state.timeZone,
+                            currency: currency,
+                            accountId: selectedAccount,
+                          );
+                          message = null;
+                        }),
+                  icon: const Icon(Icons.table_view_outlined, size: 18),
+                  label: const Text(
+                    'Siapkan CSV',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (result case final export?) ...[
+                  const SizedBox(height: 14),
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: const Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 15,
-                          color: AppColors.textMuted,
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Hanya akun aktif milik sendiri, termasuk akun tersembunyi dan '
-                            'transaksi lokal yang belum tersinkron. Data pribadi anggota rumah tangga lain '
-                            'tidak disertakan. Periode mengikuti zona waktu pilihan di Pengaturan; timestamp CSV memakai format UTC untuk pertukaran data. '
-                            'Berkas berisi data keuangan pribadi.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
-                              height: 1.35,
-                            ),
+                        Text(
+                          '${export.count} baris • ${export.currency}\n'
+                          'Kredit ledger: ${financialDecimal(export.credits)}\n'
+                          'Debit ledger: ${financialDecimal(export.debits)}\n'
+                          'Perubahan bersih: ${financialDecimal(export.credits - export.debits)}',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                            color: AppColors.textPrimary,
                           ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Total ini mencakup transfer dan penyelesaian investasi/utang; '
+                          'bukan total pemasukan atau pengeluaran. Saldo awal tidak termasuk.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: saving ? null : saveCsv,
+                              icon: const Icon(
+                                Icons.download_outlined,
+                                size: 16,
+                              ),
+                              label: Text(saving ? 'Menyimpan…' : 'Simpan CSV'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                              ),
+                              onPressed: saving
+                                  ? null
+                                  : () async {
+                                      active.requireCurrent();
+                                      await Clipboard.setData(
+                                        ClipboardData(text: export.csv),
+                                      );
+                                      if (mounted && active.isCurrent) {
+                                        setState(
+                                          () => message =
+                                              'CSV disalin ke clipboard.',
+                                        );
+                                      }
+                                    },
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              label: const Text('Salin CSV'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: saving ? null : () => pickDate(true),
-                          icon: const Icon(
-                            Icons.calendar_today_rounded,
-                            size: 15,
-                          ),
-                          label: Text(
-                            'Dari ${date(start)}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: saving ? null : () => pickDate(false),
-                          icon: const Icon(
-                            Icons.calendar_today_rounded,
-                            size: 15,
-                          ),
-                          label: Text(
-                            'Sampai ${date(end)}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('currency:$currency'),
-                    initialValue: currency,
-                    decoration: InputDecoration(
-                      labelText: 'Mata uang',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: [
-                      for (final code in currencies)
-                        DropdownMenuItem(value: code, child: Text(code)),
-                    ],
-                    onChanged: saving
-                        ? null
-                        : (v) => setState(() {
-                            currency = v!;
-                            accountId = null;
-                            result = null;
-                            message = null;
-                          }),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('export-account:$selectedAccount:$currency'),
-                    initialValue: selectedAccount,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Akun ekspor',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Semua akun milik sendiri'),
-                      ),
-                      for (final a in accounts)
-                        DropdownMenuItem(
-                          value: a['id'] as String,
-                          child: Text('${a['name']}'),
-                        ),
-                    ],
-                    onChanged: saving
-                        ? null
-                        : (v) => setState(() {
-                            accountId = v;
-                            result = null;
-                            message = null;
-                          }),
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: saving
-                        ? null
-                        : () => perform(() {
-                            if (end.isBefore(start)) {
-                              throw StateError(
-                                'Tanggal akhir harus setelah tanggal awal.',
-                              );
-                            }
-                            result = repo.exportCalendar(
-                              startDate: start,
-                              endDate: end,
-                              timeZone: state.timeZone,
-                              currency: currency,
-                              accountId: selectedAccount,
-                            );
-                            message = null;
-                          }),
-                    icon: const Icon(Icons.table_view_outlined, size: 18),
-                    label: const Text('Siapkan CSV'),
-                  ),
-                  if (result case final export?) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${export.count} baris • ${export.currency}\n'
-                            'Kredit ledger: ${financialDecimal(export.credits)}\n'
-                            'Debit ledger: ${financialDecimal(export.debits)}\n'
-                            'Perubahan bersih: ${financialDecimal(export.credits - export.debits)}',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              height: 1.4,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Total ini mencakup transfer dan penyelesaian investasi/utang; '
-                            'bukan total pemasukan atau pengeluaran. Saldo awal tidak termasuk.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
-                              height: 1.3,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                onPressed: saving ? null : saveCsv,
-                                icon: const Icon(
-                                  Icons.download_outlined,
-                                  size: 16,
-                                ),
-                                label: Text(
-                                  saving ? 'Menyimpan…' : 'Simpan CSV',
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                onPressed: saving
-                                    ? null
-                                    : () async {
-                                        active.requireCurrent();
-                                        await Clipboard.setData(
-                                          ClipboardData(text: export.csv),
-                                        );
-                                        if (mounted && active.isCurrent) {
-                                          setState(
-                                            () => message =
-                                                'CSV disalin ke clipboard.',
-                                          );
-                                        }
-                                      },
-                                icon: const Icon(Icons.copy_rounded, size: 16),
-                                label: const Text('Salin CSV'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
 
           // Section 2: Rekonsiliasi Saldo Card
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.border),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
                         Icons.balance_rounded,
                         size: 20,
                         color: AppColors.primary,
                       ),
-                      SizedBox(width: 8),
-                      Text(
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
                         'Rekonsiliasi saldo saat ini',
                         style: TextStyle(
                           fontSize: 16,
@@ -549,171 +635,234 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                           color: AppColors.textPrimary,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
                     ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 15,
-                          color: AppColors.textMuted,
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Bandingkan saldo lokal saat ini dengan saldo rekening koran saat ini. '
-                            'Ini bukan rekonstruksi saldo masa lalu. Hanya akun kas IDR milik sendiri tanpa '
-                            'subakun dan tanpa pemetaan utang. Penyesuaian mendukung Rupiah bulat.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
-                              height: 1.35,
-                            ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Bandingkan saldo lokal saat ini dengan saldo rekening koran saat ini. '
+                          'Ini bukan rekonstruksi saldo masa lalu. Hanya akun kas IDR milik sendiri tanpa '
+                          'subakun dan tanpa pemetaan utang. Penyesuaian mendukung Rupiah bulat.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                            height: 1.35,
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  key: ValueKey('cash:$selectedCash'),
+                  initialValue: selectedCash,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Akun rekonsiliasi',
+                    labelStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  items: [
+                    for (final a in cash)
+                      DropdownMenuItem(
+                        value: a['id'] as String,
+                        child: Text('${a['name']} (${a['balance']} IDR)'),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() {
+                    reconciliationId = v;
+                    comparison = null;
+                    message = null;
+                  }),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: statement,
+                  decoration: InputDecoration(
+                    labelText:
+                        'Saldo rekening koran (contoh: 150000 atau -50000)',
+                    labelStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    signed: true,
+                  ),
+                  onChanged: (_) => setState(() => comparison = null),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reference,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    labelText: 'Referensi rekening koran / alasan',
+                    labelStyle: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  onChanged: (_) => setState(() => comparison = null),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.border),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => perform(() {
+                    comparison = repo.compare(
+                      selectedCash ?? '',
+                      statement.text,
+                      reference.text,
+                    );
+                    message = null;
+                  }),
+                  icon: const Icon(
+                    Icons.compare_arrows_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
+                  label: const Text(
+                    'Bandingkan saldo',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (comparison case final preview?) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Tercatat: ${financialDecimal(preview.recorded)} IDR\n'
+                          'Rekening koran: ${financialDecimal(preview.statement)} IDR\n'
+                          'Selisih: ${financialDecimal(preview.difference)} IDR',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (preview.difference == BigInt.zero)
+                          const Text(
+                            'Saldo cocok. Tidak ada penyesuaian.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.income,
+                            ),
+                          )
+                        else
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: confirm,
+                            child: const Text(
+                              'Tinjau penyesuaian',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('cash:$selectedCash'),
-                    initialValue: selectedCash,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Akun rekonsiliasi',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: [
-                      for (final a in cash)
-                        DropdownMenuItem(
-                          value: a['id'] as String,
-                          child: Text('${a['name']} (${a['balance']} IDR)'),
-                        ),
-                    ],
-                    onChanged: (v) => setState(() {
-                      reconciliationId = v;
-                      comparison = null;
-                      message = null;
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: statement,
-                    decoration: InputDecoration(
-                      labelText:
-                          'Saldo rekening koran (contoh: 150000 atau -50000)',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      signed: true,
-                    ),
-                    onChanged: (_) => setState(() => comparison = null),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: reference,
-                    maxLength: 500,
-                    decoration: InputDecoration(
-                      labelText: 'Referensi rekening koran / alasan',
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onChanged: (_) => setState(() => comparison = null),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => perform(() {
-                      comparison = repo.compare(
-                        selectedCash ?? '',
-                        statement.text,
-                        reference.text,
-                      );
-                      message = null;
-                    }),
-                    icon: const Icon(Icons.compare_arrows_rounded, size: 18),
-                    label: const Text('Bandingkan saldo'),
-                  ),
-                  if (comparison case final preview?) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Tercatat: ${financialDecimal(preview.recorded)} IDR\n'
-                            'Rekening koran: ${financialDecimal(preview.statement)} IDR\n'
-                            'Selisih: ${financialDecimal(preview.difference)} IDR',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              height: 1.4,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (preview.difference == BigInt.zero)
-                            const Text(
-                              'Saldo cocok. Tidak ada penyesuaian.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.income,
-                              ),
-                            )
-                          else
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              onPressed: confirm,
-                              child: const Text('Tinjau penyesuaian'),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
           ),
           if (error != null)

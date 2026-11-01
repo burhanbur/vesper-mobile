@@ -482,9 +482,16 @@ class _ObligationsPageState extends State<ObligationsPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: const Text(
           'Utang & Piutang',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
       body: active == null
@@ -663,11 +670,33 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       runSpacing: 8,
                       children: [
                         FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
                           onPressed: () => form(),
                           icon: const Icon(Icons.add_rounded, size: 18),
                           label: const Text('Tambah pinjaman'),
                         ),
                         OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textPrimary,
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                          ),
                           onPressed: source.isSyncing
                               ? null
                               : () async {

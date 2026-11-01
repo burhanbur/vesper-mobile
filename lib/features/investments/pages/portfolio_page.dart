@@ -84,13 +84,20 @@ class _PortfolioPageState extends State<PortfolioPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: const Text(
           'Portofolio investasi',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: AppColors.textPrimary,
+          ),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 12),
             child: FilledButton.tonalIcon(
               onPressed: () => Navigator.of(context).push<void>(
                 MaterialPageRoute(
@@ -102,7 +109,13 @@ class _PortfolioPageState extends State<PortfolioPage> {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
