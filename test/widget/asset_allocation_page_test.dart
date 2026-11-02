@@ -121,4 +121,70 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'tab navigation seamlessly switches between Ringkasan, Kelas Aset, and Instrumen',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final source = FinanceRepository(AllocationClient(), store, 'owner')
+        ..offline = true;
+      source.atomic(() {
+        source.state['asset_allocation_cache'] = {
+          'schema': 1,
+          'user_id': 'owner',
+          'snapshot': allocationFixture(),
+        };
+      });
+      AssetAllocationRepository(source).saveTargets(allocationTargets());
+      final state = AppState(repository: source)..currentUserId = 'owner';
+      state.toggleOfflineMode();
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: AssetAllocationPage()),
+        ),
+      );
+
+      // Verify Ringkasan tab is default
+      expect(find.text('Ringkasan'), findsOneWidget);
+      expect(find.text('Kelas Aset'), findsOneWidget);
+      expect(find.text('Instrumen'), findsOneWidget);
+      expect(find.text('Total Aset Positif'), findsOneWidget);
+      expect(find.text('Distribusi Kelas Aset'), findsOneWidget);
+
+      // Switch to Kelas Aset tab via TabBar
+      await tester.tap(find.text('Kelas Aset'));
+      await tester.pumpAndSettle();
+      expect(find.text('Per kelas aset'), findsOneWidget);
+      expect(
+        find.text('Bandingkan realisasi aset dengan target pribadi'),
+        findsOneWidget,
+      );
+
+      // Switch to Instrumen tab via TabBar
+      await tester.tap(find.text('Instrumen'));
+      await tester.pumpAndSettle();
+      expect(find.text('Daftar instrumen'), findsOneWidget);
+      expect(find.textContaining('1 Instrumen'), findsOneWidget);
+
+      // Switch back to Ringkasan
+      await tester.tap(find.text('Ringkasan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Distribusi Kelas Aset'), findsOneWidget);
+
+      // Tap 'Lihat Semua' button on Ringkasan tab switches to Kelas Aset
+      await tester.tap(find.text('Lihat Semua'));
+      await tester.pumpAndSettle();
+      expect(find.text('Per kelas aset'), findsOneWidget);
+
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

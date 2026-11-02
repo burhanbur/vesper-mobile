@@ -123,4 +123,61 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'tab bar switches between Ringkasan, Per Akun, Timeline, and Komitmen tabs cleanly',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final source = FinanceRepository(ApiClient(), store, 'owner')
+        ..offline = true;
+      seedForecast(source);
+      final today = goalDay(
+        DateTime.now().toUtc().add(const Duration(minutes: 420)),
+      );
+      forecastBill(source, date: today, amount: '500.00');
+      final state = AppState(repository: source)..currentUserId = 'owner';
+      state.toggleOfflineMode();
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: CashFlowPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially on Ringkasan
+      expect(find.text('Saldo aktual gabungan: Rp 1.000'), findsOneWidget);
+      expect(find.text('Per akun — tanpa transfer otomatis'), findsNothing);
+
+      // Switch to Per Akun
+      await tester.tap(find.text('Per Akun'));
+      await tester.pumpAndSettle();
+      expect(find.text('Per akun — tanpa transfer otomatis'), findsOneWidget);
+
+      // Switch to Timeline
+      await tester.tap(find.text('Timeline'));
+      await tester.pumpAndSettle();
+      expect(find.text('Timeline harian gabungan'), findsOneWidget);
+
+      // Switch to Komitmen
+      await tester.tap(find.text('Komitmen'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Komitmen & asumsi'), findsOneWidget);
+
+      // Switch back to Ringkasan
+      await tester.tap(find.text('Ringkasan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Saldo aktual gabungan: Rp 1.000'), findsOneWidget);
+
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

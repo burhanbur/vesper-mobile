@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/obligations_controller.dart';
 import '../data/obligations_repository.dart';
@@ -523,8 +524,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
   Widget build(BuildContext context) {
     final active = controller;
     final state = AppStateScope.of(context);
-    String money(dynamic value) =>
-        state.isBalanceHidden ? '••••••' : 'IDR $value';
+    String money(dynamic value) => state.isBalanceHidden
+        ? '••••••'
+        : CurrencyFormatter.formatMinorRupiah(obligationMinor('$value'));
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

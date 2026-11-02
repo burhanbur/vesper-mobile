@@ -62,6 +62,14 @@ void main() {
         );
         expect(record['linked_account_id'], cashId);
         expect(record['outstanding'], '1000.00');
+        expect(
+          find.text(
+            balance.startsWith('-')
+                ? 'Sisa utang: Rp 1.000'
+                : 'Sisa piutang: Rp 1.000',
+          ),
+          findsOneWidget,
+        );
         expect(repo.row('accounts', cashId)!['balance'], balance);
         expect(repo.rows('transactions'), isEmpty);
         expect(repo.outbox.single['payload']['cash_account_id'], isNull);
@@ -149,6 +157,8 @@ void main() {
         '1000.00',
       ); // Existing opening, no new funding.
       expect(repo.outbox.single['payload']['action'], 'OPEN');
+      expect(find.text('Sisa utang: Rp 100'), findsOneWidget);
+      expect(find.text('Sisa piutang: Rp 0'), findsOneWidget);
       acceptProjection(repo);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
