@@ -278,11 +278,11 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: AppColors.primary.withValues(alpha: 0.2),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -290,7 +290,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
-        labelColor: AppColors.textPrimary,
+        labelColor: Colors.white,
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         unselectedLabelColor: AppColors.textSecondary,
         unselectedLabelStyle: const TextStyle(

@@ -958,107 +958,662 @@ class _ObligationsPageState extends State<ObligationsPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Divider(),
-                                  Text(
-                                    'Pokok awal: ${money(debt['principal'])}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  const Divider(
+                                    height: 1,
+                                    color: AppColors.border,
                                   ),
-                                  if (debt['linked_account_id'] != null)
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        'Menggantikan akun lama dalam net worth; pelunasan pokok juga memperbarui akun tersebut.',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.textMuted,
+                                  const SizedBox(height: 12),
+
+                                  // Financial Overview Card
+                                  Builder(
+                                    builder: (_) {
+                                      final principalMinor = obligationMinor(
+                                        '${debt['principal']}',
+                                      );
+                                      final outstandingMinor = obligationMinor(
+                                        '${debt['outstanding']}',
+                                      );
+                                      final principalVal = principalMinor
+                                          .toDouble();
+                                      final outstandingVal = outstandingMinor
+                                          .toDouble();
+                                      final paidVal =
+                                          (principalVal - outstandingVal).clamp(
+                                            0.0,
+                                            principalVal > 0
+                                                ? principalVal
+                                                : 0.0,
+                                          );
+                                      final progress = principalVal > 0
+                                          ? (paidVal / principalVal).clamp(
+                                              0.0,
+                                              1.0,
+                                            )
+                                          : 1.0;
+                                      final percentStr = (progress * 100)
+                                          .toStringAsFixed(0);
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceVariant
+                                              .withValues(alpha: 0.5),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.border.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  for (final row in repo.schedule(
-                                    debt['id'] as String,
-                                  ))
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        '${row['due_date']} • sisa pokok cicilan ${money(row['remaining'])}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      debt['kind'] == 'PAYABLE'
+                                                          ? 'POKOK PINJAMAN'
+                                                          : 'POKOK PIUTANG',
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        letterSpacing: 0.5,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      'Pokok awal: ${money(debt['principal'])}',
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: AppColors
+                                                            .textPrimary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                      debt['kind'] == 'PAYABLE'
+                                                          ? 'SISA UTANG'
+                                                          : 'SISA PIUTANG',
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        letterSpacing: 0.5,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      money(
+                                                        debt['outstanding'],
+                                                      ),
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        color:
+                                                            debt['kind'] ==
+                                                                'PAYABLE'
+                                                            ? AppColors.expense
+                                                            : AppColors.income,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            if (principalMinor >
+                                                BigInt.zero) ...[
+                                              const SizedBox(height: 8),
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(3),
+                                                child: LinearProgressIndicator(
+                                                  value: progress,
+                                                  minHeight: 5,
+                                                  backgroundColor:
+                                                      AppColors.border,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(
+                                                        debt['kind'] ==
+                                                                'PAYABLE'
+                                                            ? AppColors.expense
+                                                            : AppColors.income,
+                                                      ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    debt['kind'] == 'PAYABLE'
+                                                        ? 'Terbayar: ${money(BigInt.from(paidVal.round()))}'
+                                                        : 'Diterima: ${money(BigInt.from(paidVal.round()))}',
+                                                    style: const TextStyle(
+                                                      fontSize: 10.5,
+                                                      color: AppColors
+                                                          .textSecondary,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '$percentStr%',
+                                                    style: const TextStyle(
+                                                      fontSize: 10.5,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: AppColors
+                                                          .textSecondary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
                                         ),
-                                      ),
-                                    ),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 6),
-                                    child: Text(
-                                      'Jadwal dialokasikan dari pembayaran pokok secara berurutan; bunga/biaya dicatat saat dibayar, tanpa pembayaran otomatis.',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textMuted,
-                                      ),
-                                    ),
+                                      );
+                                    },
                                   ),
-                                  Wrap(
-                                    spacing: 8,
+                                  const SizedBox(height: 12),
+
+                                  // Action Buttons
+                                  Row(
                                     children: [
-                                      FilledButton(
-                                        onPressed: () => form(debt: debt),
-                                        child: const Text('Bayar / terima'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => confirm(
-                                          'Pinjaman lunas akan diarsipkan. Pinjaman tanpa pembayaran aktif dapat dibatalkan beserta arus kas pembukaannya. Riwayat audit tetap disimpan.',
-                                          () =>
-                                              repo.delete(debt['id'] as String),
+                                      Expanded(
+                                        child: FilledButton.icon(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: AppColors.primary,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 10,
+                                            ),
+                                          ),
+                                          onPressed: () => form(debt: debt),
+                                          icon: const Icon(
+                                            Icons.payments_rounded,
+                                            size: 16,
+                                          ),
+                                          label: const Text('Bayar / terima'),
                                         ),
-                                        child: const Text(
-                                          'Arsipkan / batalkan',
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                AppColors.textSecondary,
+                                            side: const BorderSide(
+                                              color: AppColors.border,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 10,
+                                            ),
+                                          ),
+                                          onPressed: () => confirm(
+                                            'Pinjaman lunas akan diarsipkan. Pinjaman tanpa pembayaran aktif dapat dibatalkan beserta arus kas pembukaannya. Riwayat audit tetap disimpan.',
+                                            () => repo.delete(
+                                              debt['id'] as String,
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.archive_outlined,
+                                            size: 16,
+                                          ),
+                                          label: const Text(
+                                            'Arsipkan / batalkan',
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 10),
-                                  const Text(
-                                    'Riwayat pembayaran & koreksi',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+
+                                  // Linked Account Notice
+                                  if (debt['linked_account_id'] != null) ...[
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.infoLight,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.sync_alt_rounded,
+                                            size: 14,
+                                            color: AppColors.info,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Menggantikan akun lama dalam net worth; pelunasan pokok juga memperbarui akun tersebut.',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.info,
+                                                height: 1.3,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                  ],
+
+                                  // Installment Schedule
+                                  if (repo
+                                      .schedule(debt['id'] as String)
+                                      .isNotEmpty) ...[
+                                    const SizedBox(height: 14),
+                                    const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.calendar_month_rounded,
+                                          size: 15,
+                                          color: AppColors.primary,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Jadwal Cicilan Pokok',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    for (final row in repo.schedule(
+                                      debt['id'] as String,
+                                    ))
+                                      Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceVariant
+                                              .withValues(alpha: 0.4),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.border.withValues(
+                                              alpha: 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.event_outlined,
+                                              size: 14,
+                                              color: AppColors.textMuted,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                row['due_date'] as String,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: AppColors.border,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                'Sisa pokok ${money(row['remaining'])}',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 4,
+                                      ),
+                                      child: Text(
+                                        'Jadwal dialokasikan dari pembayaran pokok secara berurutan; bunga/biaya dicatat saat dibayar, tanpa pembayaran otomatis.',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+
+                                  // Payment & Correction History
+                                  const SizedBox(height: 14),
+                                  const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.history_rounded,
+                                        size: 15,
+                                        color: AppColors.primary,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Riwayat pembayaran & koreksi',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12.5,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  const SizedBox(height: 8),
+                                  if (repo.events(debt['id'] as String).isEmpty)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                        horizontal: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceVariant
+                                            .withValues(alpha: 0.3),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: AppColors.border.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          'Belum ada pembayaran atau penyesuaian untuk pinjaman ini.',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: AppColors.textMuted,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   for (final event in repo.events(
                                     debt['id'] as String,
                                   ))
-                                    ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      title: Text(
-                                        '${event['operation']} • ${event['reversed_at'] == null ? DateFormatter.timestamp(event['transacted_at'], timeZone: AppStateScope.of(context).timeZone) : 'DIBALIKKAN'}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: event['reversed_at'] != null
+                                              ? AppColors.border
+                                              : AppColors.primary.withValues(
+                                                  alpha: 0.2,
+                                                ),
                                         ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.02,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
                                       ),
-                                      subtitle: Text(
-                                        'Pokok ${money(event['principal'])} • bunga ${money(event['interest'])} • biaya ${money(event['fee'])}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                      trailing:
-                                          event['operation'] == 'REPAY' &&
-                                              event['reversed_at'] == null
-                                          ? TextButton(
-                                              onPressed: () => confirm(
-                                                'Balikkan pembayaran ini? Pokok, bunga, biaya, dan saldo terkait dikembalikan secara atomik; riwayat pembayaran tetap terlihat.',
-                                                () => repo.reverse(
-                                                  debt['id'] as String,
-                                                  event['id'] as String,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 7,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      event['reversed_at'] !=
+                                                          null
+                                                      ? AppColors.expenseLight
+                                                      : (event['operation'] ==
+                                                                'REPAY'
+                                                            ? AppColors
+                                                                  .incomeLight
+                                                            : AppColors
+                                                                  .surfaceVariant),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  event['reversed_at'] != null
+                                                      ? 'DIBALIKKAN'
+                                                      : (event['operation'] ==
+                                                                'REPAY'
+                                                            ? 'PEMBAYARAN'
+                                                            : '${event['operation']}'),
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color:
+                                                        event['reversed_at'] !=
+                                                            null
+                                                        ? AppColors.expense
+                                                        : (event['operation'] ==
+                                                                  'REPAY'
+                                                              ? AppColors.income
+                                                              : AppColors
+                                                                    .textPrimary),
+                                                  ),
                                                 ),
                                               ),
-                                              child: const Text('Koreksi'),
-                                            )
-                                          : null,
+                                              Text(
+                                                DateFormatter.timestamp(
+                                                  event['transacted_at'],
+                                                  timeZone: AppStateScope.of(
+                                                    context,
+                                                  ).timeZone,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'POKOK',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      money(event['principal']),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: AppColors
+                                                            .textPrimary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'BUNGA',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      money(event['interest']),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: AppColors
+                                                            .textSecondary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'BIAYA',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      money(event['fee']),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: AppColors
+                                                            .textSecondary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              if (event['operation'] ==
+                                                      'REPAY' &&
+                                                  event['reversed_at'] == null)
+                                                OutlinedButton.icon(
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor:
+                                                        AppColors.expense,
+                                                    side: const BorderSide(
+                                                      color: AppColors
+                                                          .expenseLight,
+                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                    visualDensity:
+                                                        VisualDensity.compact,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  onPressed: () => confirm(
+                                                    'Balikkan pembayaran ini? Pokok, bunga, biaya, dan saldo terkait dikembalikan secara atomik; riwayat pembayaran tetap terlihat.',
+                                                    () => repo.reverse(
+                                                      debt['id'] as String,
+                                                      event['id'] as String,
+                                                    ),
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.undo_rounded,
+                                                    size: 13,
+                                                  ),
+                                                  label: const Text(
+                                                    'Koreksi',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                 ],
                               ),

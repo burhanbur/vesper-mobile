@@ -2369,12 +2369,12 @@ class _HouseholdPageState extends State<HouseholdPage> {
           duration: const Duration(milliseconds: 180),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? AppColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(11),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: AppColors.primary.withValues(alpha: 0.2),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),
@@ -2386,7 +2386,7 @@ class _HouseholdPageState extends State<HouseholdPage> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
             ),
           ),
         ),

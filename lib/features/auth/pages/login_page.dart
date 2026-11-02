@@ -149,17 +149,17 @@ class _LoginPageState extends State<LoginPage>
                   indicatorPadding: EdgeInsets.zero,
                   splashBorderRadius: BorderRadius.circular(12),
                   indicator: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  labelColor: AppColors.primary,
+                  labelColor: Colors.white,
                   unselectedLabelColor: AppColors.textSecondary,
                   labelStyle: const TextStyle(
                     fontWeight: FontWeight.w700,

@@ -540,16 +540,16 @@ class _CategoriesPageState extends State<CategoriesPage>
               indicatorPadding: EdgeInsets.zero,
               splashBorderRadius: BorderRadius.circular(10),
               indicator: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: AppColors.primary.withValues(alpha: 0.2),
                     blurRadius: 4,
                   ),
                 ],
               ),
-              labelColor: AppColors.primary,
+              labelColor: Colors.white,
               unselectedLabelColor: AppColors.textSecondary,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.w700,

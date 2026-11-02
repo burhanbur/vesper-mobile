@@ -408,17 +408,17 @@ class _CashFlowPageState extends State<CashFlowPage>
         indicatorPadding: EdgeInsets.zero,
         splashBorderRadius: BorderRadius.circular(9),
         indicator: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(9),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: AppColors.primary.withValues(alpha: 0.2),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
           ],
         ),
-        labelColor: AppColors.primary,
+        labelColor: Colors.white,
         unselectedLabelColor: AppColors.textSecondary,
         labelStyle: const TextStyle(
           fontWeight: FontWeight.w700,
@@ -586,7 +586,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                 child: const Icon(
                   Icons.auto_graph_rounded,
                   color: AppColors.primary,
-                  size: 22,
+                  size: 20,
                 ),
               ),
               const SizedBox(width: 12),
@@ -597,7 +597,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                     Text(
                       'Skenario Arus Kas',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
@@ -623,65 +623,68 @@ class _CashFlowPageState extends State<CashFlowPage>
               _buildParamChip(
                 Icons.timelapse_rounded,
                 '${config['days']} Hari',
-                AppColors.primary,
+                accentColor: AppColors.primary,
               ),
               _buildParamChip(
                 Icons.schedule_rounded,
                 DateFormatter.fixedZone(config['utc_offset_minutes'] as int),
-                AppColors.textSecondary,
               ),
               _buildParamChip(
                 Icons.calculate_outlined,
                 config['include_estimates'] == true
                     ? 'Perkiraan: Ya'
                     : 'Perkiraan: Tidak',
-                config['include_estimates'] == true
+                accentColor: config['include_estimates'] == true
                     ? AppColors.income
-                    : AppColors.textMuted,
+                    : null,
               ),
               _buildParamChip(
                 Icons.history_rounded,
                 config['include_overdue'] == true
                     ? 'Tunggakan: Bawa'
                     : 'Tunggakan: Abaikan',
-                config['include_overdue'] == true
+                accentColor: config['include_overdue'] == true
                     ? AppColors.warning
-                    : AppColors.textMuted,
+                    : null,
               ),
               _buildParamChip(
                 Icons.call_received_rounded,
                 config['include_receivables'] == true
                     ? 'Piutang: Masuk'
                     : 'Piutang: Tidak',
-                AppColors.info,
+                accentColor: config['include_receivables'] == true
+                    ? AppColors.info
+                    : null,
               ),
               _buildParamChip(
                 Icons.flag_outlined,
                 config['reserve_goals'] == true
                     ? 'Goal: Sisihkan'
                     : 'Goal: Bebas',
-                AppColors.investment,
+                accentColor: config['reserve_goals'] == true
+                    ? AppColors.investment
+                    : null,
               ),
             ],
           ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
+            child: OutlinedButton.icon(
               onPressed: configure,
-              icon: const Icon(Icons.tune_rounded, size: 18),
+              icon: const Icon(Icons.tune_rounded, size: 16),
               label: const Text('Ubah asumsi proyeksi'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 11),
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Material(
             color: Colors.transparent,
             child: Theme(
@@ -689,25 +692,30 @@ class _CashFlowPageState extends State<CashFlowPage>
                   .copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
+                dense: true,
                 leading: const Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: AppColors.primary,
+                  Icons.help_outline_rounded,
+                  size: 15,
+                  color: AppColors.textMuted,
                 ),
                 title: const Text(
                   'Catatan metodologi skenario',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 children: [
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.6),
+                      ),
                     ),
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,34 +723,34 @@ class _CashFlowPageState extends State<CashFlowPage>
                         Text(
                           '• Saldo aktual sebagai pembuka; komitmen berikutnya hanya proyeksi.',
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             color: AppColors.textSecondary,
                             height: 1.4,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        SizedBox(height: 3),
                         Text(
                           '• Pengeluaran dimodelkan mendahului pemasukan di hari yang sama untuk menjaga prinsip kehati-hatian.',
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             color: AppColors.textSecondary,
                             height: 1.4,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        SizedBox(height: 3),
                         Text(
                           '• Alokasi goal dibekukan pada nilai pembuka agar rencana tabungan terlindungi.',
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             color: AppColors.textSecondary,
                             height: 1.4,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        SizedBox(height: 3),
                         Text(
                           '• Pembayaran yang sudah dicatat perlu ditautkan di Tagihan & Jadwal agar tidak dihitung ganda.',
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             color: AppColors.textSecondary,
                             height: 1.4,
                           ),
@@ -759,13 +767,14 @@ class _CashFlowPageState extends State<CashFlowPage>
     );
   }
 
-  Widget _buildParamChip(IconData icon, String label, Color color) {
+  Widget _buildParamChip(IconData icon, String label, {Color? accentColor}) {
+    final color = accentColor ?? AppColors.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: AppColors.surfaceVariant.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -774,10 +783,10 @@ class _CashFlowPageState extends State<CashFlowPage>
           const SizedBox(width: 5),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: color,
+              color: AppColors.textPrimary,
             ),
           ),
         ],
@@ -817,14 +826,14 @@ class _CashFlowPageState extends State<CashFlowPage>
             decoration: BoxDecoration(
               color: r.firstShortfall == null
                   ? AppColors.income.withValues(alpha: 0.08)
-                  : AppColors.warningLight.withValues(alpha: 0.7),
+                  : AppColors.warningLight.withValues(alpha: 0.85),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(15),
               ),
               border: Border(
                 bottom: BorderSide(
                   color: r.firstShortfall == null
-                      ? AppColors.income.withValues(alpha: 0.2)
+                      ? AppColors.income.withValues(alpha: 0.15)
                       : AppColors.warning.withValues(alpha: 0.3),
                 ),
               ),
@@ -892,22 +901,32 @@ class _CashFlowPageState extends State<CashFlowPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const Text(
+                            'PROYEKSI SALDO AKHIR',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
                           Text(
                             'Proyeksi penutup: ${money(r.closing)}',
                             style: TextStyle(
                               fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               color: r.closing < BigInt.zero
                                   ? AppColors.expense
-                                  : AppColors.income,
+                                  : AppColors.primary,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 2),
                           Text(
                             'Periode ${r.start} sampai ${r.end}',
                             style: const TextStyle(
                               fontSize: 11.5,
-                              color: AppColors.textMuted,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -916,11 +935,18 @@ class _CashFlowPageState extends State<CashFlowPage>
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 6,
+                        vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
+                        color: r.minimum < BigInt.zero
+                            ? AppColors.expenseLight
+                            : AppColors.surfaceVariant,
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: r.minimum < BigInt.zero
+                              ? AppColors.expense.withValues(alpha: 0.25)
+                              : AppColors.border,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -929,11 +955,11 @@ class _CashFlowPageState extends State<CashFlowPage>
                             'Titik Terendah',
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.textMuted,
                             ),
                           ),
-                          const SizedBox(height: 1),
+                          const SizedBox(height: 2),
                           Text(
                             'Minimum konservatif: ${money(r.minimum)}',
                             style: TextStyle(
@@ -951,35 +977,50 @@ class _CashFlowPageState extends State<CashFlowPage>
                 ),
                 const SizedBox(height: 16),
 
-                // 3 Core Metrics Grid
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildMetricTile(
+                // Core Metrics Structured Card
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildMetricRow(
                         Icons.account_balance_wallet_outlined,
                         'Saldo aktual gabungan: ${money(r.actual)}',
                         AppColors.primary,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricTile(
+                      Divider(
+                        height: 14,
+                        thickness: 1,
+                        color: AppColors.border.withValues(alpha: 0.6),
+                      ),
+                      _buildMetricRow(
                         Icons.flag_outlined,
                         'Alokasi goal terdanai: ${money(r.reserved)}',
                         AppColors.investment,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildMetricTile(
+                      Divider(
+                        height: 14,
+                        thickness: 1,
+                        color: AppColors.border.withValues(alpha: 0.6),
+                      ),
+                      _buildMetricRow(
                         Icons.savings_outlined,
                         'Kas tersedia pembuka: ${money(r.available)}',
                         AppColors.income,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 // Inflow vs Outflow Mini-Bar
                 Container(
@@ -988,21 +1029,31 @@ class _CashFlowPageState extends State<CashFlowPage>
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.6),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.arrow_downward_rounded,
-                              size: 15,
-                              color: AppColors.income,
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppColors.incomeLight,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_downward_rounded,
+                                size: 12,
+                                color: AppColors.income,
+                              ),
                             ),
-                            const SizedBox(width: 5),
-                            Flexible(
+                            const SizedBox(width: 7),
+                            Expanded(
                               child: Text(
                                 'Masuk: ${money(totalInflow)}',
                                 style: const TextStyle(
@@ -1021,13 +1072,20 @@ class _CashFlowPageState extends State<CashFlowPage>
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.arrow_upward_rounded,
-                              size: 15,
-                              color: AppColors.expense,
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppColors.expenseLight,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_upward_rounded,
+                                size: 12,
+                                color: AppColors.expense,
+                              ),
                             ),
-                            const SizedBox(width: 5),
-                            Flexible(
+                            const SizedBox(width: 7),
+                            Expanded(
                               child: Text(
                                 'Keluar: ${money(totalOutflow)}',
                                 style: const TextStyle(
@@ -1046,17 +1104,26 @@ class _CashFlowPageState extends State<CashFlowPage>
                       Expanded(
                         child: Row(
                           children: [
-                            Icon(
-                              netFlow >= BigInt.zero
-                                  ? Icons.trending_up_rounded
-                                  : Icons.trending_down_rounded,
-                              size: 15,
-                              color: netFlow >= BigInt.zero
-                                  ? AppColors.income
-                                  : AppColors.expense,
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: netFlow >= BigInt.zero
+                                    ? AppColors.incomeLight
+                                    : AppColors.expenseLight,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                netFlow >= BigInt.zero
+                                    ? Icons.trending_up_rounded
+                                    : Icons.trending_down_rounded,
+                                size: 12,
+                                color: netFlow >= BigInt.zero
+                                    ? AppColors.income
+                                    : AppColors.expense,
+                              ),
                             ),
-                            const SizedBox(width: 5),
-                            Flexible(
+                            const SizedBox(width: 7),
+                            Expanded(
                               child: Text(
                                 'Net: ${money(netFlow)}',
                                 style: TextStyle(
@@ -1075,21 +1142,43 @@ class _CashFlowPageState extends State<CashFlowPage>
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  '${r.paidExcluded} kejadian/pokok lunas dan ${r.skippedExcluded} kejadian dilewati tidak ditambahkan kembali.',
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Dihitung ${DateFormatter.formatFull(r.assessedAt, timeZone: state.timeZone)}.',
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.textMuted,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 13,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${r.paidExcluded} kejadian/pokok lunas dan ${r.skippedExcluded} kejadian dilewati tidak ditambahkan kembali.',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.textMuted,
+                              height: 1.3,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Dihitung ${DateFormatter.formatFull(r.assessedAt, timeZone: state.timeZone)}.',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1099,29 +1188,29 @@ class _CashFlowPageState extends State<CashFlowPage>
     );
   }
 
-  Widget _buildMetricTile(IconData icon, String fullText, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(height: 6),
-          Text(
+  Widget _buildMetricRow(IconData icon, String fullText, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 15, color: color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
             fullText,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
-              height: 1.3,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

@@ -647,17 +647,17 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
         indicatorPadding: EdgeInsets.zero,
         splashBorderRadius: BorderRadius.circular(10),
         indicator: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.primary.withValues(alpha: 0.2),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
           ],
         ),
-        labelColor: AppColors.primary,
+        labelColor: Colors.white,
         unselectedLabelColor: AppColors.textSecondary,
         labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
