@@ -12,12 +12,14 @@ class TransactionItemTile extends StatelessWidget {
   final TransactionItem transaction;
   final VoidCallback? onTap;
   final bool showDate;
+  final String? currentAccountId;
 
   const TransactionItemTile({
     super.key,
     required this.transaction,
     this.onTap,
     this.showDate = true,
+    this.currentAccountId,
   });
 
   IconData _getCategoryIcon() {
@@ -382,8 +384,9 @@ class TransactionItemTile extends StatelessWidget {
   }
 
   Widget _buildRightSubLabel(BuildContext context, Color color) {
+    Widget? badge;
     if (transaction.type == TransactionType.transfer) {
-      return Container(
+      badge = Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
@@ -398,11 +401,9 @@ class TransactionItemTile extends StatelessWidget {
           ),
         ),
       );
-    }
-
-    if (transaction.type == TransactionType.investmentBuy ||
+    } else if (transaction.type == TransactionType.investmentBuy ||
         transaction.type == TransactionType.investmentSell) {
-      return Container(
+      badge = Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
@@ -417,10 +418,8 @@ class TransactionItemTile extends StatelessWidget {
           ),
         ),
       );
-    }
-
-    if (transaction.isDebt || transaction.isReceivable) {
-      return Container(
+    } else if (transaction.isDebt || transaction.isReceivable) {
+      badge = Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
         decoration: BoxDecoration(
           color: AppColors.surfaceVariant,
@@ -437,27 +436,46 @@ class TransactionItemTile extends StatelessWidget {
       );
     }
 
-    // For regular income/expense, display time if available
     final zone = AppStateScope.of(context).timeZone;
-    final local = zone.at(transaction.date);
-    if (local.hour != 0 || local.minute != 0) {
-      return Text(
-        DateFormatter.formatTime(transaction.date, timeZone: zone),
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textMuted,
-        ),
+    final dateTimeText = DateFormatter.formatTransactionDateTime(
+      transaction.date,
+      showDate: showDate,
+      timeZone: zone,
+    );
+
+    if (badge == null && dateTimeText.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final textWidget = dateTimeText.isNotEmpty
+        ? Text(
+            dateTimeText,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textMuted,
+            ),
+          )
+        : null;
+
+    if (badge != null && textWidget != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [badge, const SizedBox(height: 2), textWidget],
       );
     }
 
-    return const SizedBox.shrink();
+    return badge ?? textWidget ?? const SizedBox.shrink();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final account = state.getAccountById(transaction.accountId);
+    final toAccount = transaction.toAccountId != null
+        ? state.getAccountById(transaction.toAccountId!)
+        : null;
     final accountName = account?.name ?? 'Akun';
     final isShared = account?.isShared ?? false;
     final color = _getCategoryColor();
@@ -467,20 +485,35 @@ class TransactionItemTile extends StatelessWidget {
         transaction.note != null && transaction.note!.trim().isNotEmpty;
     final primaryTitle = hasNote
         ? transaction.note!.trim()
-        : transaction.categoryName;
+        : (transaction.categoryName.isNotEmpty
+              ? transaction.categoryName
+              : transaction.typeLabel);
 
     final subtitleParts = <String>[];
     if (hasNote && transaction.categoryName.isNotEmpty) {
       subtitleParts.add(transaction.categoryName);
     }
-    subtitleParts.add(accountName);
-    if (showDate) {
-      subtitleParts.add(
-        DateFormatter.formatRelativeOrDate(
-          transaction.date,
-          timeZone: state.timeZone,
-        ),
-      );
+
+    if (transaction.type == TransactionType.transfer) {
+      if (currentAccountId != null) {
+        if (transaction.accountId == currentAccountId && toAccount != null) {
+          subtitleParts.add('ke ${toAccount.name}');
+        } else if (transaction.toAccountId == currentAccountId &&
+            account != null) {
+          subtitleParts.add('dari ${account.name}');
+        } else if (toAccount != null) {
+          subtitleParts.add('$accountName → ${toAccount.name}');
+        }
+      } else if (toAccount != null) {
+        subtitleParts.add('$accountName → ${toAccount.name}');
+      } else {
+        subtitleParts.add(accountName);
+      }
+    } else {
+      if (currentAccountId == null ||
+          currentAccountId != transaction.accountId) {
+        subtitleParts.add(accountName);
+      }
     }
     final subtitle = subtitleParts.join(' • ');
 
@@ -542,47 +575,53 @@ class TransactionItemTile extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ),
-                        // Shared member badge per PRD 4.4
-                        if (isShared &&
+                    if (subtitle.isNotEmpty ||
+                        (isShared &&
                             transaction.createdByName.isNotEmpty &&
-                            transaction.createdByName != state.userName) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceVariant,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              transaction.createdByName.split(' ').first,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.accentDark,
+                            transaction.createdByName != state.userName)) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          if (subtitle.isNotEmpty)
+                            Flexible(
+                              child: Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMuted,
+                                ),
                               ),
                             ),
-                          ),
+                          // Shared member badge per PRD 4.4
+                          if (isShared &&
+                              transaction.createdByName.isNotEmpty &&
+                              transaction.createdByName != state.userName) ...[
+                            if (subtitle.isNotEmpty) const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceVariant,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                transaction.createdByName.split(' ').first,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.accentDark,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
                 ),
               ),

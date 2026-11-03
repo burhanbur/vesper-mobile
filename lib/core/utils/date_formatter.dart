@@ -135,4 +135,49 @@ class DateFormatter {
       return formatShort(calendarDate);
     }
   }
+
+  static String formatTransactionDateTime(
+    DateTime date, {
+    bool showDate = true,
+    AppTimeZone timeZone = AppTimeZone.device,
+    DateTime? now,
+  }) {
+    final calendarNow = timeZone.at(now ?? DateTime.now());
+    final calendarDate = timeZone.at(date);
+    final hasTime = calendarDate.hour != 0 || calendarDate.minute != 0;
+    final timeStr = formatTime(date, timeZone: timeZone);
+
+    if (!showDate) {
+      return hasTime ? timeStr : '';
+    }
+
+    final today = DateTime.utc(
+      calendarNow.year,
+      calendarNow.month,
+      calendarNow.day,
+    );
+    final targetDate = DateTime.utc(
+      calendarDate.year,
+      calendarDate.month,
+      calendarDate.day,
+    );
+    final diff = today.difference(targetDate).inDays;
+
+    String dateStr;
+    if (diff == 0) {
+      dateStr = 'Hari ini';
+    } else if (diff == 1) {
+      dateStr = 'Kemarin';
+    } else if (diff == -1) {
+      dateStr = 'Besok';
+    } else if (calendarNow.year == calendarDate.year) {
+      final day = calendarDate.day;
+      final month = _shortMonthsIndo[calendarDate.month - 1];
+      dateStr = '$day $month';
+    } else {
+      dateStr = formatShort(calendarDate);
+    }
+
+    return hasTime ? '$dateStr, $timeStr' : dateStr;
+  }
 }

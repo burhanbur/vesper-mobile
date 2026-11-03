@@ -324,4 +324,37 @@ void main() {
       expect(parentSwitch.onChanged, isNull);
     },
   );
+
+  testWidgets('account detail date filtering works and resets gracefully', (
+    tester,
+  ) async {
+    final state = _fixture();
+    await _pump(tester, state, _detail('acc-jago'));
+
+    // Filter tabs are rendered
+    expect(find.text('Semua'), findsOneWidget);
+    expect(find.text('Bulan'), findsOneWidget);
+    expect(find.text('Tahun'), findsOneWidget);
+    expect(find.text('Tanggal'), findsOneWidget);
+
+    // Initially 'Semua' is active and 4 transactions are displayed
+    expect(find.byType(TransactionItemTile), findsNWidgets(4));
+
+    // Switch to 'Tahun'
+    await tester.tap(find.text('Tahun'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.chevron_left_rounded), findsWidgets);
+
+    // Switch to 'Bulan'
+    await tester.tap(find.text('Bulan'));
+    await tester.pumpAndSettle();
+
+    // If no transactions in current month/year, empty state with 'Tampilkan Semua' button is shown
+    if (find.text('Tampilkan Semua').evaluate().isNotEmpty) {
+      expect(find.text('Tampilkan Semua'), findsOneWidget);
+      await tester.tap(find.text('Tampilkan Semua'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TransactionItemTile), findsNWidgets(4));
+    }
+  });
 }
