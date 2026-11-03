@@ -31,7 +31,7 @@ void main() {
         child: const MaterialApp(home: GoalsPage()),
       ),
     );
-    await tester.tap(find.text('Buat goal'));
+    await tester.tap(find.byTooltip('Buat goal'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Nama goal'),

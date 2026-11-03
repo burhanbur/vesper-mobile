@@ -82,7 +82,7 @@ void main() {
           child: const MaterialApp(home: BillsPage()),
         ),
       );
-      await tester.tap(find.text('Buat jadwal'));
+      await tester.tap(find.byTooltip('Buat jadwal'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, 'Judul'),

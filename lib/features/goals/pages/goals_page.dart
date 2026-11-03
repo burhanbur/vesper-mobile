@@ -573,26 +573,10 @@ class _GoalsPageState extends State<GoalsPage> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: FilledButton.icon(
-              onPressed: () => edit(),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Buat goal'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                textStyle: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+          IconButton(
+            tooltip: 'Buat goal',
+            onPressed: () => edit(),
+            icon: const Icon(Icons.add_rounded),
           ),
           IconButton(
             tooltip: 'Sinkronkan goal',

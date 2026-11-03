@@ -895,75 +895,48 @@ class _CashFlowPageState extends State<CashFlowPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'PROYEKSI SALDO AKHIR',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.6,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Proyeksi penutup: ${money(r.closing)}',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: r.closing < BigInt.zero
-                                  ? AppColors.expense
-                                  : AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Periode ${r.start} sampai ${r.end}',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                    const Text(
+                      'PROYEKSI SALDO AKHIR',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.textMuted,
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
+                        horizontal: 8,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: r.minimum < BigInt.zero
                             ? AppColors.expenseLight
                             : AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: r.minimum < BigInt.zero
                               ? AppColors.expense.withValues(alpha: 0.25)
                               : AppColors.border,
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Titik Terendah',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textMuted,
-                            ),
+                          Icon(
+                            Icons.south_rounded,
+                            size: 11,
+                            color: r.minimum < BigInt.zero
+                                ? AppColors.expense
+                                : AppColors.textSecondary,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(width: 4),
                           Text(
-                            'Minimum konservatif: ${money(r.minimum)}',
+                            'Titik terendah: ${money(r.minimum)}',
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.bold,
                               color: r.minimum < BigInt.zero
                                   ? AppColors.expense
@@ -971,6 +944,36 @@ class _CashFlowPageState extends State<CashFlowPage>
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Proyeksi penutup: ${money(r.closing)}',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: r.closing < BigInt.zero
+                        ? AppColors.expense
+                        : AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.date_range_outlined,
+                      size: 13,
+                      color: AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Periode ${r.start} sampai ${r.end}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
