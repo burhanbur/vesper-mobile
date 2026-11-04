@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../data/collaboration_repository.dart';
 import '../models/household.dart';
@@ -12,6 +13,7 @@ import 'create_group_category_sheet.dart';
 import 'group_category_mapping_sheet.dart';
 import 'group_account_sharing_sheet.dart';
 import 'group_switcher_sheet.dart';
+import 'group_pockets_panel.dart';
 
 /// Bank Jago-inspired tabbed financial group interface.
 /// Distinct modular sections for Pocket & Saldo, Aktivitas, Anggota, and Kategori.
@@ -1031,6 +1033,15 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
+        GroupPocketsPanel(
+          key: ValueKey((
+            state.netWorthSessionKey,
+            group.id,
+            state.isOfflineMode,
+          )),
+          app: state,
+          groupId: group.id,
+        ),
         // Notice Card
         Container(
           padding: const EdgeInsets.all(12),
@@ -1240,7 +1251,13 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                             ],
                           ),
                           Text(
-                            '${row['currency']} ${row['balance']}',
+                            state.isBalanceHidden
+                                ? '••••••'
+                                : CurrencyFormatter.formatCurrency(
+                                    row['balance'],
+                                    currency: (row['currency'] ?? 'IDR')
+                                        .toString(),
+                                  ),
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,

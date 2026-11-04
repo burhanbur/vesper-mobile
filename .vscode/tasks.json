@@ -22,6 +22,33 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Validate group pockets mobile",
+			"type": "shell",
+			"command": "& C:\\flutter\\bin\\flutter.bat analyze 2>&1 | Out-File -Encoding utf8 build\\pockets-analyze.log; $a = $LASTEXITCODE; & C:\\flutter\\bin\\flutter.bat test 2>&1 | Out-File -Encoding utf8 build\\pockets-full-tests.log; $t = $LASTEXITCODE; @{analyze=$a; tests=$t} | ConvertTo-Json | Out-File -Encoding utf8 build\\pockets-validation.json; Get-Content build\\pockets-validation.json; Get-Content build\\pockets-analyze.log; Get-Content build\\pockets-full-tests.log -Tail 25",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate pocket regression",
+			"type": "shell",
+			"command": "& 'C:\\flutter\\bin\\flutter.bat' test test/unit/group_pockets_test.dart test/widget/safe_ux_test.dart",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Validate all mobile pocket changes",
+			"type": "shell",
+			"command": "& 'C:\\flutter\\bin\\flutter.bat' test",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }

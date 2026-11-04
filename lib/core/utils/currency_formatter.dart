@@ -34,6 +34,50 @@ class CurrencyFormatter {
     return '${amount.isNegative ? '-' : ''}Rp $grouped$fraction';
   }
 
+  /// Formats an arbitrary amount (int, BigInt, double, or decimal String such as "1500000.00")
+  /// into localized currency presentation with dotted thousand separators and
+  /// comma decimals (if fractional part has non-zero digits).
+  ///
+  /// For IDR, uses the standard Indonesian prefix "Rp " (e.g. "Rp 15.000.000" or "-Rp 50.000").
+  /// For other currencies (e.g. "USD"), prefixes with the currency code (e.g. "USD 1.500").
+  static String formatCurrency(dynamic amount, {String currency = 'IDR'}) {
+    if (amount == null) return currency == 'IDR' ? 'Rp 0' : '$currency 0';
+    final str = amount.toString().trim();
+    if (str.isEmpty) return currency == 'IDR' ? 'Rp 0' : '$currency 0';
+
+    final match = RegExp(r'^(-)?(\d+)(?:\.(\d+))?$').firstMatch(str);
+    if (match == null) {
+      final prefix = currency == 'IDR' ? 'Rp ' : '$currency ';
+      return '$prefix$str';
+    }
+
+    final intDigits = match.group(2)!;
+    final fraction = match.group(3) ?? '';
+
+    final parsedInt = BigInt.tryParse(intDigits) ?? BigInt.zero;
+    final cleanIntDigits = parsedInt.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < cleanIntDigits.length; i++) {
+      if (i > 0 && (cleanIntDigits.length - i) % 3 == 0) {
+        buffer.write('.');
+      }
+      buffer.write(cleanIntDigits[i]);
+    }
+    final formattedInt = buffer.toString();
+
+    final hasNonZeroCents =
+        fraction.isNotEmpty && RegExp(r'[1-9]').hasMatch(fraction);
+    final formattedFraction = hasNonZeroCents
+        ? ',${fraction.length > 2 ? fraction.substring(0, 2) : fraction}'
+        : '';
+
+    final isNegative =
+        match.group(1) != null && (parsedInt > BigInt.zero || hasNonZeroCents);
+    final sign = isNegative ? '-' : '';
+    final prefix = currency == 'IDR' ? 'Rp ' : '$currency ';
+    return '$sign$prefix$formattedInt$formattedFraction';
+  }
+
   /// Formats an integer rupiah value into standard format: "Rp 12.500.000"
   /// If [withSign] is true, prefixes '+' or '-' based on [isPositive] or [isNegative].
   static String formatRupiah(
@@ -89,7 +133,8 @@ class CurrencyFormatter {
   /// Parses digits from formatted user input string into int
   static int parseRupiah(String input, {bool allowNegative = false}) {
     final trimmed = input.trim();
-    final isNegative = allowNegative && (trimmed.startsWith('-') || trimmed.contains('-'));
+    final isNegative =
+        allowNegative && (trimmed.startsWith('-') || trimmed.contains('-'));
     final digitsOnly = trimmed.replaceAll(RegExp(r'[^\d]'), '');
     if (digitsOnly.isEmpty) return 0;
     final val = int.tryParse(digitsOnly) ?? 0;
@@ -99,7 +144,8 @@ class CurrencyFormatter {
   /// Sanitizes any string into a clean numeric string (no currency, no separators)
   static String sanitizeAmount(String input, {bool allowNegative = false}) {
     final trimmed = input.trim();
-    final isNegative = allowNegative && (trimmed.startsWith('-') || trimmed.contains('-'));
+    final isNegative =
+        allowNegative && (trimmed.startsWith('-') || trimmed.contains('-'));
     final digitsOnly = trimmed.replaceAll(RegExp(r'[^\d]'), '');
     if (digitsOnly.isEmpty) return '0';
     return (isNegative ? '-' : '') + digitsOnly;
@@ -126,7 +172,10 @@ class CurrencyTextInputFormatter extends TextInputFormatter {
     }
 
     final trimmed = newValue.text.trim();
-    final isNegative = allowNegative && (trimmed.startsWith('-') || (trimmed.contains('-') && oldValue.text.isNotEmpty));
+    final isNegative =
+        allowNegative &&
+        (trimmed.startsWith('-') ||
+            (trimmed.contains('-') && oldValue.text.isNotEmpty));
     final digits = trimmed.replaceAll(RegExp(r'[^\d]'), '');
 
     if (digits.isEmpty) {

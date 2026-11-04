@@ -181,6 +181,7 @@ void main() {
       expect(find.text('INVITE123456'), findsOneWidget);
       expect(find.text('Rp 0'), findsNothing);
       expect(find.text('Simpan & Kirim Undangan'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
       state.dispose();
       await tester.pump();
     },
