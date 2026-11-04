@@ -79,16 +79,25 @@ void main() {
       final client = PocketClient();
       final repo = GroupPocketRepository(client);
       await repo.create('g', '  Tujuan  ', ' Catatan ');
+      await repo.update('g', 'p', '  Baru  ', ' Catatan Baru ');
+      await repo.delete('g', 'p');
       await repo.assign('g', 'p', 'a', remove: false);
       await repo.assign('g', 'p', 'a', remove: true);
       expect(client.calls.map((call) => (call.$1, call.$2)), [
         ('POST', '/groups/g/pockets'),
+        ('PATCH', '/groups/g/pockets/p'),
+        ('DELETE', '/groups/g/pockets/p'),
         ('POST', '/groups/g/pockets/p/accounts'),
         ('DELETE', '/groups/g/pockets/p/accounts'),
       ]);
       expect(client.calls[0].$3, {'name': 'Tujuan', 'description': 'Catatan'});
-      expect(client.calls[1].$3, {'account_id': 'a'});
-      expect(client.calls[2].$3, {'account_id': 'a'});
+      expect(client.calls[1].$3, {
+        'name': 'Baru',
+        'description': 'Catatan Baru',
+      });
+      expect(client.calls[2].$3, null);
+      expect(client.calls[3].$3, {'account_id': 'a'});
+      expect(client.calls[4].$3, {'account_id': 'a'});
     },
   );
   test(

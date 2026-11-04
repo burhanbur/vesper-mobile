@@ -118,6 +118,19 @@ class GroupPocketState extends ChangeNotifier {
     return _write((repo) => repo.create(group, name, description));
   }
 
+  Future<bool> update(String pocket, String name, String description) {
+    if (name.trim().isEmpty ||
+        name.trim().length > 120 ||
+        description.trim().length > 2000) {
+      return Future.value(false);
+    }
+    return _write((repo) => repo.update(group, pocket, name, description));
+  }
+
+  Future<bool> delete(String pocket) {
+    return _write((repo) => repo.delete(group, pocket));
+  }
+
   Future<bool> assign(String pocket, String account, {required bool remove}) {
     if (!remove && !candidates.any((row) => row.id == account)) {
       return Future.value(false);

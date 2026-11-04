@@ -88,6 +88,26 @@ class GroupPocketRepository {
     );
   }
 
+  Future<void> update(
+    String group,
+    String pocket,
+    String name,
+    String description,
+  ) async {
+    await client.request(
+      'PATCH',
+      '/groups/$group/pockets/$pocket',
+      body: {
+        'name': name.trim(),
+        'description': description.trim().isEmpty ? null : description.trim(),
+      },
+    );
+  }
+
+  Future<void> delete(String group, String pocket) async {
+    await client.request('DELETE', '/groups/$group/pockets/$pocket');
+  }
+
   Future<void> assign(
     String group,
     String pocket,

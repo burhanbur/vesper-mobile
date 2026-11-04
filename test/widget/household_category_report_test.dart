@@ -21,7 +21,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Saldo Kas Bersama'), findsOneWidget);
+      expect(find.text('Kantong tujuan grup'), findsOneWidget);
       final list = find.byType(ListView);
       await tester.scrollUntilVisible(
         find.text('2026-10'),
