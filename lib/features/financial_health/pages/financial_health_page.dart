@@ -269,94 +269,145 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     ),
   );
 
-  Widget metric(
-    String id,
-    String title,
-    String value,
-    String subtitle,
-    IconData icon,
-    String formula,
-    List<String> details,
-  ) => Material(
-    color: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: const BorderSide(color: AppColors.border),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      key: ValueKey('health_$id'),
-      onTap: () => showDetails(title, [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(height: 16),
-        detailText(formula),
-        for (final detail in details) detailText(detail),
-        detailText(
-          'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
-        ),
-      ]),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 19, color: AppColors.accentDark),
-                const Spacer(),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: AppColors.textMuted,
+  Widget _buildPillarCard({
+    required Key key,
+    required String title,
+    required String valueText,
+    required double progressValue,
+    required Color barColor,
+    required VoidCallback onTap,
+    String? subtitle,
+  }) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: key,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    valueText,
+                    style: TextStyle(
+                      fontSize: valueText == 'Belum tersedia' ? 12 : 14,
+                      fontWeight: FontWeight.w800,
+                      color: valueText == 'Belum tersedia'
+                          ? AppColors.textMuted
+                          : barColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progressValue.clamp(0.0, 1.0),
+                  minHeight: 7,
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 38),
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: value == 'Belum tersedia' ? 18 : 25,
-                fontWeight: FontWeight.w700,
-                color: value == 'Belum tersedia'
-                    ? AppColors.textMuted
-                    : AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: AppColors.textMuted,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
+
+  int _calculateHealthScore(HealthAssessment r) {
+    var score = 0;
+    // 1. Rasio Tabungan (max 25)
+    if (r.savingPercent != null) {
+      final pct = r.savingPercent!.toDouble() / 100.0;
+      if (pct >= 20.0) {
+        score += 25;
+      } else if (pct > 0) {
+        score += (pct / 20.0 * 25).round();
+      }
+    } else {
+      score += 20;
+    }
+
+    // 2. Disiplin Anggaran & Likuiditas (max 25)
+    if (r.liquidityMonths != null) {
+      final lm = r.liquidityMonths!.toDouble() / 100.0;
+      if (lm >= 3.0) {
+        score += 25;
+      } else if (lm > 0) {
+        score += (lm / 3.0 * 25).round();
+      }
+    } else {
+      score += 25;
+    }
+
+    // 3. Dana Darurat (max 25)
+    if (r.emergencyMonths != null) {
+      final em = r.emergencyMonths!.toDouble() / 100.0;
+      if (em >= 6.0) {
+        score += 25;
+      } else if (em > 0) {
+        score += (em / 6.0 * 25).round();
+      }
+    } else {
+      score += 25;
+    }
+
+    // 4. Kesehatan Utang (max 25)
+    if (r.debtPercent != null) {
+      final dp = r.debtPercent!.toDouble() / 100.0;
+      if (dp <= 0.0) {
+        score += 25;
+      } else if (dp <= 30.0) {
+        score += (25 - (dp / 30.0 * 10)).round();
+      } else if (dp <= 50.0) {
+        score += (15 - ((dp - 30.0) / 20.0 * 15)).round();
+      }
+    } else {
+      score += 25;
+    }
+
+    return score.clamp(0, 100);
+  }
+
+  String _getStatusLabel(int score) {
+    if (score >= 80) return 'SANGAT BAGUS';
+    if (score >= 65) return 'BAGUS';
+    if (score >= 50) return 'CUKUP';
+    return 'PERLU PERHATIAN';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -419,47 +470,395 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
           if (error != null) detailText(error),
           if (result case final r?) ...[
+            // Period & Ubah Asumsi Header (placed at top)
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    '${r.months} bulan penuh',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${r.months} bulan penuh',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${DateFormatter.formatShort(state.timeZone.at(r.start))} – ${DateFormatter.formatShort(state.timeZone.at(r.end.subtract(const Duration(microseconds: 1))))}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 TextButton(
                   onPressed: configure,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                  ),
                   child: const Text('Ubah asumsi'),
                 ),
               ],
             ),
-            Text(
-              '${DateFormatter.formatShort(state.timeZone.at(r.start))} – ${DateFormatter.formatShort(state.timeZone.at(r.end.subtract(const Duration(microseconds: 1))))}',
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
             const SizedBox(height: 6),
-            const Text(
-              'Berdasarkan catatan pribadi. Ketuk angka untuk melihat perhitungannya.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: AppColors.textMuted,
+
+            // 1. Circular Score Gauge at Top matching Screenshot 2
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: SizedBox(
+                  width: 160,
+                  height: 160,
+                  child: CustomPaint(
+                    painter: _ScoreGaugePainter(
+                      progress: (_calculateHealthScore(r) / 100.0).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                    ),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              state.isBalanceHidden
+                                  ? '•••'
+                                  : '${_calculateHealthScore(r)}',
+                              style: const TextStyle(
+                                fontSize: 44,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -1.5,
+                                color: Color(0xFF65A30D),
+                                height: 1.0,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              '/ 100',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
+
+            // 2. Heart Icon + Title & Subtitle + Status Badge
+            Center(
+              child: Column(
+                children: [
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    children: [
+                      const Icon(
+                        Icons.monitor_heart_rounded,
+                        color: Color(0xFFEF4444),
+                        size: 22,
+                      ),
+                      Text(
+                        'Skor Kesehatan Finansial',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Skor hitungan berdasarkan tabungan, disiplin budget, dana darurat, dan kesehatan utang.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Text(
+                      _getStatusLabel(_calculateHealthScore(r)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF16A34A),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 3. The 4 Category Progress Bars
+            _buildPillarCard(
+              key: const ValueKey('health_saving'),
+              title: 'Rasio Tabungan',
+              valueText: ratio(r.savingPercent, '%'),
+              progressValue: (r.savingPercent?.toDouble() ?? 0) / 10000.0,
+              barColor: const Color(0xFF84CC16),
+              subtitle: 'Pemasukan yang tersisa',
+              onTap: () => showDetails('Rasio tabungan', [
+                Text(
+                  ratio(r.savingPercent, '%'),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                detailText('(Pemasukan − pengeluaran) ÷ pemasukan × 100%.'),
+                detailText(
+                  'Pemasukan: ${money(r.income)}\nPengeluaran: ${money(r.expenses)}',
+                ),
+                detailText(
+                  'Transfer, pokok utang dan jual/beli investasi dikecualikan. Bunga dan biaya termasuk pengeluaran. Rasio ini bukan pertumbuhan aset.',
+                ),
+                detailText(
+                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                ),
+              ]),
+            ),
+            const SizedBox(height: 10),
+
+            _buildPillarCard(
+              key: const ValueKey('health_liquidity'),
+              title: 'Disiplin Anggaran',
+              valueText: ratio(r.liquidityMonths, ' bulan'),
+              progressValue: (r.liquidityMonths?.toDouble() ?? 0) / 300.0,
+              barColor: const Color(0xFF8B5CF6),
+              subtitle: 'Likuiditas kas bebas untuk kebutuhan rutin',
+              onTap: () => showDetails('Likuiditas kas bebas', [
+                Text(
+                  ratio(r.liquidityMonths, ' bulan'),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                detailText(
+                  'Kas bebas ÷ rata-rata bulanan (pengeluaran + pokok utang dibayar).',
+                ),
+                detailText('Kas bebas saat ini: ${money(r.freeCash)}'),
+                detailText(
+                  'Saldo positif dikurangi alokasi tujuan sekali per akun. Rata-rata mencakup bulan tanpa catatan. Ini bukan prediksi saldo bank.',
+                ),
+                detailText(
+                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                ),
+              ]),
+            ),
+            const SizedBox(height: 10),
+
+            _buildPillarCard(
+              key: const ValueKey('health_emergency'),
+              title: 'Dana Darurat',
+              valueText: ratio(r.emergencyMonths, ' bulan'),
+              progressValue: r.emergencyMonths != null
+                  ? (r.emergencyMonths!.toDouble() / 600.0)
+                  : 0.0,
+              barColor: const Color(0xFF3B82F6),
+              subtitle: r.emergencyMonths != null
+                  ? '${ratio(r.emergencyMonths, ' bulan')} per hari ini'
+                  : 'Cakupan pengeluaran wajib',
+              onTap: () => showDetails('Cakupan dana darurat', [
+                Text(
+                  ratio(r.emergencyMonths, ' bulan'),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                detailText('Dana likuid ÷ baseline pengeluaran wajib bulanan.'),
+                detailText(
+                  'Dana likuid: ${money(r.emergency?.liquid)}\nKebutuhan bulanan: ${money(r.emergency?.baseline)}',
+                ),
+                detailText(
+                  'Mengikuti akun, kategori dan tujuan terpilih di Dana Darurat, terpisah dari asumsi arus kas halaman ini.',
+                ),
+                if (r.emergency case final e?)
+                  detailText(
+                    repo.emergency.plan?['baseline_mode'] == 'MANUAL'
+                        ? 'Kebutuhan bulanan diisi manual.'
+                        : 'Periode baseline: ${DateFormatter.formatShort(state.timeZone.at(e.historyStart))} – ${DateFormatter.formatShort(state.timeZone.at(e.historyEnd.subtract(const Duration(microseconds: 1))))}.',
+                  ),
+                detailText(
+                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                ),
+              ]),
+            ),
+            const SizedBox(height: 10),
+
+            _buildPillarCard(
+              key: const ValueKey('health_debt'),
+              title: 'Kesehatan Utang',
+              valueText: ratio(r.debtPercent, '%'),
+              progressValue: r.debtPercent == null
+                  ? 1.0
+                  : (1.0 - (r.debtPercent!.toDouble() / 5000.0)).clamp(
+                      0.0,
+                      1.0,
+                    ),
+              barColor: const Color(0xFFF43F5E),
+              subtitle: 'Pemasukan untuk membayar utang',
+              onTap: () => showDetails('Beban pembayaran utang', [
+                Text(
+                  ratio(r.debtPercent, '%'),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                detailText(
+                  '(Pokok + bunga + biaya pelunasan aktual) ÷ pemasukan × 100%.',
+                ),
+                detailText(
+                  'Pembayaran aktual: ${money(r.debtService)}\nPokok dibayar: ${money(r.debtPrincipal)}',
+                ),
+                detailText(
+                  'Hanya utang yang dibayar dari akun terpilih. Piutang dan pembayaran yang dibalik dikecualikan. Nilai dapat melebihi 100%.',
+                ),
+                detailText(
+                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                ),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            // 4. Bottom Metric Cards (Dark & Light matching Screenshot 2)
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF18181B),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'YANG DITABUNG',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white70,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            r.income != null && r.expenses != null
+                                ? (state.isBalanceHidden
+                                      ? '•••••'
+                                      : money(r.income! - r.expenses!))
+                                : 'Belum ada',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF8CE600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F4F5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'RASIO MENABUNG',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            state.isBalanceHidden
+                                ? '•••••'
+                                : r.savingPercent != null
+                                ? '${(r.savingPercent!.toDouble() / 100.0).toStringAsFixed(1).replaceAll('.', ',')}%'
+                                : '0%',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
             if (r.warnings.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.only(top: 10),
                 child: Material(
                   color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(12),
@@ -499,94 +898,8 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                   ),
                 ),
               ),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cards = [
-                  metric(
-                    'saving',
-                    'Rasio tabungan',
-                    ratio(r.savingPercent, '%'),
-                    'Pemasukan yang tersisa.',
-                    Icons.savings_outlined,
-                    '(Pemasukan − pengeluaran) ÷ pemasukan × 100%.',
-                    [
-                      'Pemasukan: ${money(r.income)}\nPengeluaran: ${money(r.expenses)}',
-                      'Transfer, pokok utang dan jual/beli investasi dikecualikan. Bunga dan biaya termasuk pengeluaran. Rasio ini bukan pertumbuhan aset.',
-                    ],
-                  ),
-                  metric(
-                    'debt',
-                    'Beban pembayaran utang',
-                    ratio(r.debtPercent, '%'),
-                    'Pemasukan untuk membayar utang.',
-                    Icons.credit_card_outlined,
-                    '(Pokok + bunga + biaya pelunasan aktual) ÷ pemasukan × 100%.',
-                    [
-                      'Pembayaran aktual: ${money(r.debtService)}\nPokok dibayar: ${money(r.debtPrincipal)}',
-                      'Hanya utang yang dibayar dari akun terpilih. Piutang dan pembayaran yang dibalik dikecualikan. Nilai dapat melebihi 100%.',
-                    ],
-                  ),
-                  metric(
-                    'liquidity',
-                    'Likuiditas kas bebas',
-                    ratio(r.liquidityMonths, ' bulan'),
-                    'Cakupan kebutuhan rutin.',
-                    Icons.account_balance_wallet_outlined,
-                    'Kas bebas ÷ rata-rata bulanan (pengeluaran + pokok utang dibayar).',
-                    [
-                      'Kas bebas saat ini: ${money(r.freeCash)}',
-                      'Saldo positif dikurangi alokasi tujuan sekali per akun. Rata-rata mencakup bulan tanpa catatan. Ini bukan prediksi saldo bank.',
-                    ],
-                  ),
-                  metric(
-                    'emergency',
-                    'Cakupan dana darurat',
-                    ratio(r.emergencyMonths, ' bulan'),
-                    'Cakupan pengeluaran wajib.',
-                    Icons.shield_outlined,
-                    'Dana likuid ÷ baseline pengeluaran wajib bulanan.',
-                    [
-                      'Dana likuid: ${money(r.emergency?.liquid)}\nKebutuhan bulanan: ${money(r.emergency?.baseline)}',
-                      'Mengikuti akun, kategori dan tujuan terpilih di Dana Darurat, terpisah dari asumsi arus kas halaman ini.',
-                      if (r.emergency case final e?)
-                        repo.emergency.plan?['baseline_mode'] == 'MANUAL'
-                            ? 'Kebutuhan bulanan diisi manual.'
-                            : 'Periode baseline: ${DateFormatter.formatShort(state.timeZone.at(e.historyStart))} – ${DateFormatter.formatShort(state.timeZone.at(e.historyEnd.subtract(const Duration(microseconds: 1))))}.',
-                    ],
-                  ),
-                ];
-                if (constraints.maxWidth < 350 ||
-                    MediaQuery.textScalerOf(context).scale(14) > 19) {
-                  return Column(
-                    children: [
-                      for (final card in cards)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: SizedBox(width: double.infinity, child: card),
-                        ),
-                    ],
-                  );
-                }
-                return Column(
-                  children: [
-                    for (var i = 0; i < cards.length; i += 2)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(child: cards[i]),
-                              const SizedBox(width: 12),
-                              Expanded(child: cards[i + 1]),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
+            const SizedBox(height: 8),
+
             ListTile(
               key: const ValueKey('health_basis'),
               contentPadding: EdgeInsets.zero,
@@ -650,4 +963,50 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
       ),
     );
   }
+}
+
+class _ScoreGaugePainter extends CustomPainter {
+  final double progress;
+
+  _ScoreGaugePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 24) / 2;
+    const strokeWidth = 14.0;
+
+    // Background circle track
+    final bgPaint = Paint()
+      ..color = const Color(0xFFE9F8DF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Foreground progress arc
+    if (progress > 0) {
+      final fgPaint = Paint()
+        ..color = const Color(0xFF84CC16)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      // Start at top (-90 degrees)
+      const startAngle = -3.141592653589793 / 2;
+      final sweepAngle = 2 * 3.141592653589793 * progress;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        fgPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScoreGaugePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

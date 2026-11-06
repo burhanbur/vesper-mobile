@@ -18,6 +18,7 @@ import '../../transactions/widgets/transaction_item_tile.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/quick_actions_bar.dart';
+import '../widgets/main_menu_card.dart';
 import '../widgets/dashboard_insights_panel.dart';
 import 'net_worth_assessment_page.dart';
 
@@ -222,6 +223,14 @@ class DashboardPage extends StatelessWidget {
                       ],
                     ),
                   ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // Highlighted Main Menu Card matching Screenshot 1
+                MainMenuCard(
+                  onNavigateToInvestments: onNavigateToInvestments,
+                  onNavigateToReports: onNavigateToReports,
                 ),
 
                 const SizedBox(height: 10),
