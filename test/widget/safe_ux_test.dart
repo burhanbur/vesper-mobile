@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
-import 'package:vesper_mobile/features/dashboard/pages/dashboard_page.dart';
 import 'package:vesper_mobile/core/network/api_client.dart';
 import 'package:vesper_mobile/features/household/pages/household_page.dart';
 import 'package:vesper_mobile/features/reports/pages/reports_page.dart';
@@ -208,11 +207,16 @@ void main() {
       await tester.pumpWidget(
         host(
           state,
-          DashboardPage(
-            onNavigateToTransactions: () {},
-            onNavigateToInvestments: () {},
-            onNavigateToReports: () {},
-            onNavigateToHousehold: () {},
+          Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => AddTransactionModal.show(
+                  context,
+                  initialType: TransactionType.transfer,
+                ),
+                child: const Text('Transfer'),
+              ),
+            ),
           ),
         ),
       );

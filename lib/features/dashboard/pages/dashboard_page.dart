@@ -11,13 +11,9 @@ import '../../accounts/pages/account_detail_page.dart';
 import '../../accounts/widgets/account_card.dart';
 import '../../bills/pages/bills_page.dart';
 import '../../reports/pages/budget_page.dart';
-import '../../investments/widgets/investment_trade_modal.dart';
-import '../../transactions/models/transaction.dart';
-import '../../transactions/widgets/add_transaction_modal.dart';
 import '../../transactions/widgets/transaction_item_tile.dart';
 import '../widgets/net_worth_card.dart';
 import '../widgets/offline_banner.dart';
-import '../widgets/quick_actions_bar.dart';
 import '../widgets/main_menu_card.dart';
 import '../widgets/dashboard_insights_panel.dart';
 import 'net_worth_assessment_page.dart';
@@ -231,26 +227,6 @@ class DashboardPage extends StatelessWidget {
                 MainMenuCard(
                   onNavigateToInvestments: onNavigateToInvestments,
                   onNavigateToReports: onNavigateToReports,
-                ),
-
-                const SizedBox(height: 10),
-
-                // 4 Quick Actions (Catat, Transfer, Aset, Laporan)
-                QuickActionsBar(
-                  onAddTransaction: () {
-                    AddTransactionModal.show(
-                      context,
-                      initialType: TransactionType.expense,
-                    );
-                  },
-                  onTransfer: () {
-                    AddTransactionModal.show(
-                      context,
-                      initialType: TransactionType.transfer,
-                    );
-                  },
-                  onInvestments: () => InvestmentTradeModal.show(context),
-                  onReports: onNavigateToReports,
                 ),
 
                 DashboardInsightsPanel(
