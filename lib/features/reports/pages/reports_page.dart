@@ -486,9 +486,10 @@ class _ReportsPageState extends State<ReportsPage> {
                       ? 'Rincian Sumber Pemasukan'
                       : 'Rincian Kategori Pengeluaran',
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
                 ),
               ),

@@ -85,37 +85,25 @@ class MainMenuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: Menu Utama & Action
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header: Menu Utama & Action (outside card)
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 16,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Expanded(
-                  child: Text(
-                    'Menu Utama',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                      letterSpacing: -0.3,
-                    ),
+                const Text(
+                  'Menu Utama',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 InkWell(
@@ -138,15 +126,15 @@ class MainMenuCard extends StatelessWidget {
                         Icon(
                           Icons.settings_outlined,
                           size: 13,
-                          color: AppColors.textMuted,
+                          color: AppColors.accentDark,
                         ),
                         SizedBox(width: 4),
                         Text(
                           'Ubah',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted,
+                            color: AppColors.accentDark,
                           ),
                         ),
                       ],
@@ -155,112 +143,141 @@ class MainMenuCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 10),
 
-            // 4x2 Grid of Main Menu Items
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Budget',
-                    icon: Icons.pie_chart_outline_rounded,
-                    iconColor: const Color(0xFF7C3AED),
-                    bgColor: const Color(0xFFF5F3FF),
-                    onTap: () =>
-                        ShellManagementScope.open(context, const BudgetPage()),
-                  ),
-                ),
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Goals',
-                    icon: Icons.track_changes_rounded,
-                    iconColor: const Color(0xFF0284C7),
-                    bgColor: const Color(0xFFF0F9FF),
-                    onTap: () =>
-                        ShellManagementScope.open(context, const GoalsPage()),
-                  ),
-                ),
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Aset',
-                    icon: Icons.account_balance_rounded,
-                    iconColor: const Color(0xFFD97706),
-                    bgColor: const Color(0xFFFFFBEB),
-                    onTap: () => ShellManagementScope.open(
-                      context,
-                      const AccountsPage(),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Investasi',
-                    icon: Icons.trending_up_rounded,
-                    iconColor: const Color(0xFF16A34A),
-                    bgColor: const Color(0xFFF0FDF4),
-                    onTap: onNavigateToInvestments,
-                  ),
+          // Menu Grid Card Container
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.border.withValues(alpha: 0.8),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.025),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Utang',
-                    icon: Icons.payments_outlined,
-                    iconColor: const Color(0xFFE11D48),
-                    bgColor: const Color(0xFFFFF1F2),
-                    onTap: () => ShellManagementScope.open(
-                      context,
-                      const ObligationsPage(),
+                // 4x2 Grid of Main Menu Items
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Budget',
+                        icon: Icons.pie_chart_outline_rounded,
+                        iconColor: const Color(0xFF7C3AED),
+                        bgColor: const Color(0xFFF5F3FF),
+                        onTap: () => ShellManagementScope.open(
+                          context,
+                          const BudgetPage(),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Finansial',
-                    icon: Icons.monitor_heart_outlined,
-                    iconColor: const Color(0xFF15803D),
-                    bgColor: const Color(0xFFDCFCE7),
-                    onTap: () => ShellManagementScope.open(
-                      context,
-                      const FinancialHealthPage(),
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Goals',
+                        icon: Icons.track_changes_rounded,
+                        iconColor: const Color(0xFF0284C7),
+                        bgColor: const Color(0xFFF0F9FF),
+                        onTap: () => ShellManagementScope.open(
+                          context,
+                          const GoalsPage(),
+                        ),
+                      ),
                     ),
-                  ),
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Aset',
+                        icon: Icons.account_balance_rounded,
+                        iconColor: const Color(0xFFD97706),
+                        bgColor: const Color(0xFFFFFBEB),
+                        onTap: () => ShellManagementScope.open(
+                          context,
+                          const AccountsPage(),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Investasi',
+                        icon: Icons.trending_up_rounded,
+                        iconColor: const Color(0xFF16A34A),
+                        bgColor: const Color(0xFFF0FDF4),
+                        onTap: onNavigateToInvestments,
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Laporan',
-                    icon: Icons.bar_chart_rounded,
-                    iconColor: const Color(0xFF475569),
-                    bgColor: const Color(0xFFF1F5F9),
-                    onTap: onNavigateToReports,
-                  ),
-                ),
-                Expanded(
-                  child: _buildMenuItem(
-                    context: context,
-                    label: 'Tagihan',
-                    icon: Icons.receipt_long_outlined,
-                    iconColor: const Color(0xFF6D28D9),
-                    bgColor: const Color(0xFFEDE9FE),
-                    onTap: () =>
-                        ShellManagementScope.open(context, const BillsPage()),
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Utang',
+                        icon: Icons.payments_outlined,
+                        iconColor: const Color(0xFFE11D48),
+                        bgColor: const Color(0xFFFFF1F2),
+                        onTap: () => ShellManagementScope.open(
+                          context,
+                          const ObligationsPage(),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Finansial',
+                        icon: Icons.monitor_heart_outlined,
+                        iconColor: const Color(0xFF15803D),
+                        bgColor: const Color(0xFFDCFCE7),
+                        onTap: () => ShellManagementScope.open(
+                          context,
+                          const FinancialHealthPage(),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Laporan',
+                        icon: Icons.bar_chart_rounded,
+                        iconColor: const Color(0xFF475569),
+                        bgColor: const Color(0xFFF1F5F9),
+                        onTap: onNavigateToReports,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildMenuItem(
+                        context: context,
+                        label: 'Tagihan',
+                        icon: Icons.receipt_long_outlined,
+                        iconColor: const Color(0xFF6D28D9),
+                        bgColor: const Color(0xFFEDE9FE),
+                        onTap: () => ShellManagementScope.open(
+                          context,
+                          const BillsPage(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -56,8 +56,8 @@ class DashboardInsightsPanel extends StatelessWidget {
           Material(
             color: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.border),
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: AppColors.border.withValues(alpha: 0.8)),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
