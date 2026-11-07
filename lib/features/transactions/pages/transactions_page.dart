@@ -112,6 +112,12 @@ class _TransactionsPageState extends State<TransactionsPage> {
       TransactionType.expense,
     );
     final isHidden = state.isBalanceHidden;
+    final periodNet = periodIncome - periodExpense;
+    final netColor = periodNet < 0
+        ? AppColors.expense
+        : periodNet > 0
+        ? AppColors.income
+        : AppColors.textSecondary;
 
     // Each header and transaction is a separate lazy row, not a nested list.
     final rows = <Object>[];
@@ -342,6 +348,57 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                   bgLight: AppColors.expenseLight,
                                   isIncome: false,
                                   isHidden: isHidden,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          key: const ValueKey('transaction_period_net'),
+                          width: double.infinity,
+                          margin: const EdgeInsets.fromLTRB(6, 10, 6, 2),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isHidden || periodNet == 0
+                                ? AppColors.surfaceVariant
+                                : periodNet < 0
+                                ? AppColors.expenseLight
+                                : AppColors.incomeLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 6,
+                            children: [
+                              Text(
+                                isHidden
+                                    ? 'Surplus / Defisit'
+                                    : periodNet < 0
+                                    ? 'Defisit bulan ini'
+                                    : periodNet > 0
+                                    ? 'Surplus bulan ini'
+                                    : 'Seimbang bulan ini',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                isHidden
+                                    ? '••••••'
+                                    : CurrencyFormatter.formatRupiah(
+                                        periodNet,
+                                        withSign: true,
+                                      ),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: isHidden
+                                      ? AppColors.textSecondary
+                                      : netColor,
                                 ),
                               ),
                             ],

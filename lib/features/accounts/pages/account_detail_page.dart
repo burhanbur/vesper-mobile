@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../widgets/credit_card_info.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
@@ -179,6 +180,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
     final canRegister =
         source != null &&
         legacyLoan &&
+        !account.isCreditCard &&
         ObligationsRepository(source).cashAccounts.any(
           (row) =>
               row['id'] == widget.accountId &&
@@ -226,6 +228,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                     mapped,
                     canRegister,
                   ),
+                  if (account.isCreditCard) CreditCardInfo(account: account),
                   _buildIncludeTotalCard(
                     context,
                     state,

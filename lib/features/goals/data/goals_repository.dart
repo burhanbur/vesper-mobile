@@ -105,6 +105,7 @@ class GoalsRepository {
         return a['user_id'] == source.userId &&
             a['deleted_at'] == null &&
             type?['deleted_at'] == null &&
+            a['is_credit_card'] != true &&
             type?['category'] == 'CASH' &&
             !source.isMappedObligationAccount('${a['id']}') &&
             !source

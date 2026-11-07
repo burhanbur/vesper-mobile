@@ -215,7 +215,7 @@ void main() {
       await tester.ensureVisible(find.text('Kelola Akun & Kantong (Pockets)'));
       await tester.tap(find.text('Kelola Akun & Kantong (Pockets)'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Main account'));
+      await tester.tap(find.text('other'));
       await tester.pumpAndSettle();
       expect(find.byType(AccountDetailPage), findsOneWidget);
       expect(find.text('Lainnya').hitTestable(), findsOneWidget);
@@ -234,8 +234,10 @@ void main() {
       expect(find.text('Lainnya').hitTestable(), findsOneWidget);
       expect(find.byType(AccountsPage), findsOneWidget);
       expect(find.text('pocket'), findsNothing);
-      await tester.tap(find.text('Lihat Kantong'));
+      // Tapping parent account tile automatically toggles pockets instead of opening detail
+      await tester.tap(find.text('Main account'));
       await tester.pumpAndSettle();
+      expect(find.text('pocket'), findsOneWidget);
       await tester.tap(find.text('pocket'));
       await tester.pumpAndSettle();
       expect(find.byType(AccountDetailPage), findsOneWidget);

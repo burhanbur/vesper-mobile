@@ -706,6 +706,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   AccountType _accountType(Map<String, dynamic> row) {
+    if (row['is_credit_card'] == true) return AccountType.creditCard;
     final rawType =
         (row['type'] as String? ?? row['account_type'] as String? ?? '')
             .toLowerCase();
@@ -779,6 +780,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           name: r['name'],
           type: _accountType(r),
           balance: rupiah(r['balance']),
+          exactBalance: '${r['balance']}',
+          isCreditCard: r['is_credit_card'] == true,
+          creditLimit: r['credit_limit'] as String?,
           accountNumber: '',
           institution:
               accountTypes
@@ -841,7 +845,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String? householdId,
     String? parentAccountId,
     String? accountTypeId,
+    bool isCreditCard = false,
+    String? creditLimit,
   }) {
+    if (isCreditCard && !_repo.supportsCreditCardMetadata) {
+      throw const ApiFailure('Pembuatan kartu belum tersedia: kompatibilitas server belum terbukti.');
+    }
     if (initialBalance != 0 || isShared || householdId != null) {
       throw const ApiFailure(
         'Saldo awal harus dicatat sebagai transaksi; sharing dilakukan setelah akun tersinkronisasi.',
@@ -855,6 +864,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       'CREATE',
       {
         'name': name.trim(),
+        if (isCreditCard) 'is_credit_card': true,
+        if (isCreditCard) 'credit_limit': creditLimit,
         'account_type_id': accountTypeId,
         'parent_account_id': parentAccountId,
         'currency': 'IDR',
@@ -869,11 +880,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _changed();
   }
 
+  Future<void> updateCreditCardLimit(String accountId, String? limit) async {
+    if (!_repo.isCreditCard(accountId)) {
+      throw const ApiFailure('Akun bukan kartu kredit eksplisit.');
+    }
+    _repo.mutate('accounts', 'UPDATE', {'credit_limit': limit}, id: accountId);
+    _changed();
+  }
+
   Future<void> updateAccountSharing({
     required String accountId,
     required bool isShared,
     String? householdId,
   }) async {
+    if (isShared && getAccountById(accountId)?.isCreditCard == true) {
+      throw const ApiFailure('Kartu kredit tidak dapat dibagikan ke grup.');
+    }
     if (householdId == null) {
       throw const ApiFailure('Pilih grup terlebih dahulu.');
     }
@@ -1612,6 +1634,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final repo = _repo;
     final group = repo.row('groups', groupId);
     final account = repo.row('accounts', accountId);
+    if (!remove && account?['is_credit_card'] == true) {
+      throw const ApiFailure('Kartu kredit tidak dapat dibagikan ke grup.');
+    }
     if (groupId != activeHouseholdId ||
         group == null ||
         !['OWNER', 'MEMBER'].contains(group['role']) ||
@@ -2164,7 +2189,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (repo == null || !repo.hasObligationModel) {
       return accounts
           .where((a) => a.isIncludeTotal && a.type == AccountType.creditCard)
-          .fold(0, (sum, a) => sum + a.balance.abs());
+          .fold(0, (sum, a) => sum + (a.balance < 0 ? -a.balance : 0));
     }
     var minor = BigInt.zero;
     for (final account in repo.rows('accounts')) {
@@ -2201,7 +2226,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int get totalNetWorth {
     final repo = repository;
     if (repo == null || !repo.hasObligationModel) {
-      return totalLiquidCash + totalInvestmentValue - totalDebt;
+      final credit = accounts.where((a) => a.isCreditCard && a.isIncludeTotal && a.balance > 0)
+          .fold<int>(0, (sum, a) => sum + a.balance);
+      return totalLiquidCash + totalInvestmentValue + credit - totalDebt;
     }
     var minor = BigInt.zero;
     for (final account in repo.rows('accounts')) {

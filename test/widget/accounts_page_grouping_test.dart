@@ -187,4 +187,22 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'Tapping parent account tile automatically toggles pockets instead of opening detail',
+    (tester) async {
+      await _pumpPage(tester);
+      expect(find.text('Nested pocket'), findsNothing);
+
+      // Tapping parent card title expands pockets
+      await tester.tap(find.text('Bank parent'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nested pocket'), findsOneWidget);
+
+      // Tapping parent card again collapses pockets
+      await tester.tap(find.text('Bank parent'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nested pocket'), findsNothing);
+    },
+  );
 }

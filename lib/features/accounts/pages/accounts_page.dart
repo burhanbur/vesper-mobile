@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../models/credit_card_summary.dart';
+
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/widgets/shell_management_scope.dart';
@@ -32,6 +34,16 @@ class _AccountsPageState extends State<AccountsPage> {
   String _assetPerspective = 'all';
   final Set<String> _expandedParents = <String>{};
 
+  void _toggleParentExpanded(String accountId) {
+    setState(() {
+      if (_expandedParents.contains(accountId)) {
+        _expandedParents.remove(accountId);
+      } else {
+        _expandedParents.add(accountId);
+      }
+    });
+  }
+
   static IconData _getAccountIcon(AccountType type) {
     return AccountTypeDefinition.getDefinition(type).icon;
   }
@@ -44,6 +56,8 @@ class _AccountsPageState extends State<AccountsPage> {
     final nameController = TextEditingController();
     final numberController = TextEditingController();
     final balanceController = TextEditingController();
+    final limitController = TextEditingController();
+    bool isCreditCard = false;
     AccountType selectedType = AccountType.bank;
     bool isShared = false;
     String? selectedParentId;
@@ -57,7 +71,12 @@ class _AccountsPageState extends State<AccountsPage> {
         ? state.activeHouseholdId
         : (state.households.isNotEmpty ? state.households.first.id : 'hh-1');
     final parentCandidates = state.accounts
-        .where((a) => a.parentAccountId == null && a.type == AccountType.bank)
+        .where(
+          (a) =>
+              !a.isCreditCard &&
+              a.parentAccountId == null &&
+              a.type == AccountType.bank,
+        )
         .toList();
 
     showModalBottomSheet<void>(
@@ -154,6 +173,35 @@ class _AccountsPageState extends State<AccountsPage> {
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Kartu Kredit (pribadi, saldo awal nol)'),
+                  subtitle: Text(
+                    state.repository?.supportsCreditCardMetadata == true
+                        ? 'Gunakan tipe CASH. Tidak dapat dibagikan atau dijadikan kantong.'
+                        : 'Pembuatan belum tersedia: kompatibilitas server belum terbukti.',
+                  ),
+                  value: isCreditCard,
+                  onChanged:
+                      state.repository?.supportsCreditCardMetadata == true
+                      ? (value) => setModalState(() {
+                          isCreditCard = value;
+                          if (value) {
+                            isShared = false;
+                            selectedParentId = null;
+                            balanceController.clear();
+                          }
+                        })
+                      : null,
+                ),
+                if (isCreditCard)
+                  TextField(
+                    controller: limitController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Limit Rupiah utuh tanpa pemisah',
+                      helperText: 'Opsional; kosong berarti tidak dilacak. Jangan masukkan PAN/CVV/PIN.',
+                    ),
+                  ),
                 const Text(
                   'Nama Akun',
                   style: TextStyle(
@@ -184,6 +232,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: balanceController,
+                  enabled: !isCreditCard,
                   keyboardType: TextInputType.number,
                   inputFormatters: const [CurrencyTextInputFormatter()],
                   decoration: const InputDecoration(
@@ -204,6 +253,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: numberController,
+                  enabled: !isCreditCard,
                   decoration: const InputDecoration(
                     hintText: 'Contoh: 1234 5678 90',
                     prefixIcon: Icon(Icons.numbers_rounded),
@@ -211,7 +261,8 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
                 const SizedBox(height: 16),
                 // Nested Pocket Option
-                if (selectedType == AccountType.bank &&
+                if (!isCreditCard &&
+                    selectedType == AccountType.bank &&
                     parentCandidates.isNotEmpty) ...[
                   const Text(
                     'Jadikan Kantong (Child Pocket)?',
@@ -268,7 +319,9 @@ class _AccountsPageState extends State<AccountsPage> {
                     'Pilih grup yang dapat mengakses dan melihat transaksi akun ini.',
                     style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                   ),
-                  onChanged: (val) => setModalState(() => isShared = val),
+                  onChanged: isCreditCard
+                      ? null
+                      : (val) => setModalState(() => isShared = val),
                 ),
                 if (isShared) ...[
                   const SizedBox(height: 8),
@@ -350,6 +403,10 @@ class _AccountsPageState extends State<AccountsPage> {
                       state.addAccount(
                         name: name,
                         accountTypeId: selectedAccountTypeId,
+                        isCreditCard: isCreditCard,
+                        creditLimit: isCreditCard
+                            ? creditLimitInput(limitController.text)
+                            : null,
                         type: selectedType,
                         initialBalance: balance,
                         accountNumber: numberController.text.trim().isEmpty
@@ -1653,7 +1710,9 @@ class _AccountsPageState extends State<AccountsPage> {
                           children: [
                             // Parent Account Tile
                             InkWell(
-                              onTap: () => _openAccountDetail(context, account),
+                              onTap: hasChildren
+                                  ? () => _toggleParentExpanded(account.id)
+                                  : () => _openAccountDetail(context, account),
                               onLongPress: () =>
                                   _showAccountDetailModal(context, account),
                               borderRadius: BorderRadius.circular(20),
@@ -1732,17 +1791,8 @@ class _AccountsPageState extends State<AccountsPage> {
                                         const SizedBox(height: 2),
                                         if (hasChildren)
                                           TextButton(
-                                            onPressed: () => setState(() {
-                                              if (isExpanded) {
-                                                _expandedParents.remove(
-                                                  account.id,
-                                                );
-                                              } else {
-                                                _expandedParents.add(
-                                                  account.id,
-                                                );
-                                              }
-                                            }),
+                                            onPressed: () =>
+                                                _toggleParentExpanded(account.id),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [

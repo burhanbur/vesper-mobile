@@ -85,6 +85,7 @@ class BillsRepository {
         a['currency'] == 'IDR' &&
         a['deleted_at'] == null &&
         type?['user_id'] == source.userId &&
+        a['is_credit_card'] != true &&
         type?['category'] == 'CASH' &&
         type?['deleted_at'] == null &&
         !source.isMappedObligationAccount('${a['id']}') &&

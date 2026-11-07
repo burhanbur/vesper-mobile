@@ -7,6 +7,7 @@ import 'package:cryptography/dart.dart';
 import '../../../core/network/api_client.dart';
 import '../../../database/local_store.dart';
 import '../../../database/transaction_query.dart';
+import '../../accounts/models/credit_card_summary.dart';
 import '../../household/models/category_report.dart';
 import '../../investments/models/investment_history.dart';
 import '../../investments/models/investment_trade_command.dart';
@@ -101,6 +102,16 @@ class FinanceRepository {
 
   void _save() => store.write(state);
   void _put(String type, String id, dynamic payload) {
+    if (type == 'accounts' && payload is Map) {
+      final previous = row(type, id);
+      payload = <String, dynamic>{
+        if (previous?.containsKey('is_credit_card') ?? false)
+          'is_credit_card': previous!['is_credit_card'],
+        if (previous?.containsKey('credit_limit') ?? false)
+          'credit_limit': previous!['credit_limit'],
+        ...payload,
+      };
+    }
     if (store.isIndexed) {
       if (!entities.containsKey(type)) entities[type] = <String, dynamic>{};
       final table = entities[type] as Map<String, dynamic>;
@@ -165,6 +176,18 @@ class FinanceRepository {
   }
 
   bool get supportsInvestmentTradeCommands => true;
+
+  // Require an authoritative additive DTO, not a guessed server version.
+  bool get supportsCreditCardMetadata => rows('accounts').any((a) =>
+      a['user_id'] == userId && a['version'] != '0' &&
+      a.containsKey('is_credit_card') && a.containsKey('credit_limit'));
+
+  bool isCreditCard(String id) => row('accounts', id)?['is_credit_card'] == true;
+
+  bool _sharedAccount(String id) => rows('account_groups').any((r) =>
+      r['account_id'] == id && r['deleted_at'] == null) ||
+      rows('accounts').any((r) => r['id'] == id &&
+          (r['is_shared'] == true || r['group_id'] != null));
 
   bool get hasUnresolvedInvestmentTrade => outbox.any(_isTrade);
   bool _isObligation(dynamic item) =>
@@ -720,6 +743,7 @@ class FinanceRepository {
         type['user_id'] == userId &&
         type['deleted_at'] == null &&
         type['category'] == category &&
+        !isCreditCard(id) &&
         !isMappedObligationAccount(id);
   }
 
@@ -995,6 +1019,42 @@ class FinanceRepository {
   }) {
     final entityId = id ?? const Uuid().v4();
     final old = row(type, entityId);
+    if (type == 'accounts' && operation != 'DELETE') {
+      final next = <String, dynamic>{...?old, ...?payload};
+      if (old != null && payload?.containsKey('is_credit_card') == true &&
+          payload!['is_credit_card'] != (old['is_credit_card'] == true)) {
+        throw const ApiFailure('Konversi identitas akun tidak didukung.');
+      }
+      if (isCreditCard('${next['parent_account_id']}')) {
+        throw const ApiFailure('Kartu kredit tidak dapat menjadi induk kantong.');
+      }
+      if (next['is_credit_card'] == true) {
+        final accountType = row('account_types', '${next['account_type_id']}');
+        final limit = next['credit_limit'];
+        if ((operation == 'CREATE' && !supportsCreditCardMetadata) ||
+            accountType?['category'] != 'CASH' ||
+            (next['currency'] ?? 'IDR') != 'IDR' ||
+            (next['user_id'] ?? userId) != userId ||
+            next['parent_account_id'] != null || _sharedAccount(entityId) ||
+            next['is_shared'] == true || next['group_id'] != null ||
+            rows('accounts').any((a) => a['parent_account_id'] == entityId)) {
+          throw const ApiFailure('Kartu harus akun CASH pribadi, IDR, tanpa kantong.');
+        }
+        if (limit != null && (limit is! String || accountMinor(limit) <= BigInt.zero)) {
+          throw const ApiFailure('Limit harus positif atau tidak dilacak.');
+        }
+        if (operation == 'CREATE' && local?['balance'] != '0.00') {
+          throw const ApiFailure('Kartu baru harus bersaldo nol.');
+        }
+      }
+    }
+    if (type == 'transactions') {
+      final accountId = '${payload?['account_id'] ?? old?['account_id']}';
+      if (isCreditCard(accountId) && operation != 'DELETE' &&
+          (payload?['type'] ?? old?['type']) != 'EXPENSE') {
+        throw const ApiFailure('Gunakan pengeluaran atau transfer masuk untuk kartu.');
+      }
+    }
     if ([
           'obligations',
           'bill_occurrences',
@@ -1074,7 +1134,7 @@ class FinanceRepository {
                 }
                 _put('accounts', entry.key, {
                   ...account,
-                  'balance': '${int.parse(parts[0]) + entry.value}.00',
+                  'balance': '${BigInt.parse(parts[0]) + BigInt.from(entry.value)}.00',
                 });
               }
             }
@@ -1110,7 +1170,7 @@ class FinanceRepository {
                 }
                 _put('accounts', entry.key, {
                   ...account,
-                  'balance': '${int.parse(parts[0]) + entry.value}.00',
+                  'balance': '${BigInt.parse(parts[0]) + BigInt.from(entry.value)}.00',
                 });
               }
             }
@@ -1161,7 +1221,7 @@ class FinanceRepository {
         }
         _put('accounts', entry.key, {
           ...account,
-          'balance': '${int.parse(parts[0]) + entry.value}.00',
+          'balance': '${BigInt.parse(parts[0]) + BigInt.from(entry.value)}.00',
         });
       }
     });
@@ -1196,6 +1256,19 @@ class FinanceRepository {
         amount > max ||
         (note?.length ?? 0) > 5000) {
       throw const ApiFailure('Pilih dua akun berbeda dan nominal yang valid.');
+    }
+    if (isCreditCard(fromAccountId)) {
+      throw const ApiFailure('Kartu kredit bukan sumber dana transfer.');
+    }
+    if (isCreditCard(toAccountId)) {
+      final sourceType = row('account_types', '${from['account_type_id']}');
+      if (from['user_id'] != userId || to['user_id'] != userId ||
+          sourceType?['category'] != 'CASH' || _sharedAccount(fromAccountId) ||
+          _sharedAccount(toAccountId) ||
+          rows('accounts').any((a) => a['parent_account_id'] == fromAccountId ||
+              a['parent_account_id'] == toAccountId)) {
+        throw const ApiFailure('Pilih sumber bank pribadi milik pemilik kartu.');
+      }
     }
     final balances = <String, String>{};
     for (final account in [from, to]) {
@@ -1990,17 +2063,17 @@ class FinanceRepository {
 
   dynamic _reconcileBalance(String type, String id, dynamic payload) {
     if (type != 'accounts' || payload == null) return payload;
-    var delta = 0;
+    var delta = BigInt.zero;
     for (final item in outbox) {
-      delta += ((item['balance_delta'] as Map?)?[id] as int?) ?? 0;
+      delta += BigInt.from(((item['balance_delta'] as Map?)?[id] as int?) ?? 0);
     }
-    if (delta == 0) return payload;
-    final balance = BigInt.parse('${payload['balance']}'.split('.').first);
-    final result = balance + BigInt.from(delta);
-    if (result.abs() > BigInt.from(9007199254740991)) {
+    if (delta == BigInt.zero) return payload;
+    final balance = accountMinor('${payload['balance']}');
+    final result = balance + delta * BigInt.from(100);
+    if (result.abs() > BigInt.from(9007199254740991) * BigInt.from(100)) {
       throw const ApiFailure('Saldo melampaui batas presisi aman.');
     }
-    return {...payload as Map, 'balance': '$result.00'};
+    return {...payload as Map, 'balance': accountDecimal(result)};
   }
 
   Future<void> cacheValue(String key, Future<dynamic> Function() load) async {

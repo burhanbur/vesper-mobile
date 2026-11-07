@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_colors.dart';
+import 'credit_card_summary.dart';
 
 enum AccountType { bank, cash, wallet, creditCard, investment }
 
@@ -105,6 +106,11 @@ class Account {
   final String currency;
   final String ownerUserId;
   final String ownerName;
+  final bool isCreditCard;
+  final String? creditLimit;
+  final String? exactBalance;
+  CreditCardSummary get creditSummary =>
+      CreditCardSummary(exactBalance ?? '$balance.00', creditLimit);
 
   const Account({
     required this.id,
@@ -122,6 +128,9 @@ class Account {
     this.currency = 'IDR',
     this.ownerUserId = '',
     this.ownerName = '',
+    this.isCreditCard = false,
+    this.creditLimit,
+    this.exactBalance,
   });
 
   bool get isParent => parentAccountId == null;
@@ -130,7 +139,9 @@ class Account {
   /// Whether this account is liquid cash, bank, or e-wallet account,
   /// matching the formula requirement for total balance.
   bool get isCashBankOrWallet {
-    if (type == AccountType.investment || type == AccountType.creditCard) {
+    if (isCreditCard ||
+        type == AccountType.investment ||
+        type == AccountType.creditCard) {
       return false;
     }
     final normInst = institution.toLowerCase().replaceAll(
@@ -204,6 +215,9 @@ class Account {
       currency: currency ?? this.currency,
       ownerUserId: ownerUserId ?? this.ownerUserId,
       ownerName: ownerName ?? this.ownerName,
+      isCreditCard: isCreditCard,
+      creditLimit: creditLimit,
+      exactBalance: balance == null ? exactBalance : '$balance.00',
     );
   }
 }

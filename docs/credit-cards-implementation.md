@@ -1,99 +1,65 @@
-# Credit Cards — Mobile Product and Delivery Plan
+# Credit Cards — Simplified Mobile Delivery Plan
 
-Status: draft; documentation only. No Dart feature, local schema or migration is implemented here.
+Status: mobile implementation exists in the working tree; release validation is incomplete. The plan below remains the approved scope, not a claim that every release gate has passed.
 
-Canonical requirements: **CC-PRD-01**, `vesper-be/docs/credit-cards-prd.md` in the backend repository. This checkout is on a different filesystem from the backend, so the repository path is an identifier rather than a portable relative link. Backend and web plans use `docs/credit-cards-implementation.md` in their respective repositories.
+## Mobile verification — 2026-11-07
 
-## Product scope and accounting
+- Existing account detail already uses `!account.isCreditCard`; the reported unnecessary nullable access is absent. No additional edit was needed there.
+- Changed the group-pocket header from Row to Wrap with spacing so the title and transparency badge can wrap. Added a 320px / 1.5x-text widget regression.
+- Editor changes add braces in the transaction modal, BigInt addition for local balance deltas, and exact minor-unit reconciliation instead of dropping authoritative fractional cents. Added regressions for large balances, fractional-edit rollback and fractional authoritative reconciliation with a pending expense.
+- Windows SDK invoked from WSL using `cmd.exe /c C:\\flutter\\bin\\flutter.bat`. Initial requested credit-card/offline-transfer/navigation run: **26 passed**. Subsequent run including group-pocket widgets: **28 passed**. Full Flutter suite: **674 passed**.
+- Important validation limitation: the terminal still read older disk contents for the transaction modal, finance repository and credit-card test despite successful editor edits. Therefore the 28/674 results validate the on-disk state, including the responsive header regression, but **do not validate the additional editor-only arithmetic regressions or braces fix**. Two executed analyzer runs each reported the same single braces info at transaction modal line 602; no clean analyzer run is claimed. Editor diagnostics for the four affected Dart files reported no errors.
+- Remaining release work: save only the affected editor buffers and rerun analyzer, targeted tests and the full suite. Account presentation still rejects fractional Rupiah through the existing integer adapter; exact fractional account display and an explanatory unsupported-edit state are not proven complete. Live backend metadata compatibility, authenticated end-to-end synchronization and the required isolated-service integration flow were not verified. Creation retains its existing metadata-capability guard; no database operation, migration or code generation was run.
+- Unrelated working-tree changes were not reverted or intentionally reformatted.
 
-Phase 1: private IDR cards, opening debt/credit, categorized purchases, posted fees/interest, linked refunds, partial/full payments from owned cash accounts, reversals, local history and recoverable sync. Statements/reminders follow in Phase 2; installments follow in Phase 3. No bank payment execution, automatic interest, FX, cash advances or shared cards.
+Canonical requirements: **CC-PRD-01**, `vesper-be/docs/credit-cards-prd.md`. Backend/web companion plans are `docs/credit-cards-implementation.md` in their respective repositories. Repository paths are identifiers, not portable links across filesystems.
 
-Signed card balance B is the source for debt max(-B,0), non-liquid credit max(B,0), and available credit limit+B. Purchase lowers B and increases expense. Principal payment lowers bank balance and raises B without expense. Refund is positive expense linked to the purchase. Posted fees/interest are expense. Limit never contributes to cash or net worth. Opening debt creates no fake income/expense.
+## Scope and accounting
 
-## Verified integration points
+Extend existing accounts, ordinary EXPENSE purchases and the existing atomic bank-to-card TRANSFER repayment. Add no credit-card module, commands, cancellation protocol, separate ledger or queue. Statements, installments, specialized refunds, issuer cash refunds, cash advances, reminders, imports and automated billing/interest are out of scope, not later phases.
 
-- `lib/features/accounts/models/account.dart`: creditCard display type already exists, but is not a complete backend card domain.
-- `lib/app/finance_state.dart`: account classification includes metadata/keyword fallbacks; explicit server metadata must supersede heuristics safely.
-- `lib/features/transactions/models/transaction.dart`: whole-Rupiah display model and optional signed ledger amount.
-- `lib/features/sync/data/finance_repository.dart`: durable exact raw values, versions and financial sync orchestration.
-- `lib/features/obligations/data/obligations_repository.dart`: BigInt monetary arithmetic and existing atomic command/recovery conventions.
-- `lib/database/local_store.dart`: local persistence boundary.
-- `lib/features/accounts/pages/account_detail_page.dart`, `lib/features/settings/pages/settings_page.dart`, `lib/features/transactions/widgets/add_transaction_modal.dart`: existing UX entry points.
-- `lib/app/app.dart`: actual navigation/state uses Navigator and AppState/ChangeNotifier. Follow implementation patterns; do not introduce Riverpod/go_router or code generation as an unrelated migration.
+- Account `is_credit_card` defaults false; explicit new cards stay compatible with CASH, without changing CASH/INVESTMENT enums. `credit_limit` is nullable and positive when supplied, transported as an exact decimal string; null means untracked.
+- For signed balance B: debt = max(-B, 0), overpayment credit = max(B, 0). Tracked remaining contractual limit = L - debt, never L + B; negative remaining limit is valid.
+- Purchase subtracts from B and counts as spending once. Repayment lowers bank balance and raises B atomically without income/expense. Manual fees/posted interest are ordinary EXPENSE; any bank fee is separate from transfer principal.
+- Over-limit purchases and lower-limit edits are allowed. Overpayment shows nonblocking information only, no extra confirmation gate.
+- Positive B is “Kelebihan Bayar”, consumed by subsequent ordinary expenses, never forfeited or automatically refunded by the issuer. Do not imply it increases issuer capacity.
 
-Inspect actual repository/storage interfaces before choosing a local table design. Do not assume a generated Drift migration is required just because the target stack mentions Drift. Never edit generated files manually.
+## Minimal delivery tasks
 
-## Proposed feature boundary
+### MOB-01 Existing state, local metadata and contracts
 
-Add `lib/features/credit_cards/` using the project's existing folder naming and repository/controller/page conventions. UI delegates to state/controller, repository, then local/remote data sources. Widgets never perform money mutations or HTTP requests directly.
+- Preserve current AppState/ChangeNotifier, Navigator, repository/local-store boundaries and existing local-first outbox. Do not migrate to Riverpod/go_router, add a card feature module or assume a new Drift/generated schema.
+- Extend existing account model, local persistence, create/edit forms and sync serialization with compatible defaults and decimal strings. Review any necessary additive local migration against actual storage; preserve records, pending work and fields omitted by older clients.
+- Use explicit metadata instead of name/icon heuristics. Restrict new cards to private, own, IDR leaf accounts; select same-owner bank sources and disallow group sharing. Backend online/sync authorization remains authoritative.
+- Existing obligation-mapped accounts remain locked: no conversion, mapping changes, name-based reclassification or historical rewrites.
+- Create with zero initial balance if no safe opening representation exists; defer opening-debt input rather than fake income/expense/transfer or introduce adjustments.
+- Preserve exact balance/limit and opaque version strings. Use proven exact decimal or BigInt minor-unit helpers, never floating point. Whole-IDR input must explicitly reject fractions; display received fractional values exactly and block unsupported editing with explanation, never truncate.
+- Request no PAN, CVV, PIN, expiry or bank credentials. Keep financial local data/outbox owner-scoped and out of logs; do not expose it to another session.
 
-Persist decimal/version strings at boundaries and use BigInt minor units for calculations. Phase 1 input accepts whole Rupiah only, explicitly rejecting fractional entry; received fractional card values must display exactly or block unsupported editing with a clear explanation. No double conversion or silent truncation. Reuse precision helpers where proven, not generic integer display code that drops cents.
+### MOB-02 Local-first purchases, transfers and sync
 
-## Work packages
+- Save through existing local account/transaction/transfer paths before network delivery. UI must not depend on API success; widgets delegate mutations to state/repositories.
+- Atomically save both local payment legs, balances and existing outbox operation; roll back memory/disk on failure. Never enqueue the legs independently.
+- Retain existing stable IDs, expected versions, replay/conflict rules, tombstones and cursor/pull reconciliation. Add no card-specific command envelope or cross-domain command gate.
+- Preserve pending work through restart, network/auth failure and response loss. Connectivity only triggers sync, not proof of API reachability; do not treat timeout as definitive rejection or generate a duplicate payment blindly.
+- Reconcile authoritative accounts/transactions across pull pages without applying acknowledged deltas twice. Extend account metadata push/pull; verify old/new server/client field preservation before enabling creation.
 
-### MOB-00 Contract and readiness
+### MOB-03 Existing UI and reporting
 
-- Approve canonical PRD decisions and shared monetary fixtures.
-- Add explicit card metadata parsing without relying on account names.
-- Detect backend capability and complete initial sync before enabling card mutations.
-- Extend the existing investment/obligation/bill unresolved-command gate: initial card delivery permits one unresolved cross-domain monetary command at a time.
-- Preserve unsupported-server commands for retry; never downgrade to generic transactions.
+- Extend account detail and current purchase/transfer forms using existing AppState/Navigator conventions. Show “Utang Terpakai”, “Sisa Limit”, untracked limit, “Kelebihan Bayar”, pending sync and confirmed state.
+- Explain “Pencatatan ini tidak melakukan pembayaran ke bank.” Overpayment information must not block saving; limits and credits are not liquid cash.
+- Preserve loading/empty/error/offline/pending/conflict/auth states, duplicate-submit protection, accessible labels, small-screen/large-text support and non-color-only status.
+- Exclude limits and positive credits from liquid cash/emergency funds despite CASH classification. Count signed B in net worth once under inclusion settings and mapped-obligation rules; positive B is a non-liquid asset. Never duplicate liability or rewrite snapshots.
+- Include purchases/manual charges once in budgets/spending, never repayment principal.
 
-### MOB-01 Local atomic projection
+## Required tests and release gates
 
-- Generate stable operation and all derived ledger UUIDs before persistence.
-- Commit card operation, optimistic rows/balances and immutable outbox in one atomic local operation; rollback memory and disk on failure.
-- Distinguish provisional projections from confirmed values and persist them across process restart.
-- Do not enqueue payment legs separately or recalculate through floating point.
-- A newly created offline card waits for authoritative creation reconciliation before further monetary writes in the initial release.
+- Unit/widget: explicit identity, false defaults, null/positive limits, zero-balance creation, locked mapped accounts, group-sharing refusal, exact fractions/large versions, whole-IDR validation and no truncation.
+- Shared fixture: B = -2000000.00 → pay 2500000.00 → B = 500000.00 → spend 200000.00 → B = 300000.00 → spend 400000.00 → B = -100000.00, with no extra confirmation or lost credit.
+- Limit fixture: L = 1000000.00, debt = 1200000.00 gives remaining -200000.00. Lower-limit edits save without changing B; null stays untracked. Check liquidity exclusion, signed net worth once and spending/principal separation.
+- Repository/sync: atomic local failure, restart, duplicate delivery, lost response, split pull pages, stale versions, auth failure and authoritative reconciliation without duplication. Regress existing transfers, transactions, obligations, account grouping and session restoration.
+- Integration: create → purchase → offline repayment/overpayment → restart → sync → subsequent expense, using shared API fixtures and isolated services.
 
-### MOB-02 Sync, replay and cancellation
+For future implementation run `flutter analyze`, `flutter test` and relevant integration tests; generate code only if actual schema/dependencies require it. Never erase real local financial data for tests. No runtime validation is claimed by this documentation update.
 
-- Push CREATE-only card command/cancellation envelopes through existing sync infrastructure.
-- Preserve command UUID, expected versions and normalized payload through retries, timeouts, auth refresh and restart.
-- Reconcile all affected authoritative records; acknowledgement alone does not remove projections/outbox.
-- Support split pull pages, duplicate events, cursor persistence, replay from zero and versioned tombstones without double-applying money.
-- Stale versions retain the original command and show review/retry/cancel, never silent version replacement.
-- Cancellation reserves an unapplied command on the server; if already applied, reconcile it. It is not a local undo or a reversal of accepted payment.
-- Scope local records and outbox by authenticated owner; logout/session expiry must not leak commands to another user or silently discard unresolved money.
-- Connectivity triggers delivery but never proves reachability. Auth/network failure leaves durable financial work intact.
-
-### MOB-03 UI and reporting
-
-- Add card management and detail from accounts/settings, using current navigation conventions.
-- Show Utang Terpakai, Sisa Limit, Saldo Kredit, pending sync and last confirmed state.
-- Add purchase, posted-charge, linked-refund and payment forms with accessible labels and duplicate-submit protection.
-- Payment preview includes cash source, principal, optional bank fee, projected cash/debt and explicit overpayment confirmation.
-- State “Pencatatan ini tidak melakukan pembayaran ke bank.”
-- Keep card capacity/positive credit out of liquid cash and emergency-fund totals; align dashboard/budget/net-worth classifications with the API.
-- Block ordinary income, cash advances, card-to-card transfers and generic writes to protected card rows.
-- Existing mapped obligations are migration-needed and remain locked; do not convert them based on names.
-
-### MOB-04 Statements and installments later
-
-Statement close is online-only until complete authoritative history is proven. Display immutable snapshot versus current debt separately. Use explicit billing timezone/calendar dates, not device timezone. Minimum due is issuer-provided, not an invented formula. Partial payment allocations and their reversal do not change balances twice.
-
-Opt-in reminders must tolerate denied permission, stale offline data and delivery failure without changing money. Installments allocate the already-recognized purchase principal; they do not create another expense each month. Interest/admin remains separately posted expense.
-
-## Required UX states
-
-Initial loading, empty cards, offline saved, pending delivery, synchronizing, confirmed, rejected, conflict, unknown outcome, unsupported server, expired session, over-limit, positive card credit and permission denial. Preserve a support reference and recovery path. Never show a timeout as a definitive failed payment or invite a new UUID blindly.
-
-Check small screens, large text, semantics/focus, screen readers and desktop keyboard behavior where supported. Financial status is never color-only. Card identity requests only optional issuer/last four, never PAN, CVV, PIN or expiry.
-
-## Tests and release evidence
-
-- Unit: exact amounts, signs, opening debt, refunds, overpayment, same-owner payment eligibility and explicit card classification.
-- Repository: local commit failure restores memory/disk; restart persists outbox; duplicate pushes and lost acknowledgement reconcile once.
-- Sync: split pull pages, response loss, stale version, changed-payload collision, cancellation/application race, revoked access, cursor replay and old-server rejection.
-- Widget: forms, partial payment, fee, refund bounds, overpayment confirmation, pending/recovery states, accessibility and whole-IDR validation.
-- Integration: create → purchase → offline payment → restart → sync → refund/reverse, validated against API golden fixtures.
-- Regression: obligations, bills, investments, offline transfers, generic transaction edit/delete, account grouping and session restoration.
-
-Golden fixture: purchase 500000, pay 300000, fee 25000 yields debt 225000, expense 525000 and a 300000 bank reduction. Add fractional .01 transport and maximum-range fixtures; no silent rounding is permitted.
-
-Run `flutter analyze`, `flutter test`, and relevant integration tests for implementation. Only run code generation if actual dependencies/schema require it. Use isolated API test services and never erase real local financial data for test cleanup. No runtime validation is claimed for this documentation-only change.
-
-## Rollout and rollback
-
-Backend schema/contracts and compatible read support deploy first. Enable writes only after both frontend clients handle explicit card classification and protected history. Local persistence upgrades are additive and preserve pending commands. Disabling the feature must retain reads/recovery and must not delete outbox, accounts or history. Restore the normal app entry point after device integration tests as required by the existing development workflow.
+Backend additive migration/contracts and compatible web/mobile parsing precede creation enablement. If compatibility is unproven, keep creation disabled while retaining reads, local history and pending sync. Persistence upgrades and rollback must never delete accounts, financial records or outbox work.

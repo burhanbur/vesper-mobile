@@ -89,7 +89,10 @@ class _GroupPocketsPanelState extends State<GroupPocketsPanel>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           'Kantong tujuan grup',
@@ -99,7 +102,6 @@ class _GroupPocketsPanelState extends State<GroupPocketsPanel>
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        SizedBox(width: 6),
                         _Badge(
                           text: 'TRANSPARAN',
                           color: AppColors.income,

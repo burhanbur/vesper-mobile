@@ -147,7 +147,8 @@ List<PocketCandidate> pocketCandidates(
   final byId = {for (final r in live) r['id']: r};
   final result = <PocketCandidate>[];
   for (final row in live) {
-    if (parents.contains(row['id']) ||
+    if (row['is_credit_card'] == true ||
+        parents.contains(row['id']) ||
         !liveTypes.contains(row['account_type_id'])) {
       continue;
     }

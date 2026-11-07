@@ -89,6 +89,7 @@ class ObligationsRepository {
         row['currency'] == 'IDR' &&
         type?['user_id'] == source.userId &&
         type?['deleted_at'] == null &&
+        row['is_credit_card'] != true &&
         type?['category'] == 'CASH' &&
         !source
             .rows('accounts')

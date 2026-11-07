@@ -84,8 +84,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Purchase 104'), findsOneWidget);
         if (!accountDetail) {
+          await tester.scrollUntilVisible(
+            find.widgetWithText(ChoiceChip, 'Pemasukan'),
+            -300,
+            scrollable: find.byType(Scrollable).first,
+          );
           await tester.tap(find.widgetWithText(ChoiceChip, 'Pemasukan'));
           await tester.pumpAndSettle();
+          await tester.scrollUntilVisible(
+            find.text('Halaman 1 · 0 ditampilkan'),
+            500,
+            scrollable: find.byType(Scrollable).first,
+          );
           expect(find.text('Halaman 1 · 0 ditampilkan'), findsOneWidget);
         }
         expect(tester.takeException(), isNull);

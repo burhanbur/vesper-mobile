@@ -1,4 +1,5 @@
 import '../../obligations/pages/obligations_page.dart';
+import '../../accounts/models/credit_card_summary.dart';
 
 import 'package:flutter/material.dart';
 
@@ -137,6 +138,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   }
 
   void _onAmountChanged(String val) {
+    if (RegExp(r'[,\.]\d{1,2}$').hasMatch(val)) {
+      // Keep unsupported fractions visible; do not silently coerce them.
+      return;
+    }
     final parsed = CurrencyFormatter.parseRupiah(val);
     if (parsed == 0) {
       _amountController.value = const TextEditingValue(text: '');
@@ -161,6 +166,13 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
       return;
     }
 
+    if (RegExp(r'[,\.]\d{1,2}$').hasMatch(_amountController.text)) {
+      AppToast.showError(
+        context,
+        'Nominal pecahan Rupiah belum didukung; masukkan Rupiah utuh.',
+      );
+      return;
+    }
     final amount = CurrencyFormatter.parseRupiah(_amountController.text);
     if (amount <= 0) {
       AppToast.showError(context, 'Nominal harus lebih dari Rp 0');
@@ -330,10 +342,16 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
 
     // PRD 4.4 Rule: Categories switch according to selected account's owner!
     final isIncome = _selectedType == TransactionType.income;
-    final currentCategories = state.getCategoriesForAccount(
-      _selectedAccountId ?? '',
-      isIncome: isIncome,
-    );
+    final currentCategories =
+        List<String>.of(
+          state.getCategoriesForAccount(
+            _selectedAccountId ?? '',
+            isIncome: isIncome,
+          ),
+        )..sort((a, b) {
+          final comparison = a.toLowerCase().compareTo(b.toLowerCase());
+          return comparison != 0 ? comparison : a.compareTo(b);
+        });
 
     if (!currentCategories.contains(_selectedCategory) &&
         currentCategories.isNotEmpty) {
@@ -523,7 +541,13 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                               ? 'Pilih Akun Asal'
                               : 'Pilih Akun',
                           selectedAccountId: _selectedAccountId,
-                          accounts: selectableAccounts,
+                          accounts: selectableAccounts
+                              .where(
+                                (a) =>
+                                    !a.isCreditCard ||
+                                    _selectedType == TransactionType.expense,
+                              )
+                              .toList(),
                         );
                         if (mounted && picked != null) {
                           setState(() {
@@ -563,6 +587,222 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                         },
                       ),
                     ],
+
+                    if (selectedAcc?.isCreditCard == true ||
+                        state
+                                .getAccountById(_selectedToAccountId ?? '')
+                                ?.isCreditCard ==
+                            true) ...[
+                      const Text(
+                        'Pencatatan ini tidak melakukan pembayaran ke bank.',
+                      ),
+                      const Text(
+                        'Limit bersifat informasi; melebihi limit dan kelebihan bayar tidak menghalangi pencatatan.',
+                      ),
+                      Builder(
+                        builder: (context) {
+                          final card = _selectedType == TransactionType.transfer
+                              ? state.getAccountById(_selectedToAccountId ?? '')
+                              : selectedAcc;
+                          if (card?.isCreditCard != true) {
+                            return const SizedBox.shrink();
+                          }
+                          final summary = card!.creditSummary;
+                          return Text(
+                            state.isBalanceHidden
+                                ? '••••••'
+                                : 'Utang Terpakai: ${accountDecimal(summary.debt)} • Kelebihan Bayar: ${accountDecimal(summary.overpayment)} • Sisa Limit: ${summary.remaining == null ? 'tidak dilacak' : accountDecimal(summary.remaining!)}',
+                          );
+                        },
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // Tanggal & Waktu (Datetime)
+                    const Text(
+                      'Tanggal & Waktu',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        // Date Picker
+                        Expanded(
+                          flex: 3,
+                          child: Semantics(
+                            button: true,
+                            label: 'Pilih tanggal',
+                            child: InkWell(
+                              key: const ValueKey('transaction_date_picker'),
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () async {
+                                final calendar = state.timeZone.at(
+                                  _selectedDate,
+                                );
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: calendar,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (picked != null) {
+                                  final updatedCalendar = DateTime(
+                                    picked.year,
+                                    picked.month,
+                                    picked.day,
+                                    calendar.hour,
+                                    calendar.minute,
+                                    calendar.second,
+                                  );
+                                  setState(() {
+                                    _selectedDate = state.timeZone.fromCalendar(
+                                      updatedCalendar,
+                                    );
+                                  });
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceVariant,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        DateFormatter.formatShort(
+                                          state.timeZone.at(_selectedDate),
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Time Picker
+                        Expanded(
+                          flex: 2,
+                          child: Semantics(
+                            button: true,
+                            label: 'Pilih waktu',
+                            child: InkWell(
+                              key: const ValueKey('transaction_time_picker'),
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () async {
+                                final calendar = state.timeZone.at(
+                                  _selectedDate,
+                                );
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay(
+                                    hour: calendar.hour,
+                                    minute: calendar.minute,
+                                  ),
+                                );
+                                if (picked != null) {
+                                  final updatedCalendar = DateTime(
+                                    calendar.year,
+                                    calendar.month,
+                                    calendar.day,
+                                    picked.hour,
+                                    picked.minute,
+                                    calendar.second,
+                                  );
+                                  setState(() {
+                                    _selectedDate = state.timeZone.fromCalendar(
+                                      updatedCalendar,
+                                    );
+                                  });
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceVariant,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.access_time_rounded,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        DateFormatter.formatTime(
+                                          _selectedDate,
+                                          timeZone: state.timeZone,
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Deskripsi
+                    const Text(
+                      'Deskripsi (opsional)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      key: const ValueKey('transaction_description_input'),
+                      controller: _noteController,
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: Nasi Padang, Belanja Mingguan',
+                        prefixIcon: Icon(
+                          Icons.edit_note_rounded,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
 
                     // Categories (PRD 4.4: Show owner name if account owned by another member!)
                     if (_selectedType != TransactionType.transfer) ...[
@@ -653,99 +893,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                       ),
                     ],
 
-                    const SizedBox(height: 16),
-
-                    // Tanggal
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Tanggal',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              InkWell(
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: state.timeZone.at(
-                                      _selectedDate,
-                                    ),
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                  );
-                                  if (picked != null) {
-                                    setState(() {
-                                      _selectedDate = state.timeZone
-                                          .fromCalendar(picked);
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceVariant,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 16,
-                                        color: AppColors.primary,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        DateFormatter.formatShort(
-                                          state.timeZone.at(_selectedDate),
-                                        ),
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Catatan
-                    const Text(
-                      'Catatan (opsional)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _noteController,
-                      decoration: const InputDecoration(
-                        hintText: 'Contoh: Nasi Padang, Belanja Mingguan',
-                        prefixIcon: Icon(
-                          Icons.edit_note_rounded,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),

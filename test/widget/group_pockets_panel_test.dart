@@ -68,6 +68,33 @@ class _FakePocketClient extends ApiClient {
 }
 
 void main() {
+  testWidgets('pocket header wraps on narrow screens with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final state = cachedFinanceState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: GroupPocketsPanel(app: state, groupId: 'group'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kantong tujuan grup'), findsOneWidget);
+    expect(find.text('TRANSPARAN'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'GroupPocketsPanel renders pocket cards, details sheet, suggestion chips and privacy masking',
     (tester) async {

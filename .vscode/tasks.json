@@ -49,6 +49,15 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Verify isolated card sync contract",
+			"type": "shell",
+			"command": "/mnt/c/Windows/System32/cmd.exe /d /c \"C:\\flutter\\bin\\flutter.bat test --no-pub test/unit/credit_cards_test.dart test/unit/credit_card_sync_contract_test.dart test/unit/offline_transfer_test.dart\"",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }
