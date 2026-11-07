@@ -5,6 +5,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/goals_controller.dart';
 import '../data/goals_repository.dart';
+import '../widgets/goals_overview.dart';
 
 class GoalsPage extends StatefulWidget {
   const GoalsPage({super.key});
@@ -594,7 +595,13 @@ class _GoalsPageState extends State<GoalsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
-          // Header Info Banner
+          GoalsOverview(
+            progresses: [for (final goal in repo.goals) repo.progress(goal)],
+            hidden: state.isBalanceHidden,
+            onCreate: () => edit(),
+          ),
+          const SizedBox(height: 12),
+          // Keep financial caveats accessible without dominating the page.
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -609,23 +616,26 @@ class _GoalsPageState extends State<GoalsPage> {
                 ),
               ],
             ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: const ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.only(bottom: 8),
+              shape: Border(),
+              collapsedShape: Border(),
+              leading: Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                'Cara kerja alokasi',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
               children: [
-                Icon(
-                  Icons.flag_circle_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Alokasi bukan pengeluaran dan tidak mengunci kas. Dana yang sama dihitung sekali, alokasi tertua lebih dulu. Progres saya memakai saldo lokal; kontribusi anggota memakai snapshot server terakhir.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.4,
-                    ),
+                Text(
+                  'Alokasi bukan pengeluaran dan tidak mengunci kas. Dana yang sama dihitung sekali, alokasi tertua lebih dulu. Progres saya memakai saldo lokal; kontribusi anggota memakai snapshot server terakhir.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -733,17 +743,18 @@ class _GoalsPageState extends State<GoalsPage> {
               ),
           ],
 
-          if (repo.goals.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'Belum ada goal. Buat target pertama kamu.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
+          if (repo.goals.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Target kamu',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
               ),
             ),
-
+          ],
           const SizedBox(height: 12),
           for (final goal in repo.goals)
             Builder(

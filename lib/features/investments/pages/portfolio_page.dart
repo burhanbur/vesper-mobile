@@ -77,6 +77,70 @@ class _PortfolioPageState extends State<PortfolioPage> {
     await controller.select(controller.accountId, date);
   }
 
+  void _manageInvestments() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const InvestmentLifecyclePage()),
+    );
+  }
+
+  Widget _emptyPortfolio({bool noAccounts = false}) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: const BoxDecoration(
+              color: AppColors.accentLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.pie_chart_outline_rounded,
+              size: 36,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            noAccounts
+                ? 'Siapkan portofolio Anda'
+                : 'Belum ada posisi investasi',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            noAccounts ? 'Belum ada akun investasi milik Anda.' : 'Tidak ada posisi untuk akun dan periode ini. Kelola instrumen dan transaksi investasi Anda.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: _manageInvestments,
+            icon: const Icon(Icons.tune_rounded, size: 18),
+            label: const Text('Kelola investasi'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
@@ -99,11 +163,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: FilledButton.tonalIcon(
-              onPressed: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => const InvestmentLifecyclePage(),
-                ),
-              ),
+              onPressed: _manageInvestments,
               icon: const Icon(Icons.tune_rounded, size: 16),
               label: const Text('Kelola'),
               style: FilledButton.styleFrom(
@@ -159,64 +219,23 @@ class _PortfolioPageState extends State<PortfolioPage> {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                   children: [
-                    // Top Info Banner
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Hanya baca • Data server, bukan ledger lokal tersinkron lengkap.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
+                    const Text(
+                      'Akun & periode',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 14),
-
+                    const SizedBox(height: 10),
                     if (accounts.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Belum ada akun investasi milik Anda.',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      )
+                      _emptyPortfolio(noAccounts: true)
                     else ...[
-                      // Account Selector & Control Card
+                      // Compact selection controls; section headings stay outside.
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.surface,
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(color: AppColors.border),
                           boxShadow: [
@@ -234,7 +253,8 @@ class _PortfolioPageState extends State<PortfolioPage> {
                               key: ValueKey(controller.accountId),
                               initialValue: controller.accountId,
                               decoration: InputDecoration(
-                                labelText: 'Akun investasi milik Anda',
+                                labelText: 'Akun investasi',
+                                isDense: true,
                                 prefixIcon: const Icon(
                                   Icons.account_balance_rounded,
                                   color: AppColors.primary,
@@ -280,7 +300,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                         ? AppColors.primary
                                         : AppColors.textSecondary,
                                   ),
-                                  label: const Text('Holdings saat ini'),
+                                  label: const Text('Saat ini'),
                                   backgroundColor: controller.date == null
                                       ? AppColors.accentLight
                                       : AppColors.surfaceVariant,
@@ -299,7 +319,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                   ),
                                   label: Text(
                                     controller.date == null
-                                        ? 'Pilih tanggal snapshot'
+                                        ? 'Snapshot'
                                         : 'Snapshot ${controller.date}',
                                   ),
                                   backgroundColor: controller.date != null
@@ -343,7 +363,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           Expanded(
                             child: Text(
                               controller.date == null
-                                  ? 'Posisi saat ini (holdings)'
+                                  ? 'Posisi investasi'
                                   : 'Posisi per ${controller.date} — snapshot',
                               style: const TextStyle(
                                 fontSize: 14,
@@ -377,89 +397,24 @@ class _PortfolioPageState extends State<PortfolioPage> {
                             ),
                           ),
                         ),
-                      if (read != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 14),
-                          decoration: BoxDecoration(
-                            color: controller.stale
-                                ? AppColors.warningLight.withValues(alpha: 0.4)
-                                : AppColors.surfaceVariant.withValues(
-                                    alpha: 0.4,
-                                  ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: controller.stale
-                                  ? AppColors.warning.withValues(alpha: 0.3)
-                                  : AppColors.border,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                controller.stale
-                                    ? Icons.warning_amber_rounded
-                                    : Icons.schedule_rounded,
-                                size: 16,
-                                color: controller.stale
-                                    ? AppColors.warning
-                                    : AppColors.textSecondary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Cache diambil: ${DateFormatter.formatFull(read.fetchedAt, timeZone: AppStateScope.of(context).timeZone)}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      controller.stale
-                                          ? 'Data cache usang / belum diverifikasi ulang.'
-                                          : 'Terakhir berhasil dimuat dari server; bukan harga real-time.',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: controller.stale
-                                            ? AppColors.warning
-                                            : AppColors.textMuted,
-                                        fontWeight: controller.stale
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          read == null
+                              ? 'Data server • Hanya baca'
+                              : controller.stale
+                              ? 'Cache belum diverifikasi • Bukan real-time'
+                              : 'Data server • Bukan real-time',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: read != null && controller.stale
+                                ? AppColors.warning
+                                : AppColors.textSecondary,
                           ),
                         ),
-                        if (read.positions.isEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(28),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'Tidak ada posisi untuk akun dan periode ini.',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
+                      ),
+                      if (read != null) ...[
+                        if (read.positions.isEmpty) _emptyPortfolio(),
                         for (final position in read.positions)
                           Container(
                             margin: const EdgeInsets.only(bottom: 12),
@@ -612,6 +567,56 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           ),
                         ),
                     ],
+                    const SizedBox(height: 16),
+                    ExpansionTile(
+                      key: const ValueKey('portfolio-data-help'),
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: const EdgeInsets.only(bottom: 12),
+                      leading: const Icon(
+                        Icons.info_outline_rounded,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      title: const Text(
+                        'Tentang data portofolio',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      children: [
+                        const Text(
+                          'Hanya baca • Data server, bukan ledger lokal tersinkron lengkap. '
+                          'Harga bukan real-time. Snapshot menggunakan batas hari UTC.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        if (read != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Cache diambil: ${DateFormatter.formatFull(read.fetchedAt, timeZone: AppStateScope.of(context).timeZone)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            controller.stale
+                                ? 'Data cache usang / belum diverifikasi ulang.'
+                                : 'Terakhir berhasil dimuat dari server; bukan harga real-time.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 );
               },
