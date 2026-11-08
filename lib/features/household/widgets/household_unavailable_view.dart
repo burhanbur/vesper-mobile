@@ -4,7 +4,11 @@ import 'package:flutter/services.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../accounts/models/account.dart';
+import '../../accounts/pages/account_detail_page.dart';
+import '../../transactions/widgets/add_transaction_modal.dart';
 import '../data/collaboration_repository.dart';
 import '../models/household.dart';
 import 'create_group_sheet.dart';
@@ -403,38 +407,55 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
     Household group,
     bool membersLoaded,
   ) {
+    final rows = state.groupListRows(group.id);
+    final sharedAccountIds = rows
+        .map((r) => r['account_id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final sharedAccounts = state.accounts.where((a) {
+      if (sharedAccountIds.contains(a.id)) return true;
+      if (a.householdId == group.id) return true;
+      if (a.isShared && (a.householdId == null || a.householdId == group.id)) {
+        return true;
+      }
+      return false;
+    }).toList();
+
+    final totalSharedBalance = sharedAccounts
+        .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+        .fold<int>(0, (sum, a) => sum + a.balance);
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.primaryDark, AppColors.primary],
+          colors: [
+            Color(0xFF0F3E33),
+            Color(0xFF1B5E4B),
+            Color(0xFF0D9488),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.22),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            color: const Color(0xFF0F3E33).withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top Row: Category tag + Account count badge
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              Expanded(
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.diversity_3_rounded,
@@ -442,113 +463,173 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                       color: AppColors.accent,
                     ),
                     const SizedBox(width: 5),
-                    Text(
-                      'KANTONG BERSAMA • ${group.type.displayName.toUpperCase()}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
+                    Flexible(
+                      child: Text(
+                        'KANTONG BERSAMA • ${group.type.displayName.toUpperCase()}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (state.households.length > 1)
-                InkWell(
-                  onTap: () => GroupSwitcherSheet.show(context),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.swap_horiz_rounded,
-                          size: 13,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Ganti',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
+              const SizedBox(width: 8),
               Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  group.type.emoji,
-                  style: const TextStyle(fontSize: 22),
+                  '${sharedAccounts.length} Akun Terhubung',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Middle: Balance & Kelola button
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      group.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -0.2,
+                    const Text(
+                      'TOTAL SALDO BERSAMA',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white70,
+                        letterSpacing: 0.5,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      membersLoaded
-                          ? '${group.members.length} anggota tersimpan'
-                          : 'Daftar anggota belum tersedia di perangkat.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontWeight: FontWeight.w500,
+                      state.isBalanceHidden
+                          ? '••••••'
+                          : totalSharedBalance > 0
+                              ? CurrencyFormatter.formatRupiah(totalSharedBalance)
+                              : 'Rp —',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
                 ),
               ),
+              InkWell(
+                onTap: state.isOfflineMode
+                    ? null
+                    : () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => AppStateScope(
+                          state: state,
+                          child: GroupAccountSharingSheet(
+                            groupId: group.id,
+                          ),
+                        ),
+                      ),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.tune_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Kelola Rekening',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // Member count indicator
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: AppColors.income,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  membersLoaded
+                      ? '${group.members.length} anggota tersimpan'
+                      : 'Daftar anggota belum tersedia di perangkat.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Bottom: Single Invite code strip
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.vpn_key_rounded,
-                  size: 13,
+                  size: 12,
                   color: AppColors.accent,
                 ),
                 const SizedBox(width: 6),
@@ -568,7 +649,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                         : group.inviteCode,
                     key: const ValueKey('household_invite_code'),
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.1,
                       color: Colors.white,
@@ -617,7 +698,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                         Text(
                           'Salin',
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -672,87 +753,6 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
           Tab(text: 'Aktivitas'),
           Tab(text: 'Anggota'),
           Tab(text: 'Kategori'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSharedAccountsCard(
-    BuildContext context,
-    AppState state,
-    Household group,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.accentLight.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.share_outlined,
-              color: AppColors.primary,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pembagian Akun',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: 1),
-                Text(
-                  'Pilih akun kas atau bank yang dibagikan.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          TextButton.icon(
-            onPressed: state.isOfflineMode
-                ? null
-                : () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (_) => AppStateScope(
-                      state: state,
-                      child: GroupAccountSharingSheet(groupId: group.id),
-                    ),
-                  ),
-            icon: const Icon(Icons.tune_rounded, size: 14),
-            label: const Text(
-              'Kelola',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              backgroundColor: AppColors.surfaceVariant,
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -819,6 +819,39 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
               ],
             ),
           ),
+          if (state.isOfflineMode) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.warningLight,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.wifi_off_rounded,
+                    color: AppColors.warning,
+                    size: 16,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Mode offline: menampilkan data grup tersimpan.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (state.householdReportLoading) ...[
             const SizedBox(height: 8),
             const LinearProgressIndicator(),
@@ -938,39 +971,6 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
   Widget _buildOfflineAndErrorFooters(AppState state) {
     return Column(
       children: [
-        if (state.isOfflineMode) ...[
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.warningLight,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.warning.withValues(alpha: 0.3),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.wifi_off_rounded,
-                  color: AppColors.warning,
-                  size: 18,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Mode offline: menampilkan data grup tersimpan.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
         if (state.dataError != null) ...[
           const SizedBox(height: 12),
           Container(
@@ -1024,6 +1024,409 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
     );
   }
 
+  Widget _buildSharedAccountsSection(
+    BuildContext context,
+    AppState state,
+    Household group,
+  ) {
+    final rows = state.groupListRows(group.id);
+    final sharedAccountIds = rows
+        .map((r) => r['account_id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final sharedAccounts = state.accounts.where((a) {
+      if (sharedAccountIds.contains(a.id)) return true;
+      if (a.householdId == group.id) return true;
+      if (a.isShared && (a.householdId == null || a.householdId == group.id)) {
+        return true;
+      }
+      return false;
+    }).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.account_balance_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'Rekening Dibagikan',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.incomeLight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${sharedAccounts.length} REKENING',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.income,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    const Text(
+                      'Anggota dapat melihat saldo & mencatat transaksi kas',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
+                onPressed: state.isOfflineMode
+                    ? null
+                    : () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => AppStateScope(
+                          state: state,
+                          child: GroupAccountSharingSheet(groupId: group.id),
+                        ),
+                      ),
+                icon: const Icon(Icons.tune_rounded, size: 14),
+                label: const Text(
+                  'Kelola',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  backgroundColor: AppColors.surfaceVariant,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (sharedAccounts.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.6),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accentLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.share_outlined,
+                      size: 24,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Belum Ada Rekening Dibagikan ke Grup',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Bagikan rekening bank atau dompet digital Anda agar anggota grup dapat melihat saldo dan mencatat transaksi bersama layaknya Kantong Bersama Bank Jago.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: state.isOfflineMode
+                        ? null
+                        : () => showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (_) => AppStateScope(
+                              state: state,
+                              child: GroupAccountSharingSheet(
+                                groupId: group.id,
+                              ),
+                            ),
+                          ),
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: const Text(
+                      'Bagikan Rekening Sekarang',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            for (final acc in sharedAccounts)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              acc.type == AccountType.wallet
+                                  ? Icons.phone_android_rounded
+                                  : acc.type == AccountType.cash
+                                  ? Icons.payments_rounded
+                                  : Icons.account_balance_rounded,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        acc.name,
+                                        style: const TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.incomeLight,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'DIBAGIKAN',
+                                        style: TextStyle(
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.income,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  acc.ownerName.isNotEmpty
+                                      ? 'Milik: ${acc.ownerName}'
+                                      : 'Milik Anda • ${acc.institution.isNotEmpty ? acc.institution : 'Kas/Bank'}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            state.isBalanceHidden
+                                ? '••••••'
+                                : CurrencyFormatter.formatRupiah(acc.balance),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Divider(height: 1, color: AppColors.divider),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => AddTransactionModal.show(
+                              context,
+                              initialAccountId: acc.id,
+                            ),
+                            icon: const Icon(
+                              Icons.add_circle_outline_rounded,
+                              size: 14,
+                            ),
+                            label: const Text(
+                              'Catat Transaksi',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AccountDetailPage(
+                                  accountId: acc.id,
+                                  onSettings: () {},
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.history_rounded, size: 14),
+                            label: const Text(
+                              'Riwayat',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.textSecondary,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: state.isOfflineMode
+                  ? null
+                  : () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => AppStateScope(
+                        state: state,
+                        child: GroupAccountSharingSheet(groupId: group.id),
+                      ),
+                    ),
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text(
+                'Bagikan Rekening Lain ke Grup',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildPocketTab(
     BuildContext context,
     AppState state,
@@ -1032,6 +1435,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
+        // 1. Kantong Tujuan Bersama
         GroupPocketsPanel(
           key: ValueKey((
             state.netWorthSessionKey,
@@ -1041,19 +1445,18 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
           app: state,
           groupId: group.id,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
 
-        // Shared Accounts Card
-        _buildSharedAccountsCard(context, state, group),
+        // 2. Rekening yang Dibagikan ke Grup
+        _buildSharedAccountsSection(context, state, group),
+        const SizedBox(height: 12),
 
-        const SizedBox(height: 10),
-
-        // Category Report Card
+        // 3. Laporan Kategori Grup
         _buildCategoryReportCard(state),
+        const SizedBox(height: 12),
 
-        // Offline & Error Status Footers
+        // 4. Status Offline & Muat Ulang Grup (Footer)
         _buildOfflineAndErrorFooters(state),
-
         const SizedBox(height: 24),
       ],
     );
@@ -1756,11 +2159,6 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
-        // Shared accounts shortcut
-        _buildSharedAccountsCard(context, state, group),
-
-        const SizedBox(height: 10),
-
         // Group Categories Card
         Container(
           padding: const EdgeInsets.all(14),
@@ -1962,34 +2360,44 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
         title: hasGroup
             ? InkWell(
                 onTap: () => GroupSwitcherSheet.show(context),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.8),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         group.type.emoji,
-                        style: const TextStyle(fontSize: 20),
+                        style: const TextStyle(fontSize: 18),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           group.name,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 17,
+                            fontSize: 15.5,
                             fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
-                      if (state.households.length > 1) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                      ],
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
                     ],
                   ),
                 ),

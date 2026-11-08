@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../transactions/widgets/add_transaction_modal.dart';
 import '../data/group_pocket_repository.dart';
 import '../state/group_pocket_state.dart';
 
@@ -1026,6 +1027,30 @@ class _PocketDetails extends StatelessWidget {
                   ],
                 ),
               ),
+              if (pocket.accounts.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 38,
+                  child: OutlinedButton.icon(
+                    onPressed: () => AddTransactionModal.show(
+                      context,
+                      initialAccountId: pocket.accounts.first.id,
+                    ),
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                    label: const Text(
+                      'Catat Kas di Kantong Ini',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 18),
               const Row(
@@ -1202,38 +1227,78 @@ class _PocketDetails extends StatelessWidget {
                                 color: AppColors.primary,
                               ),
                             ),
-                            if (account.ownerId == state.owner)
-                              InkWell(
-                                onTap: state.canWrite
-                                    ? () => unlink(context, account)
-                                    : null,
-                                borderRadius: BorderRadius.circular(4),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: () => AddTransactionModal.show(
+                                    context,
+                                    initialAccountId: account.id,
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.link_off_rounded,
-                                        size: 12,
-                                        color: AppColors.expense,
-                                      ),
-                                      SizedBox(width: 2),
-                                      Text(
-                                        'Lepas',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.expense,
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.add_circle_outline_rounded,
+                                          size: 11,
+                                          color: AppColors.primary,
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(width: 2),
+                                        Text(
+                                          'Catat',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                                if (account.ownerId == state.owner) ...[
+                                  const SizedBox(width: 4),
+                                  InkWell(
+                                    onTap: state.canWrite
+                                        ? () => unlink(context, account)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.link_off_rounded,
+                                            size: 11,
+                                            color: AppColors.expense,
+                                          ),
+                                          SizedBox(width: 2),
+                                          Text(
+                                            'Lepas',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.expense,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
                         ),
                       ],

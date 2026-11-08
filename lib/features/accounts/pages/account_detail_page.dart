@@ -264,21 +264,34 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
     bool mapped,
     bool canRegister,
   ) {
+    final isCreditCard = account.isCreditCard;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isCreditCard ? null : Colors.white,
+        gradient: isCreditCard
+            ? const LinearGradient(
+                colors: [Color(0xFF0F3E33), Color(0xFF1B5E4B)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.border.withValues(alpha: 0.7),
+          color: isCreditCard
+              ? Colors.white.withValues(alpha: 0.15)
+              : AppColors.border.withValues(alpha: 0.7),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: isCreditCard
+                ? AppColors.primary.withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.02),
+            blurRadius: isCreditCard ? 12 : 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -288,14 +301,41 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                account.isCreditCard ? 'Tagihan kartu' : 'Saldo Rekening',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+              if (isCreditCard)
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.credit_card_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Tagihan kartu',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  'Saldo Rekening',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
               if (account.institution.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -303,15 +343,17 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant,
+                    color: isCreditCard
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : AppColors.surfaceVariant,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     account.institution,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: isCreditCard ? Colors.white : AppColors.primary,
                     ),
                   ),
                 ),
@@ -321,15 +363,15 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           Text(
             state.isBalanceHidden
                 ? '••••••'
-                : account.isCreditCard
+                : isCreditCard
                 ? CurrencyFormatter.formatMinorRupiah(
                     account.creditSummary.debt,
                   )
                 : CurrencyFormatter.formatRupiah(account.balance),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: isCreditCard ? Colors.white : AppColors.textPrimary,
               letterSpacing: -0.5,
             ),
           ),
@@ -382,7 +424,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
             spacing: 12,
             runSpacing: 8,
             children: [
-              if (!account.isCreditCard)
+              if (!isCreditCard)
                 OutlinedButton(
                   onPressed: mapped
                       ? null
@@ -406,29 +448,47 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                         },
                   child: const Text('Ubah Saldo'),
                 ),
-              OutlinedButton(
-                onPressed:
-                    !mapped &&
-                        state.selectableAccounts.any(
-                          (candidate) => candidate.id == account.id,
+              if (isCreditCard)
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF0F3E33),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.arrow_upward_rounded, size: 16),
+                  label: const Text(
+                    'Bayar kartu kredit',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onPressed: !mapped &&
+                          state.selectableAccounts.any(
+                            (candidate) => candidate.id == account.id,
+                          )
+                      ? () => AddTransactionModal.show(
+                          context,
+                          initialType: TransactionType.transfer,
+                          initialAccountId: null,
+                          initialToAccountId: account.id,
                         )
-                    ? () => AddTransactionModal.show(
-                        context,
-                        initialType: TransactionType.transfer,
-                        initialAccountId: account.isCreditCard
-                            ? null
-                            : account.id,
-                        initialToAccountId: account.isCreditCard
-                            ? account.id
-                            : null,
-                      )
-                    : null,
-                child: Text(
-                  account.isCreditCard
-                      ? 'Bayar kartu kredit'
-                      : 'Transfer Saldo',
+                      : null,
+                )
+              else
+                OutlinedButton(
+                  onPressed: !mapped &&
+                          state.selectableAccounts.any(
+                            (candidate) => candidate.id == account.id,
+                          )
+                      ? () => AddTransactionModal.show(
+                          context,
+                          initialType: TransactionType.transfer,
+                          initialAccountId: account.id,
+                          initialToAccountId: null,
+                        )
+                      : null,
+                  child: const Text('Transfer Saldo'),
                 ),
-              ),
             ],
           ),
         ],

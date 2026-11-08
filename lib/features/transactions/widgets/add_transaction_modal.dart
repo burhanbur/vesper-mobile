@@ -1,5 +1,4 @@
 import '../../obligations/pages/obligations_page.dart';
-import '../../accounts/models/credit_card_summary.dart';
 
 import 'package:flutter/material.dart';
 
@@ -697,12 +696,6 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                                 .getAccountById(_selectedToAccountId ?? '')
                                 ?.isCreditCard ==
                             true) ...[
-                      const Text(
-                        'Pencatatan ini tidak melakukan pembayaran ke bank.',
-                      ),
-                      const Text(
-                        'Limit bersifat informasi; melebihi limit dan kelebihan bayar tidak menghalangi pencatatan.',
-                      ),
                       Builder(
                         builder: (context) {
                           final card = _selectedType == TransactionType.transfer
@@ -712,10 +705,230 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                             return const SizedBox.shrink();
                           }
                           final summary = card!.creditSummary;
-                          return Text(
-                            state.isBalanceHidden
-                                ? '••••••'
-                                : 'Utang Terpakai: ${accountDecimal(summary.debt)} • Kelebihan Bayar: ${accountDecimal(summary.overpayment)} • Sisa Limit: ${summary.remaining == null ? 'tidak dilacak' : accountDecimal(summary.remaining!)}',
+                          final isHidden = state.isBalanceHidden;
+                          final debtStr = isHidden
+                              ? '••••••'
+                              : CurrencyFormatter.formatMinorRupiah(summary.debt);
+                          final remainingStr = isHidden
+                              ? '••••••'
+                              : summary.remaining == null
+                              ? 'Tidak dilacak'
+                              : CurrencyFormatter.formatMinorRupiah(
+                                  summary.remaining!,
+                                );
+                          final overpaymentStr = isHidden
+                              ? '••••••'
+                              : CurrencyFormatter.formatMinorRupiah(
+                                  summary.overpayment,
+                                );
+
+                          return Container(
+                            margin: const EdgeInsets.only(top: 10, bottom: 4),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.credit_card_rounded,
+                                        size: 16,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Info Kartu: ${card.name}',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Kartu Kredit',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.border.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Utang Terpakai',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textMuted,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              debtStr,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.expense,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.border.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Sisa Limit',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textMuted,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              remainingStr,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (summary.overpayment > BigInt.zero) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.infoLight,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.account_balance_wallet_outlined,
+                                          size: 14,
+                                          color: AppColors.info,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Kelebihan Bayar: $overpaymentStr',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.info,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                const Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline_rounded,
+                                      size: 13,
+                                      color: AppColors.textMuted,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Pencatatan ini tidak melakukan debet otomatis ke bank. Melebihi limit atau kelebihan bayar tidak menghalangi pencatatan.',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textMuted,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
