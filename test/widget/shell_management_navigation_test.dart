@@ -126,7 +126,7 @@ void main() {
 
   testWidgets('ordinary settings routes remain fullscreen', (tester) async {
     await pumpShell(tester);
-    await tester.tap(find.text('Aset & Portofolio Investasi'));
+    await tester.tap(find.text('Portofolio Investasi'));
     await tester.pumpAndSettle();
     expect(find.text('Lainnya').hitTestable(), findsNothing);
     await tester.binding.handlePopRoute();

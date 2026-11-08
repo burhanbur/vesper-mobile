@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/portfolio_controller.dart';
 import '../data/portfolio_repository.dart';
@@ -61,7 +62,6 @@ class _PortfolioPageState extends State<PortfolioPage> {
   }
 
   Future<void> _chooseDate(PortfolioController controller) async {
-    // Server snapshots are reference calendar dates with a UTC-day cutoff.
     final now = DateTime.now().toUtc();
     final picked = await showDatePicker(
       context: context,
@@ -83,25 +83,43 @@ class _PortfolioPageState extends State<PortfolioPage> {
     );
   }
 
+  BigInt _parseMinor(String? decimalStr) {
+    if (decimalStr == null || decimalStr.isEmpty) return BigInt.zero;
+    final clean = decimalStr.trim();
+    final parts = clean.split('.');
+    final whole = BigInt.tryParse(parts[0]) ?? BigInt.zero;
+    final fracStr = (parts.length > 1 ? parts[1] : '').padRight(2, '0').substring(0, 2);
+    final frac = BigInt.tryParse(fracStr) ?? BigInt.zero;
+    final sign = clean.startsWith('-') ? -BigInt.one : BigInt.one;
+    return sign * (whole.abs() * BigInt.from(100) + frac);
+  }
+
   Widget _emptyPortfolio({bool noAccounts = false}) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(
-              color: AppColors.accentLight,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.accentLight.withValues(alpha: 0.7),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.pie_chart_outline_rounded,
-              size: 36,
+              size: 38,
               color: AppColors.primary,
             ),
           ),
@@ -112,30 +130,198 @@ class _PortfolioPageState extends State<PortfolioPage> {
                 : 'Belum ada posisi investasi',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            noAccounts ? 'Belum ada akun investasi milik Anda.' : 'Tidak ada posisi untuk akun dan periode ini. Kelola instrumen dan transaksi investasi Anda.',
+            noAccounts
+                ? 'Belum ada akun investasi milik Anda.'
+                : 'Tidak ada posisi untuk akun dan periode ini. Kelola instrumen dan transaksi investasi Anda.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12.5,
+              height: 1.45,
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _manageInvestments,
-            icon: const Icon(Icons.tune_rounded, size: 18),
-            label: const Text('Kelola investasi'),
+            icon: const Icon(Icons.tune_rounded, size: 17),
+            label: const Text(
+              'Kelola investasi',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 0,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroSummary({
+    required PortfolioAccount? account,
+    required PortfolioRead? read,
+    required bool isSnapshot,
+    required bool hidden,
+  }) {
+    BigInt totalMarketValue = BigInt.zero;
+    BigInt totalUnrealizedPl = BigInt.zero;
+    int itemsWithPrice = 0;
+
+    if (read != null && read.positions.isNotEmpty) {
+      for (final pos in read.positions) {
+        if (pos.marketValue != null) {
+          totalMarketValue += _parseMinor(pos.marketValue);
+          itemsWithPrice++;
+        }
+        if (pos.unrealizedPl != null) {
+          totalUnrealizedPl += _parseMinor(pos.unrealizedPl);
+        }
+      }
+    }
+
+    final hasPl = itemsWithPrice > 0;
+    final isPlPositive = totalUnrealizedPl >= BigInt.zero;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            AppColors.primaryGradientStart,
+            AppColors.primaryGradientEnd,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.18),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_rounded,
+                      size: 15,
+                      color: Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        account?.name ?? 'Akun Investasi',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSnapshot)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'SNAPSHOT',
+                    style: TextStyle(
+                      color: Color(0xFFFDE68A),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isSnapshot ? 'Estimasi Nilai Pasar' : 'Total Portofolio',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            hidden
+                ? '••••••'
+                : (hasPl
+                    ? CurrencyFormatter.formatMinorRupiah(totalMarketValue)
+                    : (read?.positions.isNotEmpty == true
+                        ? '${read!.positions.length} Instrumen Aktif'
+                        : 'Rp 0')),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+          if (hasPl) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  isPlPositive
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
+                  size: 15,
+                  color: isPlPositive
+                      ? const Color(0xFF34D399)
+                      : const Color(0xFFF87171),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Laba/Rugi: ${hidden ? '••••••' : CurrencyFormatter.formatMinorRupiah(totalUnrealizedPl)}',
+                    style: TextStyle(
+                      color: isPlPositive
+                          ? const Color(0xFF34D399)
+                          : const Color(0xFFF87171),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -145,6 +331,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
   Widget build(BuildContext context) {
     final controller = _controller;
     final hidden = AppStateScope.of(context).isBalanceHidden;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -165,12 +352,15 @@ class _PortfolioPageState extends State<PortfolioPage> {
             child: FilledButton.tonalIcon(
               onPressed: _manageInvestments,
               icon: const Icon(Icons.tune_rounded, size: 16),
-              label: const Text('Kelola'),
+              label: const Text(
+                'Kelola',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 foregroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
+                  horizontal: 14,
                   vertical: 8,
                 ),
                 shape: RoundedRectangleBorder(
@@ -211,37 +401,42 @@ class _PortfolioPageState extends State<PortfolioPage> {
               builder: (context, _) {
                 final accounts = controller.repository.accounts;
                 final read = controller.read;
+                final selectedAccount = accounts
+                    .where((a) => a.id == controller.accountId)
+                    .firstOrNull;
+
                 String amount(String? value) => hidden
                     ? '••••••'
                     : value == null
                     ? 'Harga belum tersedia'
                     : 'IDR $value';
+
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    const Text(
-                      'Akun & periode',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     if (accounts.isEmpty)
                       _emptyPortfolio(noAccounts: true)
                     else ...[
-                      // Compact selection controls; section headings stay outside.
+                      // 1. Hero Summary Card
+                      _buildHeroSummary(
+                        account: selectedAccount,
+                        read: read,
+                        isSnapshot: controller.date != null,
+                        hidden: hidden,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // 2. Account & Period Selector Card
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(color: AppColors.border),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 8,
+                              blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
                           ],
@@ -262,10 +457,10 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 12,
-                                  vertical: 12,
+                                  vertical: 10,
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                               isExpanded: true,
@@ -287,7 +482,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                 controller.select(id, controller.date),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -349,9 +544,9 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
-                      // Section Header
+                      // 3. Section Header: Posisi Investasi
                       Row(
                         children: [
                           const Icon(
@@ -374,7 +569,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
 
                       if (controller.loading)
                         const Padding(
@@ -413,6 +608,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           ),
                         ),
                       ),
+
                       if (read != null) ...[
                         if (read.positions.isEmpty) _emptyPortfolio(),
                         for (final position in read.positions)
@@ -468,21 +664,25 @@ class _PortfolioPageState extends State<PortfolioPage> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceVariant,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        'Jumlah: ${hidden ? '••••••' : position.quantity}',
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimary,
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceVariant,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          'Jumlah: ${hidden ? '••••••' : position.quantity}',
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ),

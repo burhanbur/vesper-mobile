@@ -316,7 +316,7 @@ class SettingsPage extends StatelessWidget {
                         color: AppColors.primary,
                       ),
                       title: const Text(
-                        'Aset & Portofolio Investasi',
+                        'Portofolio Investasi',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

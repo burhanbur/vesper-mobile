@@ -7,6 +7,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/obligations_controller.dart';
 import '../data/obligations_repository.dart';
+import 'obligation_amount_input.dart';
 
 class ObligationsPage extends StatefulWidget {
   const ObligationsPage({super.key, this.initialLinkedAccountId});
@@ -21,6 +22,45 @@ class _ObligationsPageState extends State<ObligationsPage> {
   ObligationsController? controller;
   String? error;
   bool _initialFormOpened = false;
+  String _filter = 'ALL';
+
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -92,7 +132,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
     String? cashId, interestCategory, feeCategory, saveError;
     String? mappedId = linkedAccountId;
     if (linkedAccount != null) {
-      principal.text = obligationMoney(balance.abs());
+      principal.text = ObligationAmountInput.fromDecimal(
+        obligationMoney(balance.abs()),
+      );
     }
     bool existing = true;
     bool savedOnce = false;
@@ -174,11 +216,13 @@ class _ObligationsPageState extends State<ObligationsPage> {
             );
             Widget amount(TextEditingController c, String label) => TextField(
               controller: c,
+              inputFormatters: const [ObligationAmountInput()],
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
               decoration: InputDecoration(
                 labelText: label,
+                prefixText: 'Rp ',
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 10,
@@ -426,7 +470,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           repo.open(
                             kind: kind,
                             counterparty: counterparty.text,
-                            principal: principal.text,
+                            principal: ObligationAmountInput.toDecimal(
+                              principal.text,
+                            ),
                             dueDate: due.text,
                             installments: schedule.text,
                             cashAccountId: existing ? null : cashId,
@@ -439,17 +485,24 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           repo.repay(
                             debt['id'] as String,
                             cashAccountId: cashId!,
-                            principal: principal.text,
-                            interest: interest.text,
-                            fee: fee.text,
+                            principal: ObligationAmountInput.toDecimal(
+                              principal.text,
+                            ),
+                            interest: ObligationAmountInput.toDecimal(
+                              interest.text,
+                            ),
+                            fee: ObligationAmountInput.toDecimal(fee.text),
                             interestCategoryId: interestCategory,
                             feeCategoryId: feeCategory,
                           );
                         }
                       },
                       amounts: [
-                        principal.text,
-                        if (debt != null) ...[interest.text, fee.text],
+                        ObligationAmountInput.toDecimal(principal.text),
+                        if (debt != null) ...[
+                          ObligationAmountInput.toDecimal(interest.text),
+                          ObligationAmountInput.toDecimal(fee.text),
+                        ],
                       ],
                       accountIds: [
                         if (cashId != null) cashId!,
@@ -541,6 +594,32 @@ class _ObligationsPageState extends State<ObligationsPage> {
             color: AppColors.textPrimary,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Tambah pinjaman',
+            icon: const Icon(Icons.add_rounded, color: AppColors.textPrimary),
+            onPressed: active == null ? null : () => form(),
+          ),
+          IconButton(
+            tooltip: 'Sinkronkan',
+            icon: const Icon(Icons.sync_rounded, color: AppColors.textPrimary),
+            onPressed: (active == null || active.repository.source.isSyncing)
+                ? null
+                : () async {
+                    try {
+                      await state.syncPendingNow();
+                    } catch (failure) {
+                      if (mounted) {
+                        setState(
+                          () => error = failure.toString(),
+                        );
+                      }
+                    }
+                    if (mounted) setState(() {});
+                  },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: active == null
           ? const Center(
@@ -555,42 +634,211 @@ class _ObligationsPageState extends State<ObligationsPage> {
                 final repo = active.repository;
                 final source = repo.source;
                 final totals = repo.totals();
+                final receivableMinor = obligationMinor('${totals['receivable']}');
+                final payableMinor = obligationMinor('${totals['payable']}');
+                final netMinor = receivableMinor - payableMinor;
+                final isNetPositive = netMinor >= BigInt.zero;
+
+                final displayedDebts = repo.records.where((debt) {
+                  if (_filter == 'RECEIVABLE') return debt['kind'] == 'RECEIVABLE';
+                  if (_filter == 'PAYABLE') return debt['kind'] == 'PAYABLE';
+                  return true;
+                }).toList();
+
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
+                    // 1. Unified Hero Card with Net Position & Utang/Piutang stats
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
+                        gradient: const LinearGradient(
+                          colors: [
+                            AppColors.primaryGradientStart,
+                            AppColors.primaryGradientEnd,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.18),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                      child: const Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 16,
-                            color: AppColors.textMuted,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Catatan pribadi milik Anda. Saldo dan riwayat disimpan lokal; perintah tertunda termasuk dalam estimasi. Akun kas yang dibagikan tetap memperlihatkan arus kas kepada anggota yang berhak, tanpa rincian pinjaman.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                                height: 1.35,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.account_balance_rounded,
+                                    size: 15,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Posisi Bersih',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  isNetPositive ? 'Surplus' : 'Defisit',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            state.isBalanceHidden
+                                ? '••••••'
+                                : (netMinor == BigInt.zero
+                                    ? 'Rp 0'
+                                    : '${isNetPositive ? '+' : '-'}${CurrencyFormatter.formatMinorRupiah(netMinor.abs())}'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.arrow_downward_rounded,
+                                            size: 13,
+                                            color: Color(0xFF34D399),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Piutang',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.8,
+                                              ),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Sisa piutang: ${money(totals['receivable'])}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.arrow_upward_rounded,
+                                            size: 13,
+                                            color: Color(0xFFF87171),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Utang',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.8,
+                                              ),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Sisa utang: ${money(totals['payable'])}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 12),
+
                     if (!source.hasCompleteObligationHistory) ...[
-                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
                           color: AppColors.warningLight,
                           borderRadius: BorderRadius.circular(10),
@@ -605,162 +853,27 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
 
-                    // Summary Cards for Utang & Piutang
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.expenseLight,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.arrow_upward_rounded,
-                                        size: 14,
-                                        color: AppColors.expense,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'Utang',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Sisa utang: ${money(totals['payable'])}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.incomeLight,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.arrow_downward_rounded,
-                                        size: 14,
-                                        color: AppColors.income,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'Piutang',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Sisa piutang: ${money(totals['receivable'])}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
+                    // 2. Filter Bar
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                          ),
-                          onPressed: () => form(),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Tambah pinjaman'),
+                        _filterChip(
+                          label: 'Semua (${repo.records.length})',
+                          selected: _filter == 'ALL',
+                          onTap: () => setState(() => _filter = 'ALL'),
                         ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textPrimary,
-                            side: const BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                          ),
-                          onPressed: source.isSyncing
-                              ? null
-                              : () async {
-                                  try {
-                                    await state.syncPendingNow();
-                                  } catch (failure) {
-                                    if (mounted) {
-                                      setState(
-                                        () => error = failure.toString(),
-                                      );
-                                    }
-                                  }
-                                  if (mounted) setState(() {});
-                                },
-                          icon: const Icon(Icons.sync_rounded, size: 16),
-                          label: const Text('Sinkronkan'),
+                        _filterChip(
+                          label: 'Piutang (${repo.records.where((d) => d['kind'] == 'RECEIVABLE').length})',
+                          selected: _filter == 'RECEIVABLE',
+                          onTap: () => setState(() => _filter = 'RECEIVABLE'),
+                        ),
+                        _filterChip(
+                          label: 'Utang (${repo.records.where((d) => d['kind'] == 'PAYABLE').length})',
+                          selected: _filter == 'PAYABLE',
+                          onTap: () => setState(() => _filter = 'PAYABLE'),
                         ),
                       ],
                     ),
@@ -911,31 +1024,33 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           ],
                         ),
                       ),
-                    for (final debt in repo.records)
+                    for (final debt in displayedDebts)
                       Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
                           side: const BorderSide(color: AppColors.border),
                         ),
                         color: Colors.white,
-                        margin: const EdgeInsets.only(bottom: 10),
+                        margin: const EdgeInsets.only(bottom: 12),
                         child: ExpansionTile(
                           shape: const Border(),
                           collapsedShape: const Border(),
                           leading: Container(
-                            padding: const EdgeInsets.all(8),
+                            width: 38,
+                            height: 38,
+                            alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: debt['kind'] == 'PAYABLE'
                                   ? AppColors.expenseLight
                                   : AppColors.incomeLight,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               debt['kind'] == 'PAYABLE'
                                   ? Icons.arrow_upward_rounded
                                   : Icons.arrow_downward_rounded,
-                              size: 18,
+                              size: 20,
                               color: debt['kind'] == 'PAYABLE'
                                   ? AppColors.expense
                                   : AppColors.income,

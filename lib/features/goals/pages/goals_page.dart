@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/currency_amount_input.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/goals_controller.dart';
 import '../data/goals_repository.dart';
@@ -51,7 +53,9 @@ class _GoalsPageState extends State<GoalsPage> {
     final repo = active.repository;
     final name = TextEditingController(text: goal?['name'] as String?);
     final target = TextEditingController(
-      text: goal?['target_amount'] as String?,
+      text: CurrencyAmountInput.fromDecimal(
+        goal?['target_amount'] as String? ?? '',
+      ),
     );
     final date = TextEditingController(
       text:
@@ -111,11 +115,15 @@ class _GoalsPageState extends State<GoalsPage> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: target,
+                    inputFormatters: const [CurrencyAmountInput()],
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Target nominal (contoh: 1000000.00)',
+                      labelText: 'Target nominal',
+                      prefixText: currency.text.trim().toUpperCase() == 'IDR'
+                          ? 'Rp '
+                          : '${currency.text.trim().toUpperCase()} ',
                       labelStyle: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
@@ -132,6 +140,7 @@ class _GoalsPageState extends State<GoalsPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: currency,
+                    onChanged: (_) => update(() {}),
                     enabled: goal == null,
                     maxLength: 3,
                     textCapitalization: TextCapitalization.characters,
@@ -253,7 +262,9 @@ class _GoalsPageState extends State<GoalsPage> {
                           if (goal == null) {
                             repo.create(
                               name: name.text,
-                              target: target.text.trim(),
+                              target: CurrencyAmountInput.toDecimal(
+                                target.text.trim(),
+                              ),
                               currency: currency.text.trim().toUpperCase(),
                               targetDate: date.text.trim(),
                               groupId: group,
@@ -262,7 +273,9 @@ class _GoalsPageState extends State<GoalsPage> {
                             repo.update(
                               goal['id'] as String,
                               name: name.text,
-                              target: target.text.trim(),
+                              target: CurrencyAmountInput.toDecimal(
+                                target.text.trim(),
+                              ),
                               targetDate: date.text.trim(),
                               status: goal['status'] as String,
                             );
@@ -307,7 +320,9 @@ class _GoalsPageState extends State<GoalsPage> {
     final goal = repo.goals.where((g) => g['id'] == goalId).firstOrNull;
     String? account = existing?['account_id'] as String?, error;
     final amount = TextEditingController(
-      text: existing?['amount'] as String? ?? '0.00',
+      text: CurrencyAmountInput.fromDecimal(
+        existing?['amount'] as String? ?? '0.00',
+      ),
     );
     bool saved = false;
     final accounts = repo.cashAccounts
@@ -374,7 +389,9 @@ class _GoalsPageState extends State<GoalsPage> {
                                   a['user_id'] == repo.source.userId,
                             )
                             .firstOrNull;
-                        amount.text = '${old?['amount'] ?? '0.00'}';
+                        amount.text = CurrencyAmountInput.fromDecimal(
+                          '${old?['amount'] ?? '0.00'}',
+                        );
                       }),
                     ),
                     const SizedBox(height: 10),
@@ -393,11 +410,15 @@ class _GoalsPageState extends State<GoalsPage> {
                     ),
                   TextField(
                     controller: amount,
+                    inputFormatters: const [CurrencyAmountInput()],
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
                     decoration: InputDecoration(
                       labelText: 'Total alokasi dari akun ini',
+                      prefixText: goal?['currency'] == 'IDR'
+                          ? 'Rp '
+                          : '${goal?['currency'] ?? ''} ',
                       labelStyle: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
@@ -454,7 +475,7 @@ class _GoalsPageState extends State<GoalsPage> {
                           () => repo.allocate(
                             goalId,
                             account ?? '',
-                            amount.text.trim(),
+                            CurrencyAmountInput.toDecimal(amount.text.trim()),
                           ),
                         );
                         if (ok) {
@@ -761,9 +782,13 @@ class _GoalsPageState extends State<GoalsPage> {
               builder: (context) {
                 final progress = repo.progress(goal);
                 final hidden = state.isBalanceHidden;
-                String money(BigInt value) => hidden
-                    ? '••••••'
-                    : '${goalMoney(value)} ${goal['currency']}';
+                String money(BigInt value) {
+                  if (hidden) return '••••••';
+                  if (goal['currency'] == 'IDR') {
+                    return CurrencyFormatter.formatMinorRupiah(value);
+                  }
+                  return '${goalMoney(value)} ${goal['currency']}';
+                }
                 final mine = goal['user_id'] == repo.source.userId;
 
                 final statusText = goal['status'] == 'COMPLETED'
@@ -784,17 +809,17 @@ class _GoalsPageState extends State<GoalsPage> {
                     : AppColors.primary;
 
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
+                  margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.015),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -802,22 +827,47 @@ class _GoalsPageState extends State<GoalsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.flag_rounded,
+                              size: 20,
+                              color: statusColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              '${goal['name']}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${goal['name']}',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${goal['group_id'] == null ? 'Pribadi — hanya saya' : 'Rumah tangga — anggota aktif'} • ${mine ? 'Saya pembuat' : 'Dibuat anggota'}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
+                              horizontal: 9,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
                               color: statusColor.withValues(alpha: 0.1),
@@ -834,21 +884,24 @@ class _GoalsPageState extends State<GoalsPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${goal['group_id'] == null ? 'Pribadi — hanya saya' : 'Rumah tangga — anggota aktif'} • ${mine ? 'Saya pembuat' : 'Dibuat anggota'}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Target ${DateFormatter.calendarDate(goal['target_date'])} • $statusText',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 13,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Target ${DateFormatter.calendarDate(goal['target_date'])} • $statusText',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
                       if (!hidden) ...[
@@ -856,9 +909,9 @@ class _GoalsPageState extends State<GoalsPage> {
                           children: [
                             Expanded(
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(6),
                                 child: LinearProgressIndicator(
-                                  value: progress.percent / 100,
+                                  value: (progress.percent / 100).clamp(0.0, 1.0),
                                   minHeight: 8,
                                   backgroundColor: AppColors.surfaceVariant,
                                   color: statusColor,
@@ -869,61 +922,78 @@ class _GoalsPageState extends State<GoalsPage> {
                             Text(
                               '${progress.percent}%',
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w800,
                                 fontSize: 13,
                                 color: AppColors.textPrimary,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                       ],
-                      Text(
-                        'Didukung saldo: ${money(progress.funded)} / ${money(progress.target)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Total alokasi: ${money(progress.pledged)}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      if (progress.shortfall > BigInt.zero)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            'Kekurangan dukungan saldo: ${money(progress.shortfall)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.expense,
-                              fontWeight: FontWeight.w500,
-                            ),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.border.withValues(alpha: 0.6),
                           ),
                         ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Perlu ${money(progress.monthly)} per bulan kalender tersisa (termasuk bulan ini).',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Didukung saldo: ${money(progress.funded)} / ${money(progress.target)}',
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Total alokasi: ${money(progress.pledged)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (progress.shortfall > BigInt.zero)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Kekurangan dukungan saldo: ${money(progress.shortfall)}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.expense,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Perlu ${money(progress.monthly)} per bulan kalender tersisa (termasuk bulan ini).',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Patokan hari ini: ${money(progress.expected)}. Target dibagi linear sejak ${goal['start_date']} sampai tenggat, mengikuti zona waktu pilihan; bukan prediksi hasil investasi.',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textMuted,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Patokan hari ini: ${money(progress.expected)}. Target dibagi linear sejak ${goal['start_date']} sampai tenggat, mengikuti zona waktu pilihan; bukan prediksi hasil investasi.',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       for (final a in repo.allocations.where(
                         (a) => a['goal_id'] == goal['id'],
                       ))
@@ -946,7 +1016,7 @@ class _GoalsPageState extends State<GoalsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${a['user_id'] == repo.source.userId ? 'Alokasi saya' : 'Kontribusi anggota'}: ${hidden ? '••••••' : '${a['amount']} ${goal['currency']}'}',
+                                      '${a['user_id'] == repo.source.userId ? 'Alokasi saya' : 'Kontribusi anggota'}: ${hidden ? '••••••' : (goal['currency'] == 'IDR' ? CurrencyFormatter.formatCurrency(a['amount']) : '${a['amount']} ${goal['currency']}')}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,

@@ -46,6 +46,16 @@ void main() {
       expect(source.row('accounts', cashId)!['balance'], '1000.00');
       await tester.tap(find.text('Catat pembayaran'));
       await tester.pumpAndSettle();
+      final actual = find.widgetWithText(TextField, 'Nominal aktual IDR bulat');
+      expect(tester.widget<TextField>(actual).controller!.text, '100');
+      expect(tester.widget<TextField>(actual).decoration!.prefixText, 'Rp ');
+      await tester.enterText(actual, '1000,01');
+      expect(tester.widget<TextField>(actual).controller!.text, '1.000,01');
+      await tester.tap(find.text('Konfirmasi'));
+      await tester.pumpAndSettle();
+      expect(source.outbox, isEmpty);
+      expect(source.row('accounts', cashId)!['balance'], '1000.00');
+      await tester.enterText(actual, '100');
       await tester.tap(find.text('Konfirmasi'));
       await tester.pumpAndSettle();
       expect(source.row('accounts', cashId)!['balance'], '900.00');
@@ -88,9 +98,20 @@ void main() {
         find.widgetWithText(TextField, 'Judul'),
         'Internet',
       );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Nominal IDR bulat'),
-        'oops',
+      final amount = find.widgetWithText(TextField, 'Nominal IDR bulat');
+      await tester.enterText(amount, '1000000,01');
+      expect(tester.widget<TextField>(amount).controller!.text, '1.000.000,01');
+      expect(tester.widget<TextField>(amount).decoration!.prefixText, 'Rp ');
+      expect(
+        tester
+            .widget<TextField>(
+              find.widgetWithText(
+                TextField,
+                'Ingatkan sebelum jatuh tempo (0–30 hari)',
+              ),
+            )
+            .inputFormatters,
+        isNull,
       );
       await tester.tap(find.text('Simpan jadwal'));
       await tester.pumpAndSettle();

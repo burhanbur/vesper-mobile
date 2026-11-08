@@ -106,6 +106,7 @@ class Account {
   final String currency;
   final String ownerUserId;
   final String ownerName;
+  final String? accountTypeId;
   final bool isCreditCard;
   final String? creditLimit;
   final String? exactBalance;
@@ -118,6 +119,7 @@ class Account {
     required this.type,
     required this.balance,
     required this.accountNumber,
+    this.accountTypeId,
     this.isShared = false,
     this.householdId,
     this.institution = '',

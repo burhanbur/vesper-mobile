@@ -781,6 +781,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           type: _accountType(r),
           balance: rupiah(r['balance']),
           exactBalance: '${r['balance']}',
+          accountTypeId: r['account_type_id'] as String?,
           isCreditCard: r['is_credit_card'] == true,
           creditLimit: r['credit_limit'] as String?,
           accountNumber: '',
@@ -833,6 +834,24 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       'is_include_total': isIncludeTotal,
     }, id: accountId);
     _changed();
+  }
+
+  Future<void> updateAccount({
+    required String accountId,
+    String? name,
+    String? accountTypeId,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (name != null && name.trim().isNotEmpty) {
+      payload['name'] = name.trim();
+    }
+    if (accountTypeId != null && accountTypeId.isNotEmpty) {
+      payload['account_type_id'] = accountTypeId;
+    }
+    if (payload.isNotEmpty) {
+      _repo.mutate('accounts', 'UPDATE', payload, id: accountId);
+      _changed();
+    }
   }
 
   void addAccount({

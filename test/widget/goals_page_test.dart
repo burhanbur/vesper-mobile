@@ -38,20 +38,26 @@ void main() {
       'Holiday',
     );
     await tester.enterText(
-      find.widgetWithText(TextField, 'Target nominal (contoh: 1000000.00)'),
-      '1000.001',
+      find.widgetWithText(TextField, 'Target nominal'),
+      '1000,001',
     );
     await tester.tap(find.text('Simpan lokal'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(source.outbox, isEmpty);
     await tester.enterText(
-      find.widgetWithText(TextField, 'Target nominal (contoh: 1000000.00)'),
+      find.widgetWithText(TextField, 'Target nominal'),
       '1000',
     );
+    final targetField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Target nominal'),
+    );
+    expect(targetField.controller!.text, '1.000');
+    expect(targetField.decoration!.prefixText, 'Rp ');
     await tester.tap(find.text('Simpan lokal'));
     await tester.pumpAndSettle();
     expect(find.text('Holiday'), findsOneWidget);
+    expect(source.rows('goals').single['target_amount'], '1000.00');
     expect(find.textContaining('Pribadi — hanya saya'), findsOneWidget);
     acceptGoals(source);
     await tester.tap(find.text('Alokasikan dana'));
@@ -64,6 +70,11 @@ void main() {
       find.widgetWithText(TextField, 'Total alokasi dari akun ini'),
       '1000',
     );
+    final allocationField = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Total alokasi dari akun ini'),
+    );
+    expect(allocationField.controller!.text, '1.000');
+    expect(allocationField.decoration!.prefixText, 'Rp ');
     await tester.tap(find.text('Simpan alokasi'));
     await tester.pumpAndSettle();
     expect(find.text('100%'), findsOneWidget);

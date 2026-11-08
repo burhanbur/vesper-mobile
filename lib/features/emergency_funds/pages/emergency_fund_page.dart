@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/currency_amount_input.dart';
 import '../../../app/theme/app_colors.dart';
-import '../../goals/data/goals_repository.dart';
 import '../data/emergency_fund_controller.dart';
 import '../data/emergency_fund_repository.dart';
 
@@ -63,7 +64,9 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
         .where((id) => repo.categories.any((c) => c['id'] == id))
         .toSet();
     final manual = TextEditingController(
-      text: plan?['manual_baseline'] as String? ?? '',
+      text: CurrencyAmountInput.fromDecimal(
+        plan?['manual_baseline'] as String? ?? '',
+      ),
     );
     final months = TextEditingController(
       text: '${plan?['coverage_months'] ?? 6}',
@@ -140,12 +143,14 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: manual,
+                    inputFormatters: const [CurrencyAmountInput()],
                     enabled: mode == 'MANUAL',
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
                     decoration: InputDecoration(
                       labelText: 'Pengeluaran wajib per bulan (IDR)',
+                      prefixText: 'Rp ',
                       labelStyle: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
@@ -385,7 +390,9 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                         final ok = active.save(
                           () => repo.save(
                             mode: mode,
-                            manualBaseline: manual.text,
+                            manualBaseline: CurrencyAmountInput.toDecimal(
+                              manual.text.trim(),
+                            ),
                             coverageMonths:
                                 int.tryParse(months.text.trim()) ?? 0,
                             historyMonths: history,
@@ -466,7 +473,7 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
         ? 'Belum tersedia'
         : hidden
         ? '••••••'
-        : '${goalMoney(value)} IDR';
+        : CurrencyFormatter.formatMinorRupiah(value);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -609,7 +616,145 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
             const SizedBox(height: 16),
             // Assessment Hero Card
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    AppColors.primaryGradientStart,
+                    AppColors.primaryGradientEnd,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.18),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.shield_rounded,
+                            size: 16,
+                            color: Colors.white70,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Status Dana Darurat',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          plan!['baseline_mode'] == 'MANUAL'
+                              ? 'Baseline manual — diisi sendiri'
+                              : 'Baseline estimasi — histori lokal',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Cakupan saat ini: ${r.coverageHundredths == null
+                        ? 'Belum tersedia'
+                        : hidden
+                        ? '••••••'
+                        : '${r.coverageHundredths! ~/ BigInt.from(100)}.${(r.coverageHundredths! % BigInt.from(100)).toString().padLeft(2, '0')} bulan'}',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (r.coverageHundredths != null && !hidden) ...[
+                    Builder(
+                      builder: (context) {
+                        final targetMonths = plan['coverage_months'] as int? ?? 6;
+                        final currentMonths = (r.coverageHundredths! ~/ BigInt.from(100)).toInt() +
+                            ((r.coverageHundredths! % BigInt.from(100)).toInt() / 100.0);
+                        final progress = targetMonths > 0 ? (currentMonths / targetMonths).clamp(0.0, 1.0) : 0.0;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 8,
+                                backgroundColor: Colors.white.withValues(alpha: 0.15),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  progress >= 1.0
+                                      ? const Color(0xFF34D399)
+                                      : const Color(0xFF6EE7B7),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Progres target: ${(progress * 100).toStringAsFixed(0)}%',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  'Target: $targetMonths Bulan',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Breakdown Stats Card
+            Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
@@ -625,49 +770,41 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      plan!['baseline_mode'] == 'MANUAL'
-                          ? 'Baseline manual — diisi sendiri'
-                          : 'Baseline estimasi — histori lokal',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentLight,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.insights_rounded,
+                          size: 15,
+                          color: AppColors.primary,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Ringkasan Kebutuhan & Dana',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Cakupan saat ini: ${r.coverageHundredths == null
-                        ? 'Belum tersedia'
-                        : hidden
-                        ? '••••••'
-                        : '${r.coverageHundredths! ~/ BigInt.from(100)}.${(r.coverageHundredths! % BigInt.from(100)).toString().padLeft(2, '0')} bulan'}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Text(
                     'Pengeluaran wajib per bulan: ${money(r.baseline)}',
                     style: const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     'Target ${plan['coverage_months']} bulan: ${money(r.target)}',
                     style: const TextStyle(
@@ -675,7 +812,7 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     'Dana likuid yang memenuhi syarat: ${money(r.liquid)}',
                     style: const TextStyle(
@@ -683,12 +820,12 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     'Kekurangan target: ${money(r.remaining)}',
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: (r.remaining != null && r.remaining! > BigInt.zero)
                           ? AppColors.expense
                           : AppColors.income,

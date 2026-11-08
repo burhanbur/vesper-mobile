@@ -306,8 +306,8 @@ class _MainShellState extends State<MainShell> {
               // Tab 2: Transaksi
               _buildNavButton(
                 index: 1,
-                icon: Icons.receipt_long_outlined,
-                activeIcon: Icons.receipt_long_rounded,
+                icon: Icons.receipt_outlined,
+                activeIcon: Icons.receipt_rounded,
                 label: 'Transaksi',
               ),
 

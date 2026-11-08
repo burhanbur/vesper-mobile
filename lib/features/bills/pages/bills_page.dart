@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/currency_amount_input.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../goals/data/goals_repository.dart';
+import '../../obligations/data/obligations_repository.dart';
 import '../../obligations/pages/obligations_page.dart';
 import '../data/bills_repository.dart';
 import '../data/bills_controller.dart';
@@ -51,7 +54,9 @@ class _BillsPageState extends State<BillsPage> {
   Future<void> schedule({Map<String, dynamic>? bill}) async {
     final active = controller!, repo = active.repository;
     final title = TextEditingController(text: bill?['title'] as String?);
-    final amount = TextEditingController(text: bill?['amount'] as String?);
+    final amount = TextEditingController(
+      text: CurrencyAmountInput.fromDecimal(bill?['amount'] as String? ?? ''),
+    );
     final preferredOffset = AppStateScope.of(context).timeZone
         .offsetMinutesAt(DateTime.now());
     final defaultOffset = [0, 420, 480, 540].contains(preferredOffset)
@@ -161,7 +166,9 @@ class _BillsPageState extends State<BillsPage> {
                           frequency = 'INSTALLMENTS';
                           type = d['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME';
                           amountType = 'FIXED';
-                          amount.text = '${first['principal']}';
+                          amount.text = CurrencyAmountInput.fromDecimal(
+                            '${first['principal']}',
+                          );
                           anchor.text = '${first['due_date']}';
                         } else {
                           frequency = 'MONTHLY';
@@ -239,9 +246,13 @@ class _BillsPageState extends State<BillsPage> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: amount,
-                        keyboardType: TextInputType.number,
+                        inputFormatters: const [CurrencyAmountInput()],
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Nominal IDR bulat',
+                          prefixText: 'Rp ',
                           labelStyle: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 13,
@@ -526,7 +537,9 @@ class _BillsPageState extends State<BillsPage> {
                           data.addAll({
                             'transaction_type': type,
                             'amount_type': amountType,
-                            'amount': amount.text.trim(),
+                            'amount': CurrencyAmountInput.toDecimal(
+                              amount.text.trim(),
+                            ),
                             'account_id': account ?? '',
                             'category_id': category,
                             'obligation_id': debt,
@@ -578,7 +591,9 @@ class _BillsPageState extends State<BillsPage> {
 
   Future<void> action(BillDueItem item, String action) async {
     final active = controller!, repo = active.repository;
-    final actual = TextEditingController(text: item.amount),
+    final actual = TextEditingController(
+          text: CurrencyAmountInput.fromDecimal(item.amount),
+        ),
         note = TextEditingController();
     String? recordId, error;
     bool saved = false;
@@ -630,9 +645,13 @@ class _BillsPageState extends State<BillsPage> {
                   if (action == 'PAY') ...[
                     TextField(
                       controller: actual,
-                      keyboardType: TextInputType.number,
+                      inputFormatters: const [CurrencyAmountInput()],
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Nominal aktual IDR bulat',
+                        prefixText: 'Rp ',
                         labelStyle: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 13,
@@ -763,7 +782,9 @@ class _BillsPageState extends State<BillsPage> {
                           () => repo.command(
                             item,
                             action,
-                            amount: actual.text.trim(),
+                            amount: CurrencyAmountInput.toDecimal(
+                              actual.text.trim(),
+                            ),
                             recordId: recordId,
                             note: note.text,
                           ),
@@ -939,6 +960,166 @@ class _BillsPageState extends State<BillsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
+          // 1. Hero Summary Card
+          Builder(
+            builder: (context) {
+              BigInt upcomingTotalMinor = BigInt.zero;
+              int overdueCount = 0;
+              for (final item in entries) {
+                if (item.status != 'PAID' && item.status != 'SKIPPED') {
+                  upcomingTotalMinor += obligationMinor(item.amount);
+                  if (item.overdue) overdueCount++;
+                }
+              }
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      AppColors.primaryGradientStart,
+                      AppColors.primaryGradientEnd,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.18),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_month_rounded,
+                              size: 16,
+                              color: Colors.white70,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              view == 'HISTORY'
+                                  ? 'Riwayat Pembayaran'
+                                  : 'Jadwal & Tagihan',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (overdueCount > 0 && view != 'HISTORY')
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 12,
+                                  color: Color(0xFFFCA5A5),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$overdueCount Lewat Tempo',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFCA5A5),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      view == 'HISTORY'
+                          ? 'Total Riwayat'
+                          : 'Total Tagihan Terjadwal',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.isBalanceHidden
+                          ? '••••••'
+                          : (upcomingTotalMinor == BigInt.zero
+                              ? 'Rp 0'
+                              : CurrencyFormatter.formatMinorRupiah(
+                                  upcomingTotalMinor,
+                                )),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${repo.schedules.where((s) => s['active'] == true).length} Jadwal Aktif',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${entries.length} Kejadian',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
           // Header Info Banner
           Container(
             padding: const EdgeInsets.all(16),
@@ -1200,8 +1381,12 @@ class _BillsPageState extends State<BillsPage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: o.overdue && o.status == 'PENDING'
+                      ? AppColors.expense.withValues(alpha: 0.3)
+                      : AppColors.border,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.015),
@@ -1214,54 +1399,123 @@ class _BillsPageState extends State<BillsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: o.status == 'PAID'
+                              ? AppColors.accentLight
+                              : (o.overdue && o.status == 'PENDING'
+                                  ? AppColors.expenseLight
+                                  : AppColors.primary.withValues(alpha: 0.08)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          o.status == 'PAID'
+                              ? Icons.check_circle_rounded
+                              : (o.overdue && o.status == 'PENDING'
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.receipt_long_rounded),
+                          color: o.status == 'PAID'
+                              ? AppColors.income
+                              : (o.overdue && o.status == 'PENDING'
+                                  ? AppColors.expense
+                                  : AppColors.primary),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${o.bill['title']}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${DateFormatter.calendarDate(o.date)} • ${DateFormatter.fixedZone(o.bill['utc_offset_minutes'] as int)}${o.overdue && o.status == 'PENDING' ? ' • Lewat tempo' : ''}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: o.status == 'PAID'
+                              ? AppColors.accentLight
+                              : (o.overdue && o.status == 'PENDING'
+                                  ? AppColors.expenseLight
+                                  : Colors.grey.shade100),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         child: Text(
-                          '${o.bill['title']}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                            color: AppColors.textPrimary,
+                          o.status,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: o.status == 'PAID'
+                                ? AppColors.income
+                                : (o.overdue && o.status == 'PENDING'
+                                    ? AppColors.expense
+                                    : AppColors.textSecondary),
                           ),
                         ),
                       ),
-                      if (o.status == 'PAID')
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: AppColors.income,
-                          size: 20,
-                        )
-                      else if (o.overdue && o.status == 'PENDING')
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          color: AppColors.expense,
-                          size: 20,
-                        ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${DateFormatter.calendarDate(o.date)} • ${DateFormatter.fixedZone(o.bill['utc_offset_minutes'] as int)} • ${o.status}${o.overdue && o.status == 'PENDING' ? ' — lewat tempo' : ''}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    state.isBalanceHidden
-                        ? '••••••'
-                        : '${o.amount} IDR • ${o.bill['amount_type'] == 'FIXED' ? 'tetap' : 'perkiraan'}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          state.isBalanceHidden
+                              ? '••••••'
+                              : CurrencyFormatter.formatCurrency(o.amount),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          o.bill['amount_type'] == 'FIXED'
+                              ? 'Nominal tetap'
+                              : 'Perkiraan',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (o.record?['note'] != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         '${o.record!['note']}',
                         style: const TextStyle(
@@ -1272,7 +1526,7 @@ class _BillsPageState extends State<BillsPage> {
                     ),
                   if (!['PAID', 'SKIPPED'].contains(o.status) &&
                       o.bill['active'] == true) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 6,
@@ -1364,29 +1618,68 @@ class _BillsPageState extends State<BillsPage> {
               ),
             ),
 
-          const SizedBox(height: 12),
-          const Divider(),
-          const SizedBox(height: 6),
-          const Text(
-            'Seri jadwal',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.schedule_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Seri jadwal',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           for (final bill in repo.schedules)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.015),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: bill['active'] == true
+                          ? AppColors.accentLight
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.repeat_rounded,
+                      color: bill['active'] == true
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1395,7 +1688,7 @@ class _BillsPageState extends State<BillsPage> {
                           '${bill['title']}',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: 15,
                             color: AppColors.textPrimary,
                           ),
                         ),
@@ -1410,7 +1703,18 @@ class _BillsPageState extends State<BillsPage> {
                       ],
                     ),
                   ),
-                  TextButton(
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                    ),
                     onPressed: () => schedule(bill: bill),
                     child: const Text('Ubah / arsip'),
                   ),

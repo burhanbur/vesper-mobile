@@ -42,20 +42,38 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Baseline harus positif'), findsOneWidget);
       expect(source.outbox, isEmpty);
+      await tester.enterText(baseline, '1000000,001');
+      expect(
+        tester.widget<TextField>(baseline).controller!.text,
+        '1.000.000,001',
+      );
+      expect(tester.widget<TextField>(baseline).decoration!.prefixText, 'Rp ');
+      await tester.tap(find.text('Simpan lokal'));
+      await tester.pumpAndSettle();
+      expect(source.outbox, isEmpty);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(
+              find.widgetWithText(TextField, 'Target cakupan (1–60 bulan)'),
+            )
+            .inputFormatters,
+        isNull,
+      );
       await tester.enterText(baseline, '300');
       await tester.tap(find.widgetWithText(CheckboxListTile, 'Cash'));
       await tester.tap(find.widgetWithText(CheckboxListTile, 'Food'));
       await tester.tap(find.text('Simpan lokal'));
       await tester.pumpAndSettle();
       expect(find.text('Cakupan saat ini: 3.33 bulan'), findsOneWidget);
-      expect(find.text('Kekurangan target: 800.00 IDR'), findsOneWidget);
+      expect(find.text('Kekurangan target: Rp 800'), findsOneWidget);
       expect(source.rows('emergency_plans').single['account_ids'], ['cash']);
       expect(source.row('accounts', 'cash')!['balance'], '1000.00');
       expect(source.rows('transactions'), isEmpty);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
       expect(find.text('Cakupan saat ini: ••••••'), findsOneWidget);
-      expect(find.textContaining('300.00 IDR'), findsNothing);
+      expect(find.textContaining('Rp 300'), findsNothing);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
       source.atomic(() {
@@ -67,6 +85,7 @@ void main() {
       });
       await tester.tap(find.text('Ubah pengaturan'));
       await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(baseline).controller!.text, '300');
       final modes = find.byWidgetPredicate(
         (w) =>
             w is DropdownButtonFormField<String> &&

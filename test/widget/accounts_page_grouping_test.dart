@@ -22,7 +22,10 @@ class _AccountsState extends AppState {
       .toList();
 }
 
-Future<_AccountsState> _pumpPage(WidgetTester tester) async {
+Future<_AccountsState> _pumpPage(
+  WidgetTester tester, {
+  Map<String, Map<String, dynamic>>? extraAccounts,
+}) async {
   tester.view.physicalSize = const Size(1200, 2400);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -39,6 +42,7 @@ Future<_AccountsState> _pumpPage(WidgetTester tester) async {
         'E-wallet',
         'Reksadana',
         'Saham',
+        'Hutang & Piutang',
       ])
         name: {
           'id': name,
@@ -67,6 +71,7 @@ Future<_AccountsState> _pumpPage(WidgetTester tester) async {
           'is_visible': row[0] != 'hidden',
           if (row[0] == 'pocket') 'parent_account_id': 'acc-jago',
         },
+      ...?extraAccounts,
     };
     repo.entities['groups'] = {
       'hh-1': {'id': 'hh-1', 'name': 'Family'},
@@ -203,6 +208,35 @@ void main() {
       await tester.tap(find.text('Bank parent'));
       await tester.pumpAndSettle();
       expect(find.text('Nested pocket'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Excluded debt account (is_include_total: false) does not reduce Net Worth on AccountsPage',
+    (tester) async {
+      final state = await _pumpPage(
+        tester,
+        extraAccounts: {
+          'debt-excluded': {
+            'id': 'debt-excluded',
+            'name': 'Hutang',
+            'account_type_id': 'Hutang & Piutang',
+            'balance': '1000000.00',
+            'is_include_total': false,
+            'user_id': 'user',
+            'is_visible': true,
+          },
+        },
+      );
+
+      // Verify that state.totalDebt is 0 because the debt account is excluded from total
+      expect(state.totalDebt, 0);
+      expect(state.totalNetWorth, greaterThan(0));
+
+      // The accounts page shows "Kekayaan Bersih" metric card
+      expect(find.text('Kekayaan Bersih'), findsOneWidget);
+      // Hutang & Kewajiban should have badge 'Bebas Hutang' since totalDebt == 0
+      expect(find.text('Bebas Hutang'), findsOneWidget);
     },
   );
 }

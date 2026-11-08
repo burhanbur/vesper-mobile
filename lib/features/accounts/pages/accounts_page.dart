@@ -467,6 +467,13 @@ class _AccountsPageState extends State<AccountsPage> {
     final modalDisplayBalance = hasChildren
         ? account.balance + children.fold<int>(0, (sum, c) => sum + c.balance)
         : account.balance;
+    final nameController = TextEditingController(text: account.name);
+    String? modalAccountTypeId = account.accountTypeId ??
+        state.accountTypes
+            .where((t) => t['name'] == account.institution)
+            .map((t) => t['id'] as String)
+            .firstOrNull ??
+        state.accountTypes.firstOrNull?['id'] as String?;
     String modalSelectedHouseholdId =
         (account.householdId != null &&
             validHouseholdIds.contains(account.householdId))
@@ -559,6 +566,124 @@ class _AccountsPageState extends State<AccountsPage> {
                         onPressed: () => Navigator.of(ctx).pop(),
                       ),
                     ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Account Edit Card (Name & Type)
+                  Material(
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Informasi & Jenis Akun',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: nameController,
+                            decoration: InputDecoration(
+                              labelText: 'Nama Rekening / Akun',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (account.isCreditCard) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.credit_card_rounded,
+                                    size: 16,
+                                    color: AppColors.expense,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Kartu Kredit (identitas jenis akun terkunci)',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else if (state.accountTypes.isNotEmpty) ...[
+                            DropdownButtonFormField<String>(
+                              initialValue:
+                                  state.accountTypes.any(
+                                    (t) => t['id'] == modalAccountTypeId,
+                                  )
+                                  ? modalAccountTypeId
+                                  : null,
+                              decoration: InputDecoration(
+                                labelText: 'Jenis Rekening',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                              ),
+                              items: state.accountTypes.map((def) {
+                                return DropdownMenuItem<String>(
+                                  value: def['id'] as String,
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.account_balance_wallet_rounded,
+                                        size: 16,
+                                        color: AppColors.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        def['name'] as String,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => modalAccountTypeId = val);
+                                }
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 16),
@@ -854,6 +979,16 @@ class _AccountsPageState extends State<AccountsPage> {
                   // Save button
                   ElevatedButton(
                     onPressed: () {
+                      final newName = nameController.text.trim();
+                      if (newName.isNotEmpty &&
+                          (newName != account.name ||
+                              modalAccountTypeId != account.accountTypeId)) {
+                        state.updateAccount(
+                          accountId: account.id,
+                          name: newName,
+                          accountTypeId: modalAccountTypeId,
+                        );
+                      }
                       if (modalIsIncludeTotal != account.isIncludeTotal &&
                           !hasChildren) {
                         state.updateAccountIncludeTotal(
@@ -975,11 +1110,18 @@ class _AccountsPageState extends State<AccountsPage> {
         .where((a) => !a.isShared && a.householdId == null)
         .toList();
     final totalPersonalBalance = personalAccounts
-        .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+        .where((a) =>
+            a.isIncludeTotal &&
+            a.isCashBankOrWallet &&
+            !(state.repository?.isMappedObligationAccount(a.id) ?? false))
         .fold(0, (sum, a) => sum + a.balance);
 
     final totalSharedBalance = allAccounts
-        .where((a) => a.isShared && a.isIncludeTotal && a.isCashBankOrWallet)
+        .where((a) =>
+            a.isShared &&
+            a.isIncludeTotal &&
+            a.isCashBankOrWallet &&
+            !(state.repository?.isMappedObligationAccount(a.id) ?? false))
         .fold(0, (sum, a) => sum + a.balance);
 
     // Hitung akun yang difilter dan total yang ditampilkan di Hero Card
@@ -1005,25 +1147,46 @@ class _AccountsPageState extends State<AccountsPage> {
         return a.isShared && _activeFilter == 'hh-1';
       }).toList();
       heroBalance = filteredAccounts
-          .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+          .where((a) =>
+              a.isIncludeTotal &&
+              a.isCashBankOrWallet &&
+              !(state.repository?.isMappedObligationAccount(a.id) ?? false))
           .fold(0, (sum, a) => sum + a.balance);
       heroTitle = 'Saldo Bersama: ${selectedGroup.name}';
     }
 
     // Web-parity financial calculations
-    final totalLiquid = filteredAccounts
-        .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
-        .fold(0, (sum, a) => sum + a.balance);
+    final int totalLiquid;
+    final int totalInvest;
+    final int totalDebt;
+    final int totalNetWorth;
 
-    final totalInvest = filteredAccounts
-        .where((a) => a.isIncludeTotal && a.type == AccountType.investment)
-        .fold(0, (sum, a) => sum + a.balance);
+    if (_activeFilter == 'all') {
+      totalLiquid = state.totalLiquidCash;
+      totalInvest = state.totalInvestmentValue;
+      totalDebt = state.totalDebt;
+      totalNetWorth = state.totalNetWorth;
+    } else {
+      totalLiquid = filteredAccounts
+          .where((a) =>
+              a.isIncludeTotal &&
+              a.isCashBankOrWallet &&
+              !(state.repository?.isMappedObligationAccount(a.id) ?? false))
+          .fold(0, (sum, a) => sum + a.balance);
 
-    final totalDebt = filteredAccounts
-        .where((a) => a.type == AccountType.creditCard)
-        .fold(0, (sum, a) => sum + a.balance.abs());
+      totalInvest = filteredAccounts
+          .where((a) => a.isIncludeTotal && a.type == AccountType.investment)
+          .fold(0, (sum, a) => sum + a.balance);
 
-    final totalNetWorth = totalLiquid + totalInvest - totalDebt;
+      totalDebt = filteredAccounts
+          .where((a) =>
+              a.isIncludeTotal &&
+              (a.type == AccountType.creditCard || a.isCreditCard) &&
+              !(state.repository?.isMappedObligationAccount(a.id) ?? false))
+          .fold(0, (sum, a) => sum + (a.balance < 0 ? -a.balance : a.balance.abs()));
+
+      totalNetWorth = totalLiquid + totalInvest - totalDebt;
+    }
 
     final totalAssets = (totalLiquid + totalInvest) > 0
         ? (totalLiquid + totalInvest)
@@ -1042,7 +1205,7 @@ class _AccountsPageState extends State<AccountsPage> {
       } else if (_assetPerspective == 'investment') {
         return a.type == AccountType.investment;
       } else if (_assetPerspective == 'debt') {
-        return a.type == AccountType.creditCard;
+        return a.type == AccountType.creditCard || a.isCreditCard;
       }
       return true;
     }).toList();

@@ -198,7 +198,7 @@ class MainMenuCard extends StatelessWidget {
                     Expanded(
                       child: _buildMenuItem(
                         context: context,
-                        label: 'Aset',
+                        label: 'Akun',
                         icon: Icons.account_balance_rounded,
                         iconColor: const Color(0xFFD97706),
                         bgColor: const Color(0xFFFFFBEB),

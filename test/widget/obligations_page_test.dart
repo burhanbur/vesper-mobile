@@ -11,7 +11,7 @@ import '../unit/obligations_test.dart'
     show seedObligations, acceptProjection, cashId;
 
 void main() {
-  for (final balance in ['1000.00', '-1000.00']) {
+  for (final balance in ['1000000.00', '-1000000.00']) {
     testWidgets(
       'legacy balance $balance opens a mapped record without new cash',
       (tester) async {
@@ -43,7 +43,14 @@ void main() {
               .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
               .controller!
               .text,
-          '1000.00',
+          '1.000.000',
+        );
+        expect(
+          tester
+              .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
+              .decoration!
+              .prefixText,
+          'Rp ',
         );
         expect(
           tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
@@ -61,12 +68,13 @@ void main() {
           balance.startsWith('-') ? 'PAYABLE' : 'RECEIVABLE',
         );
         expect(record['linked_account_id'], cashId);
-        expect(record['outstanding'], '1000.00');
+        expect(record['outstanding'], '1000000.00');
+        expect(repo.outbox.single['payload']['principal'], '1000000.00');
         expect(
           find.text(
             balance.startsWith('-')
-                ? 'Sisa utang: Rp 1.000'
-                : 'Sisa piutang: Rp 1.000',
+                ? 'Sisa utang: Rp 1.000.000'
+                : 'Sisa piutang: Rp 1.000.000',
           ),
           findsOneWidget,
         );
@@ -104,7 +112,7 @@ void main() {
           child: const MaterialApp(home: ObligationsPage()),
         ),
       );
-      await tester.tap(find.text('Tambah pinjaman'));
+      await tester.tap(find.byTooltip('Tambah pinjaman'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.widgetWithText(TextField, 'Nama pihak'),
@@ -129,6 +137,13 @@ void main() {
         findsWidgets,
       );
       expect(repo.outbox, isEmpty);
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
+            .controller!
+            .text,
+        '1,01',
+      );
       expect(
         tester
             .widget<TextField>(find.widgetWithText(TextField, 'Nama pihak'))
@@ -183,8 +198,67 @@ void main() {
         find.widgetWithText(TextField, 'Pokok dibayar IDR'),
         '40',
       );
-      await tester.enterText(find.widgetWithText(TextField, 'Bunga IDR'), '2');
-      await tester.enterText(find.widgetWithText(TextField, 'Biaya IDR'), '1');
+      for (final label in ['Bunga IDR', 'Biaya IDR']) {
+        await tester.enterText(
+          find.widgetWithText(TextField, label),
+          '1000.01',
+        );
+        await tester.tap(find.text('Simpan lokal'));
+        await tester.pumpAndSettle();
+        expect(repo.outbox, isEmpty);
+        expect(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.textContaining(
+              'Pecahan tidak dibulatkan atau disimpan',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<TextField>(find.widgetWithText(TextField, label))
+              .controller!
+              .text,
+          '1.000,01',
+        );
+        await tester.enterText(find.widgetWithText(TextField, label), '0');
+      }
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Bunga IDR'),
+        '2000',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Biaya IDR'),
+        '1000',
+      );
+      for (final label in ['Bunga IDR', 'Biaya IDR']) {
+        expect(
+          tester
+              .widget<TextField>(find.widgetWithText(TextField, label))
+              .decoration!
+              .prefixText,
+          'Rp ',
+        );
+      }
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Bunga IDR'))
+            .controller!
+            .text,
+        '2.000',
+      );
+      expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'Biaya IDR'))
+            .controller!
+            .text,
+        '1.000',
+      );
+      // The payment below needs sufficient cash for its grouped interest/fee.
+      repo.atomic(
+        () => repo.entities['accounts']![cashId]!['balance'] = '10000.00',
+      );
       for (final label in ['Kategori bunga', 'Kategori biaya']) {
         final picker = find.widgetWithText(
           DropdownButtonFormField<String>,
@@ -199,7 +273,10 @@ void main() {
       await tester.tap(find.text('Simpan lokal'));
       await tester.pumpAndSettle();
       expect(repo.outbox.single['payload']['action'], 'REPAY');
-      expect(repo.row('accounts', cashId)!['balance'], '957.00');
+      expect(repo.outbox.single['payload']['principal'], '40.00');
+      expect(repo.outbox.single['payload']['interest'], '2000.00');
+      expect(repo.outbox.single['payload']['fee'], '1000.00');
+      expect(repo.row('accounts', cashId)!['balance'], '6960.00');
       expect(repo.rows('obligations').single['outstanding'], '60.00');
       expect(tester.takeException(), isNull);
     },

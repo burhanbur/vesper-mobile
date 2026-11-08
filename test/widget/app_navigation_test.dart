@@ -32,10 +32,14 @@ void main() {
     // 1. Verify Home elements
     expect(find.text('Kekayaan Bersih'), findsOneWidget);
     expect(find.text('Surplus/Defisit Bulan Ini'), findsOneWidget);
+    expect(find.byIcon(Icons.receipt_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.receipt_rounded), findsNothing);
 
     // 2. Tap Transaksi Tab
     await tester.tap(find.text('Transaksi'));
     await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.receipt_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.receipt_outlined), findsNothing);
     expect(
       find.text('Riwayat Transaksi'),
       findsNothing,

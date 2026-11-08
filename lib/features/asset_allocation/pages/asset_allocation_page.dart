@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/asset_allocation_repository.dart';
 import '../data/asset_allocation_controller.dart';
@@ -310,13 +311,16 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
     IconData icon,
     String label,
     String value,
-    Color color,
-  ) {
+    Color color, {
+    bool onHero = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
+        color: onHero
+            ? Colors.white.withValues(alpha: 0.14)
+            : AppColors.surfaceVariant.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,10 +334,10 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    color: onHero ? Colors.white70 : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -344,10 +348,10 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: onHero ? Colors.white : AppColors.textPrimary,
             ),
           ),
         ],
@@ -365,16 +369,23 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
   ) {
     final complete = data.complete;
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
+        gradient: const LinearGradient(
+          colors: [
+            AppColors.primaryGradientStart,
+            AppColors.primaryGradientEnd,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: AppColors.primary.withValues(alpha: 0.18),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -386,9 +397,9 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
             runSpacing: 6,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -398,16 +409,16 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: complete
-                      ? AppColors.income.withValues(alpha: 0.1)
-                      : AppColors.warningLight,
+                      ? const Color(0xFF34D399).withValues(alpha: 0.2)
+                      : AppColors.warning.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -417,36 +428,44 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: complete ? AppColors.income : AppColors.warning,
+                    color: complete
+                        ? const Color(0xFF6EE7B7)
+                        : const Color(0xFFFDE68A),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           const Text(
             'Total Aset Positif',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: Colors.white70,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Total aset positif: ${money(data.json['total_assets'])}',
+            state.isBalanceHidden
+                ? '••••••'
+                : 'Total aset positif: ${money(data.json['total_assets'])}',
             style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Tanggal ${DateFormatter.calendarDate(data.json['snapshot_date'])}; diamati ${DateFormatter.timestamp(data.json['observed_at'], timeZone: state.timeZone)}.',
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.7),
+            ),
           ),
-          const Divider(height: 18),
+          const Divider(height: 20, color: Colors.white24),
           Row(
             children: [
               Expanded(
@@ -454,7 +473,8 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   Icons.check_circle_outline_rounded,
                   'Subtotal Aset',
                   money(data.json['known_assets']),
-                  AppColors.primary,
+                  const Color(0xFF6EE7B7),
+                  onHero: true,
                 ),
               ),
               const SizedBox(width: 8),
@@ -463,7 +483,8 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   Icons.remove_circle_outline_rounded,
                   'Liabilitas Luar',
                   money(data.json['excluded_liabilities']),
-                  AppColors.expense,
+                  const Color(0xFFFCA5A5),
+                  onHero: true,
                 ),
               ),
               const SizedBox(width: 8),
@@ -472,19 +493,26 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   Icons.block_outlined,
                   'Akun Dikecualikan',
                   '${data.json['excluded_account_count']}',
-                  AppColors.textSecondary,
+                  Colors.white70,
+                  onHero: true,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             'Subtotal aset diketahui: ${money(data.json['known_assets'])}',
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.75),
+            ),
           ),
           Text(
             'Liabilitas diketahui di luar pembagi: ${money(data.json['excluded_liabilities'])}. Akun non-inklusi/induk dikecualikan: ${data.json['excluded_account_count']}.',
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.75),
+            ),
           ),
         ],
       ),
@@ -1606,27 +1634,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
     String money(dynamic value) {
       if (value == null) return 'Belum tersedia';
       if (hidden) return '••••••';
-      final raw = value.toString().trim();
-      if (raw.isEmpty) return 'Belum tersedia';
-
-      final isNegative = raw.startsWith('-');
-      final clean = isNegative ? raw.substring(1) : raw;
-      final parts = clean.split('.');
-      final intPart = parts[0];
-      final decPart = parts.length > 1 ? parts[1] : null;
-
-      final buffer = StringBuffer();
-      for (int i = 0; i < intPart.length; i++) {
-        if (i > 0 && (intPart.length - i) % 3 == 0) {
-          buffer.write('.');
-        }
-        buffer.write(intPart[i]);
-      }
-      final formattedInt = (isNegative ? '-' : '') + buffer.toString();
-      if (decPart != null && decPart.isNotEmpty) {
-        return '$formattedInt.$decPart IDR';
-      }
-      return '$formattedInt IDR';
+      return CurrencyFormatter.formatCurrency(value);
     }
 
     String percent(dynamic value, [String unit = '%']) => value == null
