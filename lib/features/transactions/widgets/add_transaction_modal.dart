@@ -17,12 +17,14 @@ import '../models/transaction.dart';
 class AddTransactionModal extends StatefulWidget {
   final TransactionType initialType;
   final String? initialAccountId;
+  final String? initialToAccountId;
   final TransactionItem? transactionToEdit;
 
   const AddTransactionModal({
     super.key,
     this.initialType = TransactionType.expense,
     this.initialAccountId,
+    this.initialToAccountId,
     this.transactionToEdit,
   });
 
@@ -30,6 +32,7 @@ class AddTransactionModal extends StatefulWidget {
     BuildContext context, {
     TransactionType initialType = TransactionType.expense,
     String? initialAccountId,
+    String? initialToAccountId,
     TransactionItem? transactionToEdit,
   }) {
     final cached = transactionToEdit == null
@@ -84,6 +87,7 @@ class AddTransactionModal extends StatefulWidget {
       builder: (context) => AddTransactionModal(
         initialType: initialType,
         initialAccountId: initialAccountId,
+        initialToAccountId: initialToAccountId,
         transactionToEdit: transactionToEdit,
       ),
     );
@@ -122,6 +126,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     } else {
       _selectedType = widget.initialType;
       _selectedAccountId = widget.initialAccountId;
+      _selectedToAccountId = widget.initialToAccountId;
       if (_selectedType == TransactionType.income) {
         _selectedCategory = 'Gaji';
       } else if (_selectedType == TransactionType.transfer) {
@@ -278,48 +283,145 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     bool isIncome,
   ) {
     final textController = TextEditingController();
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(
-          isIncome
-              ? 'Tambah Kategori Pemasukan'
-              : 'Tambah Kategori Pengeluaran',
-        ),
-        content: TextField(
-          controller: textController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            hintText: 'Nama kategori baru...',
-            border: OutlineInputBorder(),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (dialogCtx) => Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(dialogCtx).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 6, 16, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color:
+                              (isIncome ? AppColors.income : AppColors.expense)
+                                  .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isIncome
+                              ? Icons.arrow_downward_rounded
+                              : Icons.arrow_upward_rounded,
+                          color: isIncome
+                              ? AppColors.income
+                              : AppColors.expense,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          isIncome
+                              ? 'Tambah Kategori Pemasukan'
+                              : 'Tambah Kategori Pengeluaran',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppColors.border),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: TextField(
+                    controller: textController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Nama Kategori',
+                      hintText: 'Nama kategori baru...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(top: BorderSide(color: AppColors.border)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          child: const Text('Batal'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            final rawName = textController.text.trim();
+                            if (rawName.isNotEmpty) {
+                              final name = StringFormatter.capitalizeWords(
+                                rawName,
+                              );
+                              state.addCategory(
+                                name: name,
+                                type: isIncome
+                                    ? CategoryType.income
+                                    : CategoryType.expense,
+                                icon: isIncome
+                                    ? Icons.account_balance_wallet_rounded
+                                    : Icons.shopping_bag_rounded,
+                                color: isIncome
+                                    ? AppColors.income
+                                    : AppColors.expense,
+                              );
+                              setState(() => _selectedCategory = name);
+                              Navigator.of(dialogCtx).pop();
+                            }
+                          },
+                          child: const Text('Simpan'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final rawName = textController.text.trim();
-              if (rawName.isNotEmpty) {
-                final name = StringFormatter.capitalizeWords(rawName);
-                state.addCategory(
-                  name: name,
-                  type: isIncome ? CategoryType.income : CategoryType.expense,
-                  icon: isIncome
-                      ? Icons.account_balance_wallet_rounded
-                      : Icons.shopping_bag_rounded,
-                  color: isIncome ? AppColors.income : AppColors.expense,
-                );
-                setState(() => _selectedCategory = name);
-                Navigator.of(dialogCtx).pop();
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
       ),
     );
   }
@@ -489,7 +591,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     if (_selectedType == TransactionType.transfer)
                       TextButton.icon(
                         icon: const Icon(Icons.handshake_outlined),
-                        label: const Text('Catat Utang / Piutang & cicilan'),
+                        label: const Text(
+                          'Utang ke orang? Buka Utang & Piutang',
+                        ),
                         onPressed: () => Navigator.of(context).push<void>(
                           MaterialPageRoute(
                             builder: (_) => const ObligationsPage(),

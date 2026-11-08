@@ -8,6 +8,27 @@ import 'package:vesper_mobile/features/sync/data/finance_repository.dart';
 
 void main() {
   group('Account Total Saldo and Parent Balance Calculations', () {
+    test(
+      'legacy loan labels use the exact sign, including sub-Rupiah balances',
+      () {
+        for (final entry in {
+          '-0.01': 'Utang saya',
+          '0.01': 'Piutang saya',
+          '0.00': 'Lunas',
+        }.entries) {
+          final account = Account(
+            id: 'legacy',
+            name: 'Loan',
+            type: AccountType.creditCard,
+            balance: 0,
+            accountNumber: '',
+            institution: 'Hutang & Piutang',
+            exactBalance: entry.key,
+          );
+          expect(account.loanBalanceLabel, entry.value);
+        }
+      },
+    );
     test('isCashBankOrWallet correctly classifies account types', () {
       final cashAccount = Account(
         id: '1',

@@ -11,6 +11,69 @@ import '../unit/obligations_test.dart'
     show seedObligations, acceptProjection, cashId;
 
 void main() {
+  for (final receivable in [false, true]) {
+    testWidgets(
+      'new loan moves cash in the chosen direction offline: receivable=$receivable',
+      (tester) async {
+        final store = LocalStore(sqlite3.openInMemory());
+        final repo = FinanceRepository(ApiClient(), store, 'owner')
+          ..offline = true;
+        seedObligations(repo);
+        final state = AppState(repository: repo)..currentUserId = 'owner';
+        addTearDown(state.dispose);
+        await tester.pumpWidget(
+          AppStateScope(
+            state: state,
+            child: const MaterialApp(home: ObligationsPage()),
+          ),
+        );
+        await tester.tap(find.byTooltip('Tambah utang / piutang'));
+        await tester.pumpAndSettle();
+        if (receivable) {
+          await tester.tap(
+            find.widgetWithText(DropdownButtonFormField<String>, 'Jenis'),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Orang berutang ke saya').last);
+          await tester.pumpAndSettle();
+        }
+        await tester.enterText(
+          find.widgetWithText(
+            TextField,
+            receivable ? 'Yang berutang ke saya' : 'Saya berutang kepada',
+          ),
+          'Budi',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Jumlah pinjaman'),
+          '100',
+        );
+        final funding = find.widgetWithText(
+          DropdownButtonFormField<String>,
+          receivable ? 'Uang keluar dari' : 'Uang masuk ke',
+        );
+        await tester.ensureVisible(funding);
+        await tester.tap(funding);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Cash').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Simpan'));
+        await tester.pumpAndSettle();
+        expect(
+          repo.row('accounts', cashId)!['balance'],
+          receivable ? '900.00' : '1100.00',
+        );
+        expect(
+          repo.rows('obligations').single['kind'],
+          receivable ? 'RECEIVABLE' : 'PAYABLE',
+        );
+        expect(repo.outbox.single['payload']['installments'], isEmpty);
+        expect(repo.rows('transactions').single['type'], 'TRANSFER');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final balance in ['1000000.00', '-1000000.00']) {
     testWidgets(
       'legacy balance $balance opens a mapped record without new cash',
@@ -33,21 +96,29 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(find.byType(BottomSheet), findsOneWidget);
         expect(
-          find.text(balance.startsWith('-') ? 'Utang saya' : 'Piutang saya'),
+          find.text(
+            balance.startsWith('-')
+                ? 'Saya berutang'
+                : 'Orang berutang ke saya',
+          ),
           findsOneWidget,
         );
         expect(
           tester
-              .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
+              .widget<TextField>(
+                find.widgetWithText(TextField, 'Jumlah pinjaman'),
+              )
               .controller!
               .text,
           '1.000.000',
         );
         expect(
           tester
-              .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
+              .widget<TextField>(
+                find.widgetWithText(TextField, 'Jumlah pinjaman'),
+              )
               .decoration!
               .prefixText,
           'Rp ',
@@ -57,10 +128,15 @@ void main() {
           isNull,
         );
         await tester.enterText(
-          find.widgetWithText(TextField, 'Nama pihak'),
+          find.widgetWithText(
+            TextField,
+            balance.startsWith('-')
+                ? 'Saya berutang kepada'
+                : 'Yang berutang ke saya',
+          ),
           'Budi',
         );
-        await tester.tap(find.text('Simpan lokal'));
+        await tester.tap(find.text('Simpan'));
         await tester.pumpAndSettle();
         final record = repo.rows('obligations').single;
         expect(
@@ -112,25 +188,25 @@ void main() {
           child: const MaterialApp(home: ObligationsPage()),
         ),
       );
-      await tester.tap(find.byTooltip('Tambah pinjaman'));
+      await tester.tap(find.byTooltip('Tambah utang / piutang'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Nama pihak'),
+        find.widgetWithText(TextField, 'Saya berutang kepada'),
         'Person',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'Pokok IDR'),
+        find.widgetWithText(TextField, 'Jumlah pinjaman'),
         '0.001',
       );
-      await tester.tap(find.text('Simpan lokal'));
+      await tester.tap(find.text('Simpan'));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(repo.outbox, isEmpty);
       await tester.enterText(
-        find.widgetWithText(TextField, 'Pokok IDR'),
+        find.widgetWithText(TextField, 'Jumlah pinjaman'),
         '1.01',
       );
-      await tester.tap(find.text('Simpan lokal'));
+      await tester.tap(find.text('Simpan'));
       await tester.pumpAndSettle();
       expect(
         find.textContaining('Pecahan tidak dibulatkan atau disimpan'),
@@ -139,33 +215,36 @@ void main() {
       expect(repo.outbox, isEmpty);
       expect(
         tester
-            .widget<TextField>(find.widgetWithText(TextField, 'Pokok IDR'))
+            .widget<TextField>(
+              find.widgetWithText(TextField, 'Jumlah pinjaman'),
+            )
             .controller!
             .text,
         '1,01',
       );
       expect(
         tester
-            .widget<TextField>(find.widgetWithText(TextField, 'Nama pihak'))
+            .widget<TextField>(
+              find.widgetWithText(TextField, 'Saya berutang kepada'),
+            )
             .controller!
             .text,
         'Person',
       );
       await tester.enterText(
-        find.widgetWithText(TextField, 'Pokok IDR'),
+        find.widgetWithText(TextField, 'Jumlah pinjaman'),
         '100',
       );
       await tester.enterText(
         find.widgetWithText(TextField, 'Jatuh tempo (YYYY-MM-DD, opsional)'),
         '2026-12-20',
       );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Jadwal pokok cicilan (opsional)'),
-        '2026-11-20=40\n2026-12-20=60',
-      );
-      await tester.tap(find.text('Simpan lokal'));
+      expect(find.text('Jadwal pokok cicilan (opsional)'), findsNothing);
+      await tester.tap(find.byType(SwitchListTile));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.text('Simpan'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
       expect(repo.rows('obligations').single['counterparty'], 'Person');
       expect(
         repo.row('accounts', cashId)!['balance'],
@@ -183,32 +262,35 @@ void main() {
       await tester.ensureVisible(find.text('Utang • Person'));
       await tester.tap(find.text('Utang • Person'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Bayar / terima'));
-      await tester.tap(find.text('Bayar / terima'));
+      await tester.ensureVisible(find.text('Bayar / cicil'));
+      await tester.tap(find.text('Bayar / cicil'));
       await tester.pumpAndSettle();
       final account = find.widgetWithText(
         DropdownButtonFormField<String>,
-        'Akun kas pembayaran',
+        'Bayar dari rekening',
       );
       await tester.tap(account);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cash').last);
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextField, 'Pokok dibayar IDR'),
+        find.widgetWithText(TextField, 'Jumlah pembayaran'),
         '40',
       );
+      expect(find.text('Bunga IDR'), findsNothing);
+      await tester.tap(find.text('Ada bunga atau biaya tambahan'));
+      await tester.pumpAndSettle();
       for (final label in ['Bunga IDR', 'Biaya IDR']) {
         await tester.enterText(
           find.widgetWithText(TextField, label),
           '1000.01',
         );
-        await tester.tap(find.text('Simpan lokal'));
+        await tester.tap(find.text('Simpan'));
         await tester.pumpAndSettle();
         expect(repo.outbox, isEmpty);
         expect(
           find.descendant(
-            of: find.byType(AlertDialog),
+            of: find.byType(BottomSheet),
             matching: find.textContaining(
               'Pecahan tidak dibulatkan atau disimpan',
             ),
@@ -270,7 +352,7 @@ void main() {
         await tester.tap(find.text('Costs').last);
         await tester.pumpAndSettle();
       }
-      await tester.tap(find.text('Simpan lokal'));
+      await tester.tap(find.text('Simpan'));
       await tester.pumpAndSettle();
       expect(repo.outbox.single['payload']['action'], 'REPAY');
       expect(repo.outbox.single['payload']['principal'], '40.00');

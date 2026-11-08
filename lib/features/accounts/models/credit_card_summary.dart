@@ -22,7 +22,7 @@ String? creditLimitInput(String input) {
   if (value.isEmpty) return null;
   if (!RegExp(r'^\d+$').hasMatch(value) || BigInt.parse(value) <= BigInt.zero) {
     throw const FormatException(
-      'Limit harus berupa Rupiah utuh positif tanpa pemisah.',
+      'Limit kartu harus lebih dari Rp0 dan berupa Rupiah bulat.',
     );
   }
   return '${BigInt.parse(value)}.00';

@@ -67,14 +67,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Simpan lokal'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(BottomSheet), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Kode'), 'NEW');
     await tester.enterText(find.widgetWithText(TextField, 'Nama'), 'New asset');
     await tester.tap(find.text('Simpan lokal'));
     await tester.pumpAndSettle();
     expect(repo.pendingInvestmentCatalog, hasLength(1));
     expect(repo.rows('instruments'), hasLength(2));
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(BottomSheet), findsNothing);
 
     final quoteAction = find.descendant(
       of: find.widgetWithText(ListTile, 'NEW • New asset'),

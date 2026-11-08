@@ -74,345 +74,402 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
     String? error;
     bool saved = false;
     try {
-      final route = DialogRoute<void>(
-        context: context,
+      final route = ModalBottomSheetRoute<void>(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            actionsOverflowButtonSpacing: 8,
-            backgroundColor: Colors.white,
-            title: const Text(
-              'Atur dana darurat',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Rencana pribadi dalam IDR. Pilih dana yang memang dapat dipakai saat darurat. Pengaturan ini tidak memindahkan uang.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: mode,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Baseline pengeluaran wajib',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'MANUAL',
-                        child: Text(
-                          'Manual — nominal per bulan',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'HISTORY',
-                        child: Text(
-                          'Estimasi dari histori',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) => update(() => mode = v!),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: manual,
-                    inputFormatters: const [CurrencyAmountInput()],
-                    enabled: mode == 'MANUAL',
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Pengeluaran wajib per bulan (IDR)',
-                      prefixText: 'Rp ',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: months,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Target cakupan (1–60 bulan)',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<int>(
-                    initialValue: history,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Jendela histori',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                    items: [
-                      for (final n in [3, 6, 12])
-                        DropdownMenuItem(
-                          value: n,
-                          child: Text(
-                            '$n bulan kalender penuh',
-                            overflow: TextOverflow.ellipsis,
+          builder: (ctx, update) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 8),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                    ],
-                    onChanged: (v) => update(() => history = v!),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Kategori pengeluaran wajib',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Dipakai dalam mode histori. Pilih kebutuhan wajib seperti makan, hunian, kesehatan dan utilitas. Bulan tanpa transaksi ikut dihitung nol.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  for (final c in repo.categories)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        '${c['name']}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Atur dana darurat',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
                         ),
                       ),
-                      value: categoryIds.contains(c['id']),
-                      onChanged: (v) => update(() {
-                        if (v == true) {
-                          categoryIds.add(c['id'] as String);
-                        } else {
-                          categoryIds.remove(c['id']);
-                        }
-                      }),
-                    ),
-                  if (repo.categories.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        'Belum ada kategori pengeluaran milik sendiri. Baseline manual tetap tersedia.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Akun/kantong likuid yang dihitung',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Hanya kas IDR milik sendiri tanpa subakun/pemetaan utang. Investasi dan akun anggota lain tidak termasuk. Alokasi goal lain dikurangkan.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  for (final a in repo.accounts)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        '${a['name']}${a['is_visible'] == false ? ' (tersembunyi)' : ''}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      value: accountIds.contains(a['id']),
-                      onChanged: (v) => update(() {
-                        if (v == true) {
-                          accountIds.add(a['id'] as String);
-                        } else {
-                          accountIds.remove(a['id']);
-                        }
-                      }),
-                    ),
-                  if (repo.accounts.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        'Belum ada akun kas/kantong IDR yang memenuhi syarat.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: goalId,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Goal pribadi dana darurat (opsional)',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text(
-                          'Hanya kas yang belum dialokasikan',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      for (final g in repo.privateGoals)
-                        DropdownMenuItem(
-                          value: g['id'] as String,
-                          child: Text(
-                            '${g['name']}',
-                            overflow: TextOverflow.ellipsis,
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Rencana pribadi dalam IDR. Pilih dana yang memang dapat dipakai saat darurat. Pengaturan ini tidak memindahkan uang.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              DropdownButtonFormField<String>(
+                                initialValue: mode,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Baseline pengeluaran wajib',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'MANUAL',
+                                    child: Text(
+                                      'Manual — nominal per bulan',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'HISTORY',
+                                    child: Text(
+                                      'Estimasi dari histori',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                                onChanged: (v) => update(() => mode = v!),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: manual,
+                                inputFormatters: const [CurrencyAmountInput()],
+                                enabled: mode == 'MANUAL',
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Pengeluaran wajib per bulan (IDR)',
+                                  prefixText: 'Rp ',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: months,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Target cakupan (1–60 bulan)',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<int>(
+                                initialValue: history,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Jendela histori',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                items: [
+                                  for (final n in [3, 6, 12])
+                                    DropdownMenuItem(
+                                      value: n,
+                                      child: Text(
+                                        '$n bulan kalender penuh',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (v) => update(() => history = v!),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Kategori pengeluaran wajib',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Dipakai dalam mode histori. Pilih kebutuhan wajib seperti makan, hunian, kesehatan dan utilitas. Bulan tanpa transaksi ikut dihitung nol.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              for (final c in repo.categories)
+                                CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    '${c['name']}',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  value: categoryIds.contains(c['id']),
+                                  onChanged: (v) => update(() {
+                                    if (v == true) {
+                                      categoryIds.add(c['id'] as String);
+                                    } else {
+                                      categoryIds.remove(c['id']);
+                                    }
+                                  }),
+                                ),
+                              if (repo.categories.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    'Belum ada kategori pengeluaran milik sendiri. Baseline manual tetap tersedia.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Akun/kantong likuid yang dihitung',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Hanya kas IDR milik sendiri tanpa subakun/pemetaan utang. Investasi dan akun anggota lain tidak termasuk. Alokasi goal lain dikurangkan.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              for (final a in repo.accounts)
+                                CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    '${a['name']}${a['is_visible'] == false ? ' (tersembunyi)' : ''}',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  value: accountIds.contains(a['id']),
+                                  onChanged: (v) => update(() {
+                                    if (v == true) {
+                                      accountIds.add(a['id'] as String);
+                                    } else {
+                                      accountIds.remove(a['id']);
+                                    }
+                                  }),
+                                ),
+                              if (repo.accounts.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    'Belum ada akun kas/kantong IDR yang memenuhi syarat.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<String>(
+                                initialValue: goalId,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: 'Goal pribadi dana darurat (opsional)',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String>(
+                                    value: null,
+                                    child: Text(
+                                      'Hanya kas yang belum dialokasikan',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  for (final g in repo.privateGoals)
+                                    DropdownMenuItem(
+                                      value: g['id'] as String,
+                                      child: Text(
+                                        '${g['name']}',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (v) => update(() => goalId = v),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Alokasi goal terpilih yang didukung saldo ikut dihitung, hanya dari akun yang dicentang. Target goal tidak diubah. Pilihan lama yang tidak memenuhi syarat tidak ikut saat disimpan.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              if (error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(ctx).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                    ],
-                    onChanged: (v) => update(() => goalId = v),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Alokasi goal terpilih yang didukung saldo ikut dihitung, hanya dari akun yang dicentang. Target goal tidak diubah. Pilihan lama yang tidak memenuhi syarat tidak ikut saat disimpan.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Batal'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: saved
+                                    ? null
+                                    : () {
+                                        final ok = active.save(
+                                          () => repo.save(
+                                            mode: mode,
+                                            manualBaseline: CurrencyAmountInput.toDecimal(
+                                              manual.text.trim(),
+                                            ),
+                                            coverageMonths:
+                                                int.tryParse(months.text.trim()) ?? 0,
+                                            historyMonths: history,
+                                            accountIds: accountIds.toList()..sort(),
+                                            categoryIds: categoryIds.toList()..sort(),
+                                            goalId: goalId,
+                                          ),
+                                        );
+                                        if (ok) {
+                                          saved = true;
+                                          Navigator.pop(ctx);
+                                        } else {
+                                          update(() => error = active.error);
+                                        }
+                                      },
+                                child: const Text('Simpan lokal'),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    ],
                   ),
                 ),
-                onPressed: saved
-                    ? null
-                    : () {
-                        final ok = active.save(
-                          () => repo.save(
-                            mode: mode,
-                            manualBaseline: CurrencyAmountInput.toDecimal(
-                              manual.text.trim(),
-                            ),
-                            coverageMonths:
-                                int.tryParse(months.text.trim()) ?? 0,
-                            historyMonths: history,
-                            accountIds: accountIds.toList()..sort(),
-                            categoryIds: categoryIds.toList()..sort(),
-                            goalId: goalId,
-                          ),
-                        );
-                        if (ok) {
-                          saved = true;
-                          Navigator.pop(ctx);
-                        } else {
-                          update(() => error = active.error);
-                        }
-                      },
-                child: const Text('Simpan lokal'),
               ),
-            ],
+            ),
           ),
-        ),
       );
       await Navigator.of(context).push(route);
       await route.completed;

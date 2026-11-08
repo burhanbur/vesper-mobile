@@ -41,151 +41,249 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
         .where((id) => repo.accounts.any((a) => a['id'] == id))
         .toSet();
     String? error;
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, update) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          actionsOverflowButtonSpacing: 8,
-          backgroundColor: Colors.white,
-          title: const Text(
-            'Asumsi indikator',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Disimpan hanya pada perangkat dan pengguna ini. Tidak mengubah transaksi atau pengaturan Dana Darurat.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<int>(
-                  initialValue: months,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Periode evaluasi (bulan penuh)',
-                    labelStyle: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                  ),
-                  items: [
-                    for (final m in [3, 6, 12])
-                      DropdownMenuItem(value: m, child: Text('$m bulan')),
-                  ],
-                  onChanged: (v) => update(() => months = v!),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Sertakan dividen neto sebagai pemasukan',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  value: dividends,
-                  onChanged: (v) => update(() => dividends = v),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Akun untuk arus kas dan likuiditas; akun investasi, induk, non-IDR, milik orang lain dan akun pemetaan utang tidak disertakan.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                for (final a in repo.accounts)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      '${a['name']}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    value: ids.contains(a['id']),
-                    onChanged: (v) => update(() {
-                      if (v == true) {
-                        ids.add(a['id'] as String);
-                      } else {
-                        ids.remove(a['id']);
-                      }
-                    }),
-                  ),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(ctx).colorScheme.error,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+        builder: (ctx, update) => Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
               ),
-              onPressed: () {
-                try {
-                  if (!mounted ||
-                      !identical(repository, repo) ||
-                      !identical(state.repository, repo.source) ||
-                      state.currentUserId != repo.source.userId) {
-                    throw const ApiFailure('Sesi telah berubah.');
-                  }
-                  repo.saveAssumptions(
-                    months: months,
-                    includeDividends: dividends,
-                    accountIds: ids.toList(),
-                  );
-                  Navigator.pop(ctx);
-                } catch (e) {
-                  update(() => error = e.toString());
-                }
-              },
-              child: const Text('Simpan asumsi'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 16, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.health_and_safety_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Asumsi indikator',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppColors.border),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 15,
+                                  color: AppColors.textMuted,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Disimpan hanya pada perangkat dan pengguna ini. Tidak mengubah transaksi atau pengaturan Dana Darurat.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textMuted,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<int>(
+                            initialValue: months,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'Periode evaluasi (bulan penuh)',
+                              labelStyle: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                            ),
+                            items: [
+                              for (final m in [3, 6, 12])
+                                DropdownMenuItem(
+                                  value: m,
+                                  child: Text('$m bulan'),
+                                ),
+                            ],
+                            onChanged: (v) => update(() => months = v!),
+                          ),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Sertakan dividen neto sebagai pemasukan',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            value: dividends,
+                            onChanged: (v) => update(() => dividends = v),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Akun untuk arus kas dan likuiditas; akun investasi, induk, non-IDR, milik orang lain dan akun pemetaan utang tidak disertakan.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          for (final a in repo.accounts)
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                '${a['name']}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              value: ids.contains(a['id']),
+                              onChanged: (v) => update(() {
+                                if (v == true) {
+                                  ids.add(a['id'] as String);
+                                } else {
+                                  ids.remove(a['id']);
+                                }
+                              }),
+                            ),
+                          if (error != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                error!,
+                                style: TextStyle(
+                                  color: Theme.of(ctx).colorScheme.error,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(top: BorderSide(color: AppColors.border)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Batal'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              try {
+                                if (!mounted ||
+                                    !identical(repository, repo) ||
+                                    !identical(state.repository, repo.source) ||
+                                    state.currentUserId != repo.source.userId) {
+                                  throw const ApiFailure('Sesi telah berubah.');
+                                }
+                                repo.saveAssumptions(
+                                  months: months,
+                                  includeDividends: dividends,
+                                  accountIds: ids.toList(),
+                                );
+                                Navigator.pop(ctx);
+                              } catch (e) {
+                                update(() => error = e.toString());
+                              }
+                            },
+                            child: const Text('Simpan asumsi'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

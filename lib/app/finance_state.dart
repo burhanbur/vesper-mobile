@@ -13,6 +13,7 @@ import '../database/local_store.dart';
 import '../database/transaction_query.dart';
 import '../core/security/local_data_failure.dart';
 import '../features/accounts/models/account.dart';
+import '../features/accounts/models/credit_card_summary.dart';
 import '../features/accounts/models/balance_adjustment.dart';
 import '../features/dashboard/models/dashboard_balance_view.dart';
 import '../features/dashboard/models/net_worth_assessment.dart';
@@ -785,14 +786,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           isCreditCard: r['is_credit_card'] == true,
           creditLimit: r['credit_limit'] as String?,
           accountNumber: '',
-          institution:
-              accountTypes
-                  .where((t) => t['id'] == r['account_type_id'])
-                  .map((t) => t['name'] as String)
-                  .firstOrNull ??
-              (r['account_type_id'] is String
-                  ? r['account_type_id'] as String
-                  : ''),
+          institution: r['is_credit_card'] == true
+              ? 'Kartu Kredit'
+              : accountTypes
+                        .where((t) => t['id'] == r['account_type_id'])
+                        .map((t) => t['name'] as String)
+                        .firstOrNull ??
+                    (r['account_type_id'] is String
+                        ? r['account_type_id'] as String
+                        : ''),
           parentAccountId: r['parent_account_id'],
           isIncludeTotal: _boolVal(r['is_include_total'], defaultValue: true),
           isVisible: r['is_visible'] ?? true,
@@ -840,6 +842,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String accountId,
     String? name,
     String? accountTypeId,
+    bool? isCreditCard,
+    bool? isIncludeTotal,
   }) async {
     final payload = <String, dynamic>{};
     if (name != null && name.trim().isNotEmpty) {
@@ -848,10 +852,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (accountTypeId != null && accountTypeId.isNotEmpty) {
       payload['account_type_id'] = accountTypeId;
     }
+    if (isCreditCard != null) {
+      payload['is_credit_card'] = isCreditCard;
+      if (!isCreditCard) payload['credit_limit'] = null;
+    }
+    if (isIncludeTotal != null) {
+      if (isIncludeTotal && getChildrenForAccount(accountId).isNotEmpty) {
+        throw const ApiFailure(
+          'Akun induk dengan kantong tidak dapat masuk total.',
+        );
+      }
+      payload['is_include_total'] = isIncludeTotal;
+    }
     if (payload.isNotEmpty) {
       _repo.mutate('accounts', 'UPDATE', payload, id: accountId);
       _changed();
     }
+  }
+
+  void deleteAccount(String accountId) {
+    _repo.mutate('accounts', 'DELETE', null, id: accountId);
+    _changed();
   }
 
   void addAccount({
@@ -867,9 +888,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     bool isCreditCard = false,
     String? creditLimit,
   }) {
-    if (isCreditCard && !_repo.supportsCreditCardMetadata) {
-      throw const ApiFailure('Pembuatan kartu belum tersedia: kompatibilitas server belum terbukti.');
-    }
     if (initialBalance != 0 || isShared || householdId != null) {
       throw const ApiFailure(
         'Saldo awal harus dicatat sebagai transaksi; sharing dilakukan setelah akun tersinkronisasi.',
@@ -912,7 +930,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required bool isShared,
     String? householdId,
   }) async {
-    if (isShared && getAccountById(accountId)?.isCreditCard == true) {
+    final current = getAccountById(accountId);
+    if (current?.isShared == isShared &&
+        (!isShared || current?.householdId == householdId)) {
+      return;
+    }
+    if (isShared && current?.isCreditCard == true) {
       throw const ApiFailure('Kartu kredit tidak dapat dibagikan ke grup.');
     }
     if (householdId == null) {
@@ -2245,7 +2268,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int get totalNetWorth {
     final repo = repository;
     if (repo == null || !repo.hasObligationModel) {
-      final credit = accounts.where((a) => a.isCreditCard && a.isIncludeTotal && a.balance > 0)
+      final credit = accounts
+          .where((a) => a.isCreditCard && a.isIncludeTotal && a.balance > 0)
           .fold<int>(0, (sum, a) => sum + a.balance);
       return totalLiquidCash + totalInvestmentValue + credit - totalDebt;
     }
@@ -2282,6 +2306,51 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       /* Dashboard remains explicitly labelled a partial local estimate. */
     }
     return (minor ~/ BigInt.from(100)).toInt(); // Whole-Rupiah display only.
+  }
+
+  // Filtered account summaries use the same signed balances as the main total.
+  ({int debt, int netWorth}) accountDebtAndNetWorth(
+    List<Account> selected, {
+    required bool includeUnlinkedLoans,
+  }) {
+    final selectedById = {for (final account in selected) account.id: account};
+    final repo = repository;
+    var debt = BigInt.zero;
+    var netWorth = BigInt.zero;
+    for (final account in selected) {
+      if (!account.isIncludeTotal ||
+          account.currency != 'IDR' ||
+          selected.any((child) => child.parentAccountId == account.id) ||
+          (repo?.isMappedObligationAccount(account.id) ?? false)) {
+        continue;
+      }
+      final balance = accountMinor(
+        account.exactBalance ?? '${account.balance}.00',
+      );
+      netWorth += balance;
+      if (balance.isNegative) debt -= balance;
+    }
+    if (repo != null && repo.hasObligationModel) {
+      for (final loan in ObligationsRepository(repo).records) {
+        final linked = loan['linked_account_id'] as String?;
+        if (linked == null
+            ? !includeUnlinkedLoans
+            : selectedById[linked]?.isIncludeTotal != true) {
+          continue;
+        }
+        final amount = obligationMinor(loan['outstanding'] as String);
+        if (loan['kind'] == 'PAYABLE') {
+          debt += amount;
+          netWorth -= amount;
+        } else {
+          netWorth += amount;
+        }
+      }
+    }
+    return (
+      debt: (debt ~/ BigInt.from(100)).toInt(),
+      netWorth: (netWorth ~/ BigInt.from(100)).toInt(),
+    );
   }
 
   void obligationSaved() {

@@ -38,10 +38,10 @@ void main() {
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => showDialog<void>(
-                context: context,
-                builder: (_) =>
-                    BalanceAdjustmentDialog(state: state, accountId: 'account'),
+              onPressed: () => BalanceAdjustmentDialog.show(
+                context,
+                state: state,
+                accountId: 'account',
               ),
               child: const Text('Open'),
             ),

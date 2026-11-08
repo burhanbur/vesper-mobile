@@ -81,492 +81,554 @@ class _BillsPageState extends State<BillsPage> {
         isActive = bill?['active'] as bool? ?? true,
         saved = false;
     try {
-      final route = DialogRoute<void>(
-        context: context,
+      final route = ModalBottomSheetRoute<void>(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            actionsOverflowButtonSpacing: 8,
-            backgroundColor: Colors.white,
-            title: Text(
-              bill == null ? 'Buat jadwal' : 'Ubah pengingat / arsip',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: title,
-                    maxLength: 120,
-                    decoration: InputDecoration(
-                      labelText: 'Judul',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
+          builder: (ctx, update) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
                   ),
-                  const SizedBox(height: 8),
-                  if (bill == null) ...[
-                    DropdownButtonFormField<String>(
-                      initialValue: debt,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Cicilan pinjaman (opsional)',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text(
-                            'Transaksi rutin biasa',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        for (final d in repo.debts)
-                          DropdownMenuItem(
-                            value: d['id'] as String,
-                            child: Text(
-                              '${d['counterparty']}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (v) => update(() {
-                        debt = v;
-                        category = null;
-                        if (v != null) {
-                          final d = repo.debts.firstWhere((d) => d['id'] == v),
-                              first = (d['installments'] as List).first;
-                          frequency = 'INSTALLMENTS';
-                          type = d['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME';
-                          amountType = 'FIXED';
-                          amount.text = CurrencyAmountInput.fromDecimal(
-                            '${first['principal']}',
-                          );
-                          anchor.text = '${first['due_date']}';
-                        } else {
-                          frequency = 'MONTHLY';
-                        }
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    if (debt == null) ...[
-                      DropdownButtonFormField<String>(
-                        key: ValueKey('type:$type'),
-                        initialValue: type,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: 'Jenis transaksi',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'EXPENSE',
-                            child: Text('Pengeluaran'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'INCOME',
-                            child: Text('Pemasukan'),
-                          ),
-                        ],
-                        onChanged: (v) => update(() {
-                          type = v!;
-                          category = null;
-                        }),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        initialValue: amountType,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: 'Nominal',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'FIXED',
-                            child: Text('Tetap'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'ESTIMATED',
-                            child: Text(
-                              'Perkiraan — isi aktual saat bayar',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                        onChanged: (v) => update(() => amountType = v!),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: amount,
-                        inputFormatters: const [CurrencyAmountInput()],
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Nominal IDR bulat',
-                          prefixText: 'Rp ',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 8),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey('frequency:$frequency'),
-                        initialValue: frequency,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: 'Pengulangan',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: [
-                          for (final f in [
-                            'ONCE',
-                            'WEEKLY',
-                            'MONTHLY',
-                            'YEARLY',
-                          ])
-                            DropdownMenuItem(value: f, child: Text(f)),
-                        ],
-                        onChanged: (v) => update(() => frequency = v!),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: anchor,
-                        decoration: InputDecoration(
-                          labelText: 'Tanggal awal (YYYY-MM-DD)',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: end,
-                        decoration: InputDecoration(
-                          labelText: 'Tanggal akhir opsional (YYYY-MM-DD)',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ] else
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          'Tanggal dan pokok disalin dari cicilan pinjaman aktif. Catat pembayaran di Utang & Piutang, lalu tautkan buktinya; tidak dibuat pengeluaran baru.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    DropdownButtonFormField<String>(
-                      initialValue: account,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Akun kas IDR milik saya',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      items: [
-                        for (final a in repo.accounts)
-                          DropdownMenuItem(
-                            value: a['id'] as String,
-                            child: Text(
-                              '${a['name']}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (v) => update(() => account = v),
-                    ),
-                    if (debt == null) ...[
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        key: ValueKey('category:$type:$category'),
-                        initialValue: category,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: 'Kategori',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: [
-                          for (final c in repo.categories(type))
-                            DropdownMenuItem(
-                              value: c['id'] as String,
-                              child: Text(
-                                '${c['name']}',
-                                overflow: TextOverflow.ellipsis,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              bill == null ? 'Buat jadwal' : 'Ubah pengingat / arsip',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppColors.textPrimary,
                               ),
                             ),
-                        ],
-                        onChanged: (v) => update(() => category = v),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: title,
+                                maxLength: 120,
+                                decoration: InputDecoration(
+                                  labelText: 'Judul',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (bill == null) ...[
+                                DropdownButtonFormField<String>(
+                                  initialValue: debt,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Cicilan pinjaman (opsional)',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text(
+                                        'Transaksi rutin biasa',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    for (final d in repo.debts)
+                                      DropdownMenuItem(
+                                        value: d['id'] as String,
+                                        child: Text(
+                                          '${d['counterparty']}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) => update(() {
+                                    debt = v;
+                                    category = null;
+                                    if (v != null) {
+                                      final d = repo.debts.firstWhere((d) => d['id'] == v),
+                                          first = (d['installments'] as List).first;
+                                      frequency = 'INSTALLMENTS';
+                                      type = d['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME';
+                                      amountType = 'FIXED';
+                                      amount.text = CurrencyAmountInput.fromDecimal(
+                                        '${first['principal']}',
+                                      );
+                                      anchor.text = '${first['due_date']}';
+                                    } else {
+                                      frequency = 'MONTHLY';
+                                    }
+                                  }),
+                                ),
+                                const SizedBox(height: 10),
+                                if (debt == null) ...[
+                                  DropdownButtonFormField<String>(
+                                    key: ValueKey('type:$type'),
+                                    initialValue: type,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Jenis transaksi',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'EXPENSE',
+                                        child: Text('Pengeluaran'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'INCOME',
+                                        child: Text('Pemasukan'),
+                                      ),
+                                    ],
+                                    onChanged: (v) => update(() {
+                                      type = v!;
+                                      category = null;
+                                    }),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  DropdownButtonFormField<String>(
+                                    initialValue: amountType,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Nominal',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'FIXED',
+                                        child: Text('Tetap'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'ESTIMATED',
+                                        child: Text(
+                                          'Perkiraan — isi aktual saat bayar',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                    onChanged: (v) => update(() => amountType = v!),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: amount,
+                                    inputFormatters: const [CurrencyAmountInput()],
+                                    keyboardType: const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: 'Nominal IDR bulat',
+                                      prefixText: 'Rp ',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  DropdownButtonFormField<String>(
+                                    key: ValueKey('frequency:$frequency'),
+                                    initialValue: frequency,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Pengulangan',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    items: [
+                                      for (final f in [
+                                        'ONCE',
+                                        'WEEKLY',
+                                        'MONTHLY',
+                                        'YEARLY',
+                                      ])
+                                        DropdownMenuItem(value: f, child: Text(f)),
+                                    ],
+                                    onChanged: (v) => update(() => frequency = v!),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: anchor,
+                                    decoration: InputDecoration(
+                                      labelText: 'Tanggal awal (YYYY-MM-DD)',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    controller: end,
+                                    decoration: InputDecoration(
+                                      labelText: 'Tanggal akhir opsional (YYYY-MM-DD)',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ] else
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'Tanggal dan pokok disalin dari cicilan pinjaman aktif. Catat pembayaran di Utang & Piutang, lalu tautkan buktinya; tidak dibuat pengeluaran baru.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                DropdownButtonFormField<String>(
+                                  initialValue: account,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Akun kas IDR milik saya',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: [
+                                    for (final a in repo.accounts)
+                                      DropdownMenuItem(
+                                        value: a['id'] as String,
+                                        child: Text(
+                                          '${a['name']}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) => update(() => account = v),
+                                ),
+                                if (debt == null) ...[
+                                  const SizedBox(height: 10),
+                                  DropdownButtonFormField<String>(
+                                    key: ValueKey('category:$type:$category'),
+                                    initialValue: category,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Kategori',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    items: [
+                                      for (final c in repo.categories(type))
+                                        DropdownMenuItem(
+                                          value: c['id'] as String,
+                                          child: Text(
+                                            '${c['name']}',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                    ],
+                                    onChanged: (v) => update(() => category = v),
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                DropdownButtonFormField<int>(
+                                  initialValue: offset,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Zona waktu tetap (tanpa DST)',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(value: 0, child: Text('GMT+00:00')),
+                                    DropdownMenuItem(value: 420, child: Text('WIB')),
+                                    DropdownMenuItem(value: 480, child: Text('WITA')),
+                                    DropdownMenuItem(value: 540, child: Text('WIT')),
+                                  ],
+                                  onChanged: (v) => update(() => offset = v!),
+                                ),
+                              ] else
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                  child: Text(
+                                    'Syarat finansial/tanggal tidak berubah. Untuk perubahan nominal, akun atau pengulangan, arsipkan seri ini dan buat seri baru. Riwayat lama tetap disimpan.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 6),
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Jadwal aktif',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                value: isActive,
+                                onChanged: (v) => update(() => isActive = v),
+                              ),
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Pengingat dalam aplikasi',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                value: enabled,
+                                onChanged: (v) => update(() => enabled = v),
+                              ),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: days,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Ingatkan sebelum jatuh tempo (0–30 hari)',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Pengingat tampil saat aplikasi dibuka/disinkronkan. Tidak meminta izin notifikasi sistem, tidak dikirim saat aplikasi tertutup, dan tidak membuat transaksi otomatis. Bulanan/tahunan memakai tanggal asal yang dijepit pada akhir bulan.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              if (error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(ctx).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Batal'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: saved
+                                    ? null
+                                    : () {
+                                        final data = <String, dynamic>{
+                                          'title': title.text,
+                                          'reminder_enabled': enabled,
+                                          'reminder_days': int.tryParse(days.text) ?? -1,
+                                        };
+                                        if (bill != null) {
+                                          data['active'] = isActive;
+                                        } else {
+                                          data.addAll({
+                                            'transaction_type': type,
+                                            'amount_type': amountType,
+                                            'amount': CurrencyAmountInput.toDecimal(
+                                              amount.text.trim(),
+                                            ),
+                                            'account_id': account ?? '',
+                                            'category_id': category,
+                                            'obligation_id': debt,
+                                            'frequency': frequency,
+                                            'anchor_date': anchor.text.trim(),
+                                            'end_date': end.text.trim().isEmpty
+                                                ? null
+                                                : end.text.trim(),
+                                            'utc_offset_minutes': offset,
+                                          });
+                                        }
+                                        final ok = active.save(
+                                          () => repo.saveSchedule(
+                                            data,
+                                            id: bill?['id'] as String?,
+                                          ),
+                                        );
+                                        if (ok) {
+                                          saved = true;
+                                          Navigator.pop(ctx);
+                                        } else {
+                                          update(() => error = active.error);
+                                        }
+                                      },
+                                child: const Text('Simpan jadwal'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      initialValue: offset,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Zona waktu tetap (tanpa DST)',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('GMT+00:00')),
-                        DropdownMenuItem(value: 420, child: Text('WIB')),
-                        DropdownMenuItem(value: 480, child: Text('WITA')),
-                        DropdownMenuItem(value: 540, child: Text('WIT')),
-                      ],
-                      onChanged: (v) => update(() => offset = v!),
-                    ),
-                  ] else
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'Syarat finansial/tanggal tidak berubah. Untuk perubahan nominal, akun atau pengulangan, arsipkan seri ini dan buat seri baru. Riwayat lama tetap disimpan.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 6),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Jadwal aktif',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    value: isActive,
-                    onChanged: (v) => update(() => isActive = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Pengingat dalam aplikasi',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    value: enabled,
-                    onChanged: (v) => update(() => enabled = v),
-                  ),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: days,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Ingatkan sebelum jatuh tempo (0–30 hari)',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Pengingat tampil saat aplikasi dibuka/disinkronkan. Tidak meminta izin notifikasi sistem, tidak dikirim saat aplikasi tertutup, dan tidak membuat transaksi otomatis. Bulanan/tahunan memakai tanggal asal yang dijepit pada akhir bulan.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: saved
-                    ? null
-                    : () {
-                        final data = <String, dynamic>{
-                          'title': title.text,
-                          'reminder_enabled': enabled,
-                          'reminder_days': int.tryParse(days.text) ?? -1,
-                        };
-                        if (bill != null) {
-                          data['active'] = isActive;
-                        } else {
-                          data.addAll({
-                            'transaction_type': type,
-                            'amount_type': amountType,
-                            'amount': CurrencyAmountInput.toDecimal(
-                              amount.text.trim(),
-                            ),
-                            'account_id': account ?? '',
-                            'category_id': category,
-                            'obligation_id': debt,
-                            'frequency': frequency,
-                            'anchor_date': anchor.text.trim(),
-                            'end_date': end.text.trim().isEmpty
-                                ? null
-                                : end.text.trim(),
-                            'utc_offset_minutes': offset,
-                          });
-                        }
-                        final ok = active.save(
-                          () => repo.saveSchedule(
-                            data,
-                            id: bill?['id'] as String?,
-                          ),
-                        );
-                        if (ok) {
-                          saved = true;
-                          Navigator.pop(ctx);
-                        } else {
-                          update(() => error = active.error);
-                        }
-                      },
-                child: const Text('Simpan jadwal'),
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -598,207 +660,270 @@ class _BillsPageState extends State<BillsPage> {
     String? recordId, error;
     bool saved = false;
     try {
-      final route = DialogRoute<void>(
-        context: context,
+      final route = ModalBottomSheetRoute<void>(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            actionsOverflowButtonSpacing: 8,
-            backgroundColor: Colors.white,
-            title: Text(
-              action == 'PAY'
-                  ? 'Konfirmasi pencatatan pembayaran'
-                  : action == 'SKIP'
-                  ? 'Lewati kejadian ini'
-                  : action == 'REOPEN'
-                  ? 'Buka kembali kejadian'
-                  : 'Tautkan pembayaran yang sudah dicatat',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${item.bill['title']} • ${item.date} • ${item.amount} IDR',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+          builder: (ctx, update) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
                   ),
-                  const SizedBox(height: 12),
-                  if (action == 'PAY') ...[
-                    TextField(
-                      controller: actual,
-                      inputFormatters: const [CurrencyAmountInput()],
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Nominal aktual IDR bulat',
-                        prefixText: 'Rp ',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Membuat satu transaksi baru saat ini dan mengubah saldo kas. Jika sudah dicatat sebelumnya, batalkan lalu pilih Tautkan transaksi; jangan bayar dua kali.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                  if (action.startsWith('LINK_')) ...[
-                    DropdownButtonFormField<String>(
-                      initialValue: recordId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Bukti pembayaran yang sesuai',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      items: [
-                        for (final r in repo.linkable(item))
-                          DropdownMenuItem(
-                            value: r['id'] as String,
-                            child: Text(
-                              '${DateFormatter.timestamp(r['transacted_at'], timeZone: AppStateScope.of(context).timeZone)} • ${r['principal'] ?? r['amount']} IDR',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 8),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                      ],
-                      onChanged: (v) => update(() => recordId = v),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Hanya menautkan bukti. Tidak mengurangi kas atau membuat transaksi lagi. Pembayaran cicilan besar dapat dibagi ke beberapa kejadian selama total pokoknya cukup.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                  if (action == 'REOPEN')
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Text(
-                        'Tidak mengubah uang. Pembayaran yang masih valid tidak dapat dibuka kembali. Koreksi dahulu melalui transaksi/Utang & Piutang bila perlu.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                          height: 1.35,
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: note,
-                    maxLength: 500,
-                    decoration: InputDecoration(
-                      labelText: action == 'SKIP'
-                          ? 'Alasan wajib'
-                          : 'Catatan opsional',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                action == 'PAY'
+                                    ? 'Konfirmasi pencatatan pembayaran'
+                                    : action == 'SKIP'
+                                    ? 'Lewati kejadian ini'
+                                    : action == 'REOPEN'
+                                    ? 'Buka kembali kejadian'
+                                    : 'Tautkan pembayaran yang sudah dicatat',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceVariant,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${item.bill['title']} • ${item.date} • ${item.amount} IDR',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (action == 'PAY') ...[
+                                TextField(
+                                  controller: actual,
+                                  inputFormatters: const [CurrencyAmountInput()],
+                                  keyboardType: const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration: InputDecoration(
+                                    labelText: 'Nominal aktual IDR bulat',
+                                    prefixText: 'Rp ',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Membuat satu transaksi baru saat ini dan mengubah saldo kas. Jika sudah dicatat sebelumnya, batalkan lalu pilih Tautkan transaksi; jangan bayar dua kali.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                              if (action.startsWith('LINK_')) ...[
+                                DropdownButtonFormField<String>(
+                                  initialValue: recordId,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Bukti pembayaran yang sesuai',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: [
+                                    for (final r in repo.linkable(item))
+                                      DropdownMenuItem(
+                                        value: r['id'] as String,
+                                        child: Text(
+                                          '${DateFormatter.timestamp(r['transacted_at'], timeZone: AppStateScope.of(context).timeZone)} • ${r['principal'] ?? r['amount']} IDR',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) => update(() => recordId = v),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Hanya menautkan bukti. Tidak mengurangi kas atau membuat transaksi lagi. Pembayaran cicilan besar dapat dibagi ke beberapa kejadian selama total pokoknya cukup.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                              if (action == 'REOPEN')
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 4),
+                                  child: Text(
+                                    'Tidak mengubah uang. Pembayaran yang masih valid tidak dapat dibuka kembali. Koreksi dahulu melalui transaksi/Utang & Piutang bila perlu.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: note,
+                                maxLength: 500,
+                                decoration: InputDecoration(
+                                  labelText: action == 'SKIP'
+                                      ? 'Alasan wajib'
+                                      : 'Catatan opsional',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              if (error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(ctx).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Batal'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: saved
+                                    ? null
+                                    : () {
+                                        final ok = active.save(
+                                          () => repo.command(
+                                            item,
+                                            action,
+                                            amount: CurrencyAmountInput.toDecimal(
+                                              actual.text.trim(),
+                                            ),
+                                            recordId: recordId,
+                                            note: note.text,
+                                          ),
+                                        );
+                                        if (ok) {
+                                          saved = true;
+                                          Navigator.pop(ctx);
+                                        } else {
+                                          update(() => error = active.error);
+                                        }
+                                      },
+                                child: const Text('Konfirmasi'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onPressed: saved
-                    ? null
-                    : () {
-                        final ok = active.save(
-                          () => repo.command(
-                            item,
-                            action,
-                            amount: CurrencyAmountInput.toDecimal(
-                              actual.text.trim(),
-                            ),
-                            recordId: recordId,
-                            note: note.text,
-                          ),
-                        );
-                        if (ok) {
-                          saved = true;
-                          Navigator.pop(ctx);
-                        } else {
-                          update(() => error = active.error);
-                        }
-                      },
-                child: const Text('Konfirmasi'),
               ),
-            ],
+            ),
           ),
         ),
       );

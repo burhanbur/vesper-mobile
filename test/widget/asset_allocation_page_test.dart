@@ -60,12 +60,12 @@ void main() {
       await tester.tap(find.text('Simpan target'));
       await tester.pumpAndSettle();
       expect(find.textContaining('tepat 100%').last, findsOneWidget);
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(AssetAllocationRepository(source).targets!['CASH'], '60.00');
       await tester.enterText(cash, '60');
       await tester.tap(find.text('Simpan target'));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
       expect(source.outbox, isEmpty);
       expect(source.rows('transactions'), isEmpty);
       expect(tester.takeException(), isNull);

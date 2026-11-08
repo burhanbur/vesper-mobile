@@ -40,7 +40,8 @@ void main() {
       await tester.tap(find.byTooltip('Pengaturan & Sharing'));
       await tester.pumpAndSettle();
       expect(find.text('Bagikan ke Ruang Grup Bersama'), findsOneWidget);
-      await tester.tap(find.byType(Switch));
+      await tester.ensureVisible(find.text('Bagikan ke Ruang Grup Bersama'));
+      await tester.tap(find.text('Bagikan ke Ruang Grup Bersama'));
       await tester.pumpAndSettle();
       expect(find.text('Pilih Grup yang Dapat Mengakses'), findsOneWidget);
       final dropdown = tester.widget<DropdownButton<String>>(

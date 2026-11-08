@@ -106,129 +106,190 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
     };
     String? error;
     try {
-      final route = DialogRoute<void>(
-        context: context,
+      final route = ModalBottomSheetRoute<void>(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            backgroundColor: Colors.white,
-            title: const Text(
-              'Target alokasi pribadi',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Persen aset positif IDR, total tepat 100%. Disimpan per pengguna di perangkat ini. Target adalah pilihan sendiri, bukan saran transaksi.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  for (final kind in allocationClasses)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: TextField(
-                        controller: fields[kind],
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: '${allocationLabels[kind]} (%)',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.border,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.primary,
-                              width: 1.5,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
+          builder: (ctx, update) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 12, bottom: 8),
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                  if (error != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Target alokasi pribadi',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () => Navigator.pop(ctx),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Persen aset positif IDR, total tepat 100%. Disimpan per pengguna di perangkat ini. Target adalah pilihan sendiri, bukan saran transaksi.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            for (final kind in allocationClasses)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: TextField(
+                                  controller: fields[kind],
+                                  keyboardType: const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  decoration: InputDecoration(
+                                    labelText: '${allocationLabels[kind]} (%)',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: AppColors.border,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: AppColors.border,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: const BorderSide(
+                                        color: AppColors.primary,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (error != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  error!,
+                                  style: TextStyle(
+                                    color: Theme.of(ctx).colorScheme.error,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Batal'),
+                            ),
+                          ),
+                          if (saved != null) ...[
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () {
+                                if (active.saveTargets(null)) {
+                                  Navigator.pop(ctx);
+                                } else {
+                                  update(() => error = active.error);
+                                }
+                              },
+                              child: const Text(
+                                'Hapus target',
+                                style: TextStyle(color: AppColors.expense),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                if (active.saveTargets({
+                                  for (final e in fields.entries) e.key: e.value.text.trim(),
+                                })) {
+                                  Navigator.pop(ctx);
+                                } else {
+                                  update(() => error = active.error);
+                                }
+                              },
+                              child: const Text('Simpan target'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              if (saved != null)
-                TextButton(
-                  onPressed: () {
-                    if (active.saveTargets(null)) {
-                      Navigator.pop(ctx);
-                    } else {
-                      update(() => error = active.error);
-                    }
-                  },
-                  child: const Text(
-                    'Hapus target',
-                    style: TextStyle(color: AppColors.expense),
-                  ),
-                ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  if (active.saveTargets({
-                    for (final e in fields.entries) e.key: e.value.text.trim(),
-                  })) {
-                    Navigator.pop(ctx);
-                  } else {
-                    update(() => error = active.error);
-                  }
-                },
-                child: const Text('Simpan target'),
-              ),
-            ],
           ),
         ),
       );

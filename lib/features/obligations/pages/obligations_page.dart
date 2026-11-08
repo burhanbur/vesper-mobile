@@ -61,6 +61,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
       ),
     );
   }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -125,7 +126,6 @@ class _ObligationsPageState extends State<ObligationsPage> {
     final interest = TextEditingController(text: '0');
     final fee = TextEditingController(text: '0');
     final due = TextEditingController();
-    final schedule = TextEditingController();
     String kind = linkedAccount != null && !balance.isNegative
         ? 'RECEIVABLE'
         : 'PAYABLE';
@@ -136,11 +136,14 @@ class _ObligationsPageState extends State<ObligationsPage> {
         obligationMoney(balance.abs()),
       );
     }
-    bool existing = true;
+    bool existing = linkedAccount != null;
+    bool showCosts = false;
     bool savedOnce = false;
     try {
-      await showDialog<void>(
+      await showModalBottomSheet<void>(
         context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, update) {
             Widget accounts(
@@ -166,7 +169,14 @@ class _ObligationsPageState extends State<ObligationsPage> {
                   value: null,
                   child: Text('Tidak dipilih'),
                 ),
-                for (final account in repo.cashAccounts)
+                for (final account
+                    in (label == 'Akun lama (opsional)'
+                        ? repo.cashAccounts.where(
+                            (a) => !repo.source.isMappedObligationAccount(
+                              a['id'] as String,
+                            ),
+                          )
+                        : repo.fundingAccounts))
                   DropdownMenuItem(
                     value: account['id'] as String,
                     child: Text('${account['name']}'),
@@ -222,6 +232,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
               ),
               decoration: InputDecoration(
                 labelText: label,
+                helperText: label == 'Jumlah pembayaran'
+                    ? 'Bagian pinjaman yang dikembalikan. Isi bunga dan biaya terpisah.'
+                    : null,
                 prefixText: 'Rp ',
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -232,21 +245,68 @@ class _ObligationsPageState extends State<ObligationsPage> {
                 ),
               ),
             );
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              backgroundColor: Colors.white,
-              title: Text(
-                debt == null ? 'Catat utang / piutang' : 'Catat pembayaran',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
+            return Material(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 14,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(ctx).size.height * 0.82,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 44,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.border,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                debt == null
+                                    ? 'Catat utang / piutang'
+                                    : 'Catat pembayaran',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
                       padding: const EdgeInsets.all(10),
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -278,11 +338,11 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         items: const [
                           DropdownMenuItem(
                             value: 'PAYABLE',
-                            child: Text('Utang saya'),
+                            child: Text('Saya berutang'),
                           ),
                           DropdownMenuItem(
                             value: 'RECEIVABLE',
-                            child: Text('Piutang saya'),
+                            child: Text('Orang berutang ke saya'),
                           ),
                         ],
                         onChanged: (v) => update(() => kind = v!),
@@ -291,7 +351,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       TextField(
                         controller: counterparty,
                         decoration: InputDecoration(
-                          labelText: 'Nama pihak',
+                          labelText: kind == 'PAYABLE'
+                              ? 'Saya berutang kepada'
+                              : 'Yang berutang ke saya',
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
@@ -302,7 +364,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      amount(principal, 'Pokok IDR'),
+                      amount(principal, 'Jumlah pinjaman'),
                       const SizedBox(height: 10),
                       TextField(
                         controller: due,
@@ -318,23 +380,6 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      TextField(
-                        controller: schedule,
-                        minLines: 2,
-                        maxLines: 5,
-                        decoration: InputDecoration(
-                          labelText: 'Jadwal pokok cicilan (opsional)',
-                          hintText: '2026-11-20=100.00\n2026-12-20=100.00',
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
                       if (linkedAccount != null)
                         Text(
                           'Menghubungkan akun ${linkedAccount['name']}. Tidak membuat arus kas baru. Saldo positif adalah piutang; saldo negatif adalah utang. Isi nama orang yang terkait, bukan nama akun.',
@@ -343,7 +388,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text(
-                          'Saldo awal / pinjaman sudah berjalan',
+                          'Pinjaman lama (uang sudah berpindah sebelumnya)',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -360,7 +405,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       ),
                       if (existing) ...[
                         const Text(
-                          'Tanpa arus kas baru. Jika saldo sudah tercatat sebagai akun lama, petakan akun tersebut agar tidak dihitung dua kali. Saldo utang harus negatif, piutang positif, sama dengan pokok.',
+                          'Hanya mencatat sisa pinjaman, saldo rekening tidak berubah. Jika pernah dibuat sebagai akun, pilih akun lama di bawah agar tidak dihitung dua kali.',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textMuted,
@@ -374,8 +419,10 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             (v) => mappedId = v,
                           ),
                       ] else ...[
-                        const Text(
-                          'Pendanaan baru akan menambah kas untuk utang atau mengurangi kas untuk piutang.',
+                        Text(
+                          kind == 'PAYABLE'
+                              ? 'Uang pinjaman masuk ke rekening ini.'
+                              : 'Uang yang dipinjamkan keluar dari rekening ini.',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textMuted,
@@ -383,7 +430,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                         const SizedBox(height: 8),
                         accounts(
-                          'Akun kas pendanaan',
+                          kind == 'PAYABLE'
+                              ? 'Uang masuk ke'
+                              : 'Uang keluar dari',
                           cashId,
                           (v) => cashId = v,
                         ),
@@ -406,38 +455,56 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ),
                       accounts(
-                        'Akun kas pembayaran',
+                        debt['kind'] == 'PAYABLE'
+                            ? 'Bayar dari rekening'
+                            : 'Terima di rekening',
                         cashId,
                         (v) => cashId = v,
                       ),
                       const SizedBox(height: 10),
-                      amount(principal, 'Pokok dibayar IDR'),
+                      amount(principal, 'Jumlah pembayaran'),
                       const SizedBox(height: 10),
-                      amount(interest, 'Bunga IDR'),
-                      const SizedBox(height: 10),
-                      amount(fee, 'Biaya IDR'),
-                      const SizedBox(height: 10),
-                      category(
-                        'Kategori bunga',
-                        debt['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME',
-                        interestCategory,
-                        (v) => interestCategory = v,
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Ada bunga atau biaya tambahan'),
+                        value: showCosts,
+                        onChanged: (value) => update(() {
+                          showCosts = value;
+                          if (!value) {
+                            interest.text = '0';
+                            fee.text = '0';
+                            interestCategory = null;
+                            feeCategory = null;
+                          }
+                        }),
                       ),
-                      const SizedBox(height: 10),
-                      category(
-                        'Kategori biaya',
-                        'EXPENSE',
-                        feeCategory,
-                        (v) => feeCategory = v,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Bunga dan biaya memakai kategori masing-masing; untuk piutang, bunga diterima dan biaya dipotong dari penerimaan kas.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
+                      if (showCosts) ...[
+                        amount(interest, 'Bunga IDR'),
+                        const SizedBox(height: 10),
+                        amount(fee, 'Biaya IDR'),
+                        const SizedBox(height: 10),
+                        category(
+                          'Kategori bunga',
+                          debt['kind'] == 'PAYABLE' ? 'EXPENSE' : 'INCOME',
+                          interestCategory,
+                          (v) => interestCategory = v,
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        category(
+                          'Kategori biaya',
+                          'EXPENSE',
+                          feeCategory,
+                          (v) => feeCategory = v,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Bunga dan biaya memakai kategori masing-masing; untuk piutang, bunga diterima dan biaya dipotong dari penerimaan kas.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
                     ],
                     if (saveError != null)
                       Padding(
@@ -450,96 +517,131 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Kembali'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (savedOnce) return;
-                    final saved = active.save(
-                      () {
-                        if (debt == null) {
-                          if (!existing && cashId == null) {
-                            throw StateError('Pilih akun kas pendanaan.');
-                          }
-                          repo.open(
-                            kind: kind,
-                            counterparty: counterparty.text,
-                            principal: ObligationAmountInput.toDecimal(
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textPrimary,
+                        side: const BorderSide(color: AppColors.border),
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Kembali'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        if (savedOnce) return;
+                        final saved = active.save(
+                          () {
+                            if (debt == null) {
+                              if (!existing && cashId == null) {
+                                throw StateError(
+                                  'Pilih akun kas pendanaan.',
+                                );
+                              }
+                              repo.open(
+                                kind: kind,
+                                counterparty: counterparty.text,
+                                principal:
+                                    ObligationAmountInput.toDecimal(
+                                      principal.text,
+                                    ),
+                                dueDate: due.text,
+                                cashAccountId: existing ? null : cashId,
+                                linkedAccountId: mappedId,
+                              );
+                            } else {
+                              if (cashId == null) {
+                                throw StateError(
+                                  'Pilih akun kas pembayaran.',
+                                );
+                              }
+                              repo.repay(
+                                debt['id'] as String,
+                                cashAccountId: cashId!,
+                                principal:
+                                    ObligationAmountInput.toDecimal(
+                                      principal.text,
+                                    ),
+                                interest:
+                                    ObligationAmountInput.toDecimal(
+                                      interest.text,
+                                    ),
+                                fee: ObligationAmountInput.toDecimal(
+                                  fee.text,
+                                ),
+                                interestCategoryId: interestCategory,
+                                feeCategoryId: feeCategory,
+                              );
+                            }
+                          },
+                          amounts: [
+                            ObligationAmountInput.toDecimal(
                               principal.text,
                             ),
-                            dueDate: due.text,
-                            installments: schedule.text,
-                            cashAccountId: existing ? null : cashId,
-                            linkedAccountId: mappedId,
+                            if (debt != null) ...[
+                              ObligationAmountInput.toDecimal(
+                                interest.text,
+                              ),
+                              ObligationAmountInput.toDecimal(fee.text),
+                            ],
+                          ],
+                          accountIds: [
+                            if (cashId != null) cashId!,
+                            if (mappedId != null) mappedId!,
+                          ],
+                        );
+                        if (saved) {
+                          savedOnce = true;
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Tersimpan lokal • menunggu sinkronisasi',
+                              ),
+                            ),
                           );
                         } else {
-                          if (cashId == null) {
-                            throw StateError('Pilih akun kas pembayaran.');
-                          }
-                          repo.repay(
-                            debt['id'] as String,
-                            cashAccountId: cashId!,
-                            principal: ObligationAmountInput.toDecimal(
-                              principal.text,
-                            ),
-                            interest: ObligationAmountInput.toDecimal(
-                              interest.text,
-                            ),
-                            fee: ObligationAmountInput.toDecimal(fee.text),
-                            interestCategoryId: interestCategory,
-                            feeCategoryId: feeCategory,
-                          );
+                          update(() => saveError = active.error);
                         }
                       },
-                      amounts: [
-                        ObligationAmountInput.toDecimal(principal.text),
-                        if (debt != null) ...[
-                          ObligationAmountInput.toDecimal(interest.text),
-                          ObligationAmountInput.toDecimal(fee.text),
-                        ],
-                      ],
-                      accountIds: [
-                        if (cashId != null) cashId!,
-                        if (mappedId != null) mappedId!,
-                      ],
-                    );
-                    if (saved) {
-                      savedOnce = true;
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Tersimpan lokal • menunggu sinkronisasi',
-                          ),
-                        ),
-                      );
-                    } else {
-                      update(() => saveError = active.error);
-                    }
-                  },
-                  child: const Text('Simpan lokal'),
-                ),
-              ],
-            );
-          },
+                      child: const Text('Simpan'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      );
+      ),
+    ),
+  );
+        },
+      ),
+    );
     } finally {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        for (final field in [
-          counterparty,
-          principal,
-          interest,
-          fee,
-          due,
-          schedule,
-        ]) {
+        for (final field in [counterparty, principal, interest, fee, due]) {
           field.dispose();
         }
       });
@@ -596,7 +698,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Tambah pinjaman',
+            tooltip: 'Tambah utang / piutang',
             icon: const Icon(Icons.add_rounded, color: AppColors.textPrimary),
             onPressed: active == null ? null : () => form(),
           ),
@@ -610,9 +712,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       await state.syncPendingNow();
                     } catch (failure) {
                       if (mounted) {
-                        setState(
-                          () => error = failure.toString(),
-                        );
+                        setState(() => error = failure.toString());
                       }
                     }
                     if (mounted) setState(() {});
@@ -634,13 +734,17 @@ class _ObligationsPageState extends State<ObligationsPage> {
                 final repo = active.repository;
                 final source = repo.source;
                 final totals = repo.totals();
-                final receivableMinor = obligationMinor('${totals['receivable']}');
+                final receivableMinor = obligationMinor(
+                  '${totals['receivable']}',
+                );
                 final payableMinor = obligationMinor('${totals['payable']}');
                 final netMinor = receivableMinor - payableMinor;
                 final isNetPositive = netMinor >= BigInt.zero;
 
                 final displayedDebts = repo.records.where((debt) {
-                  if (_filter == 'RECEIVABLE') return debt['kind'] == 'RECEIVABLE';
+                  if (_filter == 'RECEIVABLE') {
+                    return debt['kind'] == 'RECEIVABLE';
+                  }
                   if (_filter == 'PAYABLE') return debt['kind'] == 'PAYABLE';
                   return true;
                 }).toList();
@@ -687,7 +791,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                   Text(
                                     'Posisi Bersih',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.85),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.85,
+                                      ),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -719,8 +825,8 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             state.isBalanceHidden
                                 ? '••••••'
                                 : (netMinor == BigInt.zero
-                                    ? 'Rp 0'
-                                    : '${isNetPositive ? '+' : '-'}${CurrencyFormatter.formatMinorRupiah(netMinor.abs())}'),
+                                      ? 'Rp 0'
+                                      : '${isNetPositive ? '+' : '-'}${CurrencyFormatter.formatMinorRupiah(netMinor.abs())}'),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 24,
@@ -866,12 +972,14 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           onTap: () => setState(() => _filter = 'ALL'),
                         ),
                         _filterChip(
-                          label: 'Piutang (${repo.records.where((d) => d['kind'] == 'RECEIVABLE').length})',
+                          label:
+                              'Piutang (${repo.records.where((d) => d['kind'] == 'RECEIVABLE').length})',
                           selected: _filter == 'RECEIVABLE',
                           onTap: () => setState(() => _filter = 'RECEIVABLE'),
                         ),
                         _filterChip(
-                          label: 'Utang (${repo.records.where((d) => d['kind'] == 'PAYABLE').length})',
+                          label:
+                              'Utang (${repo.records.where((d) => d['kind'] == 'PAYABLE').length})',
                           selected: _filter == 'PAYABLE',
                           onTap: () => setState(() => _filter = 'PAYABLE'),
                         ),
@@ -1014,7 +1122,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              'Catat utang atau piutang dengan menekan tombol Tambah pinjaman.',
+                              'Catat kepada siapa kamu berutang atau siapa yang berutang kepadamu. Kartu kredit dikelola di menu Akun.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
@@ -1277,7 +1385,11 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                             Icons.payments_rounded,
                                             size: 16,
                                           ),
-                                          label: const Text('Bayar / terima'),
+                                          label: Text(
+                                            debt['kind'] == 'PAYABLE'
+                                                ? 'Bayar / cicil'
+                                                : 'Terima pembayaran',
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),

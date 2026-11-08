@@ -69,6 +69,6 @@ void main() {
     expect(find.text('Aksi Cepat'), findsOneWidget);
     expect(find.text('Catat Pengeluaran'), findsOneWidget);
     expect(find.text('Catat Pemasukan'), findsOneWidget);
-    expect(find.text('Transfer Antar Akun / Utang'), findsOneWidget);
+    expect(find.text('Transfer / Bayar kartu kredit'), findsOneWidget);
   });
 }

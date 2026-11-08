@@ -72,225 +72,287 @@ class _GoalsPageState extends State<GoalsPage> {
     String? group = goal?['group_id'] as String?, error;
     bool saved = false;
     try {
-      final route = DialogRoute<void>(
-        context: context,
+      final route = ModalBottomSheetRoute<void>(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            actionsOverflowButtonSpacing: 8,
-            backgroundColor: Colors.white,
-            title: Text(
-              goal == null ? 'Buat goal' : 'Ubah goal',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: name,
-                    maxLength: 120,
-                    decoration: InputDecoration(
-                      labelText: 'Nama goal',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
+          builder: (ctx, update) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: target,
-                    inputFormatters: const [CurrencyAmountInput()],
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Target nominal',
-                      prefixText: currency.text.trim().toUpperCase() == 'IDR'
-                          ? 'Rp '
-                          : '${currency.text.trim().toUpperCase()} ',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: currency,
-                    onChanged: (_) => update(() {}),
-                    enabled: goal == null,
-                    maxLength: 3,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: InputDecoration(
-                      labelText: 'Mata uang',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: date,
-                    decoration: InputDecoration(
-                      labelText: 'Tanggal target (YYYY-MM-DD)',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  if (goal == null) ...[
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: group,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Kepemilikan & visibilitas',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text(
-                            'Pribadi — hanya saya',
-                            overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 8),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                        for (final g
-                            in repo.source
-                                .rows('groups')
-                                .where((g) => repo.member(g['id'] as String)))
-                          DropdownMenuItem(
-                            value: g['id'] as String,
-                            child: Text(
-                              'Rumah tangga: ${g['name']}',
-                              overflow: TextOverflow.ellipsis,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              goal == null ? 'Buat goal' : 'Ubah goal',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
-                          ),
-                      ],
-                      onChanged: (v) => update(() => group = v),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Alokasi hanya menyisihkan dana; saldo tetap dapat dibelanjakan. Mata uang dan cakupan tidak berubah setelah dibuat.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: name,
+                                maxLength: 120,
+                                decoration: InputDecoration(
+                                  labelText: 'Nama goal',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: target,
+                                inputFormatters: const [CurrencyAmountInput()],
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Target nominal',
+                                  prefixText: currency.text.trim().toUpperCase() == 'IDR'
+                                      ? 'Rp '
+                                      : '${currency.text.trim().toUpperCase()} ',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: currency,
+                                onChanged: (_) => update(() {}),
+                                enabled: goal == null,
+                                maxLength: 3,
+                                textCapitalization: TextCapitalization.characters,
+                                decoration: InputDecoration(
+                                  labelText: 'Mata uang',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: date,
+                                decoration: InputDecoration(
+                                  labelText: 'Tanggal target (YYYY-MM-DD)',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              if (goal == null) ...[
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue: group,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Kepemilikan & visibilitas',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text(
+                                        'Pribadi — hanya saya',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    for (final g
+                                        in repo.source
+                                            .rows('groups')
+                                            .where((g) => repo.member(g['id'] as String)))
+                                      DropdownMenuItem(
+                                        value: g['id'] as String,
+                                        child: Text(
+                                          'Rumah tangga: ${g['name']}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) => update(() => group = v),
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Alokasi hanya menyisihkan dana; saldo tetap dapat dibelanjakan. Mata uang dan cakupan tidak berubah setelah dibuat.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              if (error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(ctx).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Batal'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: saved
+                                    ? null
+                                    : () {
+                                        final ok = active.save(() {
+                                          if (goal == null) {
+                                            repo.create(
+                                              name: name.text,
+                                              target: CurrencyAmountInput.toDecimal(
+                                                target.text.trim(),
+                                              ),
+                                              currency: currency.text.trim().toUpperCase(),
+                                              targetDate: date.text.trim(),
+                                              groupId: group,
+                                            );
+                                          } else {
+                                            repo.update(
+                                              goal['id'] as String,
+                                              name: name.text,
+                                              target: CurrencyAmountInput.toDecimal(
+                                                target.text.trim(),
+                                              ),
+                                              targetDate: date.text.trim(),
+                                              status: goal['status'] as String,
+                                            );
+                                          }
+                                        });
+                                        if (ok) {
+                                          saved = true;
+                                          Navigator.pop(ctx);
+                                        } else {
+                                          update(() => error = active.error);
+                                        }
+                                      },
+                                child: const Text('Simpan lokal'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onPressed: saved
-                    ? null
-                    : () {
-                        final ok = active.save(() {
-                          if (goal == null) {
-                            repo.create(
-                              name: name.text,
-                              target: CurrencyAmountInput.toDecimal(
-                                target.text.trim(),
-                              ),
-                              currency: currency.text.trim().toUpperCase(),
-                              targetDate: date.text.trim(),
-                              groupId: group,
-                            );
-                          } else {
-                            repo.update(
-                              goal['id'] as String,
-                              name: name.text,
-                              target: CurrencyAmountInput.toDecimal(
-                                target.text.trim(),
-                              ),
-                              targetDate: date.text.trim(),
-                              status: goal['status'] as String,
-                            );
-                          }
-                        });
-                        if (ok) {
-                          saved = true;
-                          Navigator.pop(ctx);
-                        } else {
-                          update(() => error = active.error);
-                        }
-                      },
-                child: const Text('Simpan lokal'),
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -329,165 +391,227 @@ class _GoalsPageState extends State<GoalsPage> {
         .where((a) => goal != null && a['currency'] == goal['currency'])
         .toList();
     try {
-      final route = DialogRoute<void>(
-        context: context,
+      final route = ModalBottomSheetRoute<void>(
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, update) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            actionsOverflowButtonSpacing: 8,
-            backgroundColor: Colors.white,
-            title: const Text(
-              'Atur alokasi dana',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (existing == null) ...[
-                    DropdownButtonFormField<String>(
-                      initialValue: account,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Akun / kantong milik saya',
-                        labelStyle: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                      ),
-                      items: [
-                        for (final a in accounts)
-                          DropdownMenuItem(
-                            value: a['id'] as String,
-                            child: Text(
-                              '${a['name']}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+          builder: (ctx, update) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 12, bottom: 8),
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                      ],
-                      onChanged: (v) => update(() {
-                        account = v;
-                        final old = repo.allocations
-                            .where(
-                              (a) =>
-                                  a['goal_id'] == goalId &&
-                                  a['account_id'] == v &&
-                                  a['user_id'] == repo.source.userId,
-                            )
-                            .firstOrNull;
-                        amount.text = CurrencyAmountInput.fromDecimal(
-                          '${old?['amount'] ?? '0.00'}',
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (account != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        'Dana belum dialokasikan: ${goalMoney(repo.available(account!))} ${goal?['currency'] ?? ''}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
                         ),
                       ),
-                    ),
-                  TextField(
-                    controller: amount,
-                    inputFormatters: const [CurrencyAmountInput()],
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Total alokasi dari akun ini',
-                      prefixText: goal?['currency'] == 'IDR'
-                          ? 'Rp '
-                          : '${goal?['currency'] ?? ''} ',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Isi total baru, bukan tambahan. Isi 0 untuk menarik alokasi. Tidak ada uang berpindah atau pengeluaran dibuat.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 12, 12),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Atur alokasi dana',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.pop(ctx),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (existing == null) ...[
+                                DropdownButtonFormField<String>(
+                                  initialValue: account,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Akun / kantong milik saya',
+                                    labelStyle: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: [
+                                    for (final a in accounts)
+                                      DropdownMenuItem(
+                                        value: a['id'] as String,
+                                        child: Text(
+                                          '${a['name']}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) => update(() {
+                                    account = v;
+                                    final old = repo.allocations
+                                        .where(
+                                          (a) =>
+                                              a['goal_id'] == goalId &&
+                                              a['account_id'] == v &&
+                                              a['user_id'] == repo.source.userId,
+                                        )
+                                        .firstOrNull;
+                                    amount.text = CurrencyAmountInput.fromDecimal(
+                                      '${old?['amount'] ?? '0.00'}',
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              if (account != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Text(
+                                    'Dana belum dialokasikan: ${goalMoney(repo.available(account!))} ${goal?['currency'] ?? ''}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              TextField(
+                                controller: amount,
+                                inputFormatters: const [CurrencyAmountInput()],
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Total alokasi dari akun ini',
+                                  prefixText: goal?['currency'] == 'IDR'
+                                      ? 'Rp '
+                                      : '${goal?['currency'] ?? ''} ',
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Isi total baru, bukan tambahan. Isi 0 untuk menarik alokasi. Tidak ada uang berpindah atau pengeluaran dibuat.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              if (error != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    error!,
+                                    style: TextStyle(
+                                      color: Theme.of(ctx).colorScheme.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Batal'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: saved
+                                    ? null
+                                    : () {
+                                        final ok = active.save(
+                                          () => repo.allocate(
+                                            goalId,
+                                            account ?? '',
+                                            CurrencyAmountInput.toDecimal(amount.text.trim()),
+                                          ),
+                                        );
+                                        if (ok) {
+                                          saved = true;
+                                          Navigator.pop(ctx);
+                                        } else {
+                                          update(() => error = active.error);
+                                        }
+                                      },
+                                child: const Text('Simpan alokasi'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onPressed: saved
-                    ? null
-                    : () {
-                        final ok = active.save(
-                          () => repo.allocate(
-                            goalId,
-                            account ?? '',
-                            CurrencyAmountInput.toDecimal(amount.text.trim()),
-                          ),
-                        );
-                        if (ok) {
-                          saved = true;
-                          Navigator.pop(ctx);
-                        } else {
-                          update(() => error = active.error);
-                        }
-                      },
-                child: const Text('Simpan alokasi'),
               ),
-            ],
+            ),
           ),
         ),
       );

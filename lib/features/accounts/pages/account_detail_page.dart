@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
 import '../widgets/credit_card_info.dart';
 
 import '../../../app/app_state.dart';
@@ -287,8 +288,8 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Saldo Rekening',
+              Text(
+                account.isCreditCard ? 'Tagihan kartu' : 'Saldo Rekening',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -320,6 +321,10 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           Text(
             state.isBalanceHidden
                 ? '••••••'
+                : account.isCreditCard
+                ? CurrencyFormatter.formatMinorRupiah(
+                    account.creditSummary.debt,
+                  )
                 : CurrencyFormatter.formatRupiah(account.balance),
             style: const TextStyle(
               fontSize: 28,
@@ -328,6 +333,11 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
               letterSpacing: -0.5,
             ),
           ),
+          if (account.loanBalanceLabel != null)
+            Text(
+              account.loanBalanceLabel!,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           if (hasChildren) ...[
             const SizedBox(height: 6),
             Text(
@@ -372,31 +382,30 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
             spacing: 12,
             runSpacing: 8,
             children: [
-              OutlinedButton(
-                onPressed: mapped
-                    ? null
-                    : () {
-                        if (account.ownerUserId != state.currentUserId ||
-                            state.currentUserId.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Hanya pemilik akun dapat menyesuaikan saldo.',
+              if (!account.isCreditCard)
+                OutlinedButton(
+                  onPressed: mapped
+                      ? null
+                      : () {
+                          if (account.ownerUserId != state.currentUserId ||
+                              state.currentUserId.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Hanya pemilik akun dapat menyesuaikan saldo.',
+                                ),
                               ),
-                            ),
-                          );
-                          return;
-                        }
-                        showDialog<void>(
-                          context: context,
-                          builder: (_) => BalanceAdjustmentDialog(
+                            );
+                            return;
+                          }
+                          BalanceAdjustmentDialog.show(
+                            context,
                             state: state,
                             accountId: account.id,
-                          ),
-                        );
-                      },
-                child: const Text('Ubah Saldo'),
-              ),
+                          );
+                        },
+                  child: const Text('Ubah Saldo'),
+                ),
               OutlinedButton(
                 onPressed:
                     !mapped &&
@@ -406,10 +415,19 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                     ? () => AddTransactionModal.show(
                         context,
                         initialType: TransactionType.transfer,
-                        initialAccountId: account.id,
+                        initialAccountId: account.isCreditCard
+                            ? null
+                            : account.id,
+                        initialToAccountId: account.isCreditCard
+                            ? account.id
+                            : null,
                       )
                     : null,
-                child: const Text('Transfer Saldo'),
+                child: Text(
+                  account.isCreditCard
+                      ? 'Bayar kartu kredit'
+                      : 'Transfer Saldo',
+                ),
               ),
             ],
           ),

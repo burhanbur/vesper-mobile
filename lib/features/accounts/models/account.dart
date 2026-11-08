@@ -110,6 +110,20 @@ class Account {
   final bool isCreditCard;
   final String? creditLimit;
   final String? exactBalance;
+  bool get isLegacyLoan =>
+      !isCreditCard &&
+      RegExp(r'utang|piutang', caseSensitive: false).hasMatch(institution);
+
+  String? get loanBalanceLabel {
+    if (!isLegacyLoan) return null;
+    final amount = accountMinor(exactBalance ?? '$balance.00');
+    return amount.isNegative
+        ? 'Utang saya'
+        : amount > BigInt.zero
+        ? 'Piutang saya'
+        : 'Lunas';
+  }
+
   CreditCardSummary get creditSummary =>
       CreditCardSummary(exactBalance ?? '$balance.00', creditLimit);
 

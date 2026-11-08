@@ -145,6 +145,46 @@ void main() {
           dir.deleteSync(recursive: true);
         }
       });
+      test('filtered account totals replace mapped balances and keep receivables separate from debt', () {
+        source.atomic(
+          () => source.entities['account_types']!['cashType']!['name'] = 'Cash',
+        );
+        source.atomic(
+          () => source.entities['accounts']![mappedId] = <String, String>{
+            ...Map<String, String>.from(source.row('accounts', cashId)!),
+            'id': mappedId,
+            'name': 'Legacy loan',
+            'balance': '-100.00',
+          },
+        );
+        repo.open(
+          kind: 'PAYABLE',
+          counterparty: 'Lender',
+          principal: '100',
+          linkedAccountId: mappedId,
+        );
+        acceptProjection(source);
+        repo.open(
+          kind: 'RECEIVABLE',
+          counterparty: 'Borrower',
+          principal: '50',
+        );
+        final state = AppState(repository: source)..currentUserId = 'owner';
+        expect(
+          state.accountDebtAndNetWorth(
+            state.accounts,
+            includeUnlinkedLoans: true,
+          ),
+          (debt: 100, netWorth: 950),
+        );
+        expect(
+          state.accountDebtAndNetWorth(
+            state.accounts,
+            includeUnlinkedLoans: false,
+          ),
+          (debt: 100, netWorth: 900),
+        );
+      });
       String open({
         String kind = 'PAYABLE',
         String? mapped,

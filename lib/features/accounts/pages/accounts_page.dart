@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/credit_card_summary.dart';
+import '../../../core/widgets/currency_amount_input.dart';
+import '../../obligations/pages/obligations_page.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
@@ -65,6 +67,15 @@ class _AccountsPageState extends State<AccountsPage> {
     final state = AppStateScope.of(context);
     String? selectedAccountTypeId =
         state.accountTypes.firstOrNull?['id'] as String?;
+    final newAccountTypes = state.accountTypes
+        .where(
+          (type) => !RegExp(
+            r'utang|piutang|kredit|credit|paylater',
+            caseSensitive: false,
+          ).hasMatch(type['name'].toString()),
+        )
+        .toList();
+    selectedAccountTypeId = newAccountTypes.firstOrNull?['id'] as String?;
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     String selectedHouseholdId =
         validHouseholdIds.contains(state.activeHouseholdId)
@@ -85,187 +96,146 @@ class _AccountsPageState extends State<AccountsPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (modalCtx, setModalState) => Container(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 16,
-            bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 24,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
+        builder: (modalCtx, setModalState) => Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 16,
+              bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 24,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Tambah Akun / Rekening Baru',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (!isCreditCard)
                     const Text(
-                      'Tambah Akun / Rekening Baru',
+                      'Tipe Akun',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Tipe Akun',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: state.accountTypes.map((def) {
-                    final isSelected = selectedAccountTypeId == def['id'];
-                    return ChoiceChip(
-                      avatar: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 16,
-                      ),
-                      label: Text(def['name'] as String),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : AppColors.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
                       ),
-                      onSelected: (val) {
-                        if (val) {
-                          setModalState(() {
-                            selectedAccountTypeId = def['id'] as String;
-                            selectedType = def['category'] == 'INVESTMENT'
-                                ? AccountType.investment
-                                : AccountType.cash;
-                          });
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Kartu Kredit (pribadi, saldo awal nol)'),
-                  subtitle: Text(
-                    state.repository?.supportsCreditCardMetadata == true
-                        ? 'Gunakan tipe CASH. Tidak dapat dibagikan atau dijadikan kantong.'
-                        : 'Pembuatan belum tersedia: kompatibilitas server belum terbukti.',
-                  ),
-                  value: isCreditCard,
-                  onChanged:
-                      state.repository?.supportsCreditCardMetadata == true
-                      ? (value) => setModalState(() {
-                          isCreditCard = value;
-                          if (value) {
-                            isShared = false;
-                            selectedParentId = null;
-                            balanceController.clear();
-                          }
-                        })
-                      : null,
-                ),
-                if (isCreditCard)
-                  TextField(
-                    controller: limitController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Limit Rupiah utuh tanpa pemisah',
-                      helperText: 'Opsional; kosong berarti tidak dilacak. Jangan masukkan PAN/CVV/PIN.',
                     ),
+                  const SizedBox(height: 8),
+                  if (!isCreditCard)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: newAccountTypes.map((def) {
+                        final isSelected = selectedAccountTypeId == def['id'];
+                        return ChoiceChip(
+                          avatar: const Icon(
+                            Icons.account_balance_wallet_rounded,
+                            size: 16,
+                          ),
+                          label: Text(def['name'] as String),
+                          selected: isSelected,
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          onSelected: (val) {
+                            if (val) {
+                              setModalState(() {
+                                selectedAccountTypeId = def['id'] as String;
+                                selectedType = def['category'] == 'INVESTMENT'
+                                    ? AccountType.investment
+                                    : AccountType.cash;
+                              });
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Kartu kredit'),
+                    subtitle: const Text(
+                      'Catat belanja, tagihan, dan sisa limit kartu.',
+                    ),
+                    value: isCreditCard,
+                    onChanged: (value) => setModalState(() {
+                      isCreditCard = value;
+                      if (value) {
+                        selectedAccountTypeId =
+                            newAccountTypes
+                                    .where((t) => t['category'] == 'CASH')
+                                    .firstOrNull?['id']
+                                as String?;
+                        selectedType = AccountType.creditCard;
+                        isShared = false;
+                        selectedParentId = null;
+                        balanceController.clear();
+                      } else {
+                        selectedAccountTypeId =
+                            newAccountTypes.firstOrNull?['id'] as String?;
+                        selectedType = AccountType.bank;
+                      }
+                    }),
                   ),
-                const Text(
-                  'Nama Akun',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: nameController,
-                  textCapitalization: TextCapitalization.words,
-                  inputFormatters: const [CapitalizeWordsInputFormatter()],
-                  decoration: const InputDecoration(
-                    hintText: 'Contoh: BCA Tabungan atau Kantong Bersama',
-                    prefixIcon: Icon(Icons.account_balance_wallet_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Saldo Awal (Rp)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: balanceController,
-                  enabled: !isCreditCard,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: const [CurrencyTextInputFormatter()],
-                  decoration: const InputDecoration(
-                    hintText: 'Contoh: 1.000.000',
-                    prefixText: 'Rp ',
-                    prefixIcon: Icon(Icons.money_rounded),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Nomor Rekening / Keterangan',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: numberController,
-                  enabled: !isCreditCard,
-                  decoration: const InputDecoration(
-                    hintText: 'Contoh: 1234 5678 90',
-                    prefixIcon: Icon(Icons.numbers_rounded),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Nested Pocket Option
-                if (!isCreditCard &&
-                    selectedType == AccountType.bank &&
-                    parentCandidates.isNotEmpty) ...[
+                  if (!isCreditCard)
+                    TextButton.icon(
+                      icon: const Icon(Icons.handshake_outlined),
+                      label: const Text('Mau mencatat utang atau piutang?'),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        ShellManagementScope.open(
+                          context,
+                          const ObligationsPage(),
+                        );
+                      },
+                    ),
+                  if (isCreditCard)
+                    TextField(
+                      controller: limitController,
+                      inputFormatters: const [CurrencyAmountInput()],
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Limit kartu (Rp)',
+                        prefixText: 'Rp ',
+                        hintText: '9.000.000',
+                        helperText: 'Saldo tagihan awal Rp0. Kosongkan jika tidak ingin melacak limit.',
+                      ),
+                    ),
                   const Text(
-                    'Jadikan Kantong (Child Pocket)?',
+                    'Nama Akun',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -273,169 +243,249 @@ class _AccountsPageState extends State<AccountsPage> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String?>(
-                        value: selectedParentId,
-                        isExpanded: true,
-                        hint: const Text('Bukan Kantong (Akun Utama Terpisah)'),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('Bukan Kantong (Akun Utama Terpisah)'),
-                          ),
-                          ...parentCandidates.map(
-                            (p) => DropdownMenuItem<String?>(
-                              value: p.id,
-                              child: Text(
-                                'Di bawah ${p.name} (${p.institution})',
-                              ),
-                            ),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          setModalState(() => selectedParentId = val);
-                        },
-                      ),
+                  TextField(
+                    controller: nameController,
+                    textCapitalization: TextCapitalization.words,
+                    inputFormatters: const [CapitalizeWordsInputFormatter()],
+                    decoration: const InputDecoration(
+                      hintText: 'Contoh: BCA Tabungan atau Kantong Bersama',
+                      prefixIcon: Icon(Icons.account_balance_wallet_outlined),
                     ),
                   ),
                   const SizedBox(height: 16),
-                ],
-                // Shared with group toggle
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: isShared,
-                  activeThumbColor: AppColors.primary,
-                  title: const Text(
-                    'Bagikan ke Grup Bersama (Shared)',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    'Pilih grup yang dapat mengakses dan melihat transaksi akun ini.',
-                    style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-                  ),
-                  onChanged: isCreditCard
-                      ? null
-                      : (val) => setModalState(() => isShared = val),
-                ),
-                if (isShared) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Pilih Grup Tujuan',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                  if (!isCreditCard) ...[
+                    const Text(
+                      'Saldo Awal (Rp)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(16),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: balanceController,
+                      enabled: !isCreditCard,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: const [CurrencyTextInputFormatter()],
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: 1.000.000',
+                        prefixText: 'Rp ',
+                        prefixIcon: Icon(Icons.money_rounded),
+                      ),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: validHouseholdIds.contains(selectedHouseholdId)
-                            ? selectedHouseholdId
-                            : (state.households.isNotEmpty
-                                  ? state.households.first.id
-                                  : null),
-                        isExpanded: true,
-                        items: state.households
-                            .map(
-                              (h) => DropdownMenuItem<String>(
-                                value: h.id,
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      h.type.emoji,
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        h.name,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Nomor Rekening / Keterangan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: numberController,
+                      enabled: !isCreditCard,
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: 1234 5678 90',
+                        prefixIcon: Icon(Icons.numbers_rounded),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // Nested Pocket Option
+                  if (!isCreditCard &&
+                      selectedType == AccountType.bank &&
+                      parentCandidates.isNotEmpty) ...[
+                    const Text(
+                      'Jadikan Kantong (Child Pocket)?',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String?>(
+                          value: selectedParentId,
+                          isExpanded: true,
+                          hint: const Text(
+                            'Bukan Kantong (Akun Utama Terpisah)',
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text(
+                                'Bukan Kantong (Akun Utama Terpisah)',
+                              ),
+                            ),
+                            ...parentCandidates.map(
+                              (p) => DropdownMenuItem<String?>(
+                                value: p.id,
+                                child: Text(
+                                  'Di bawah ${p.name} (${p.institution})',
                                 ),
                               ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setModalState(() => selectedHouseholdId = val);
-                          }
-                        },
+                            ),
+                          ],
+                          onChanged: (val) {
+                            setModalState(() => selectedParentId = val);
+                          },
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                  ],
+                  // Shared with group toggle
+                  if (!isCreditCard)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: isShared,
+                      activeThumbColor: AppColors.primary,
+                      title: const Text(
+                        'Bagikan ke Grup Bersama (Shared)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Pilih grup yang dapat mengakses dan melihat transaksi akun ini.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      onChanged: isCreditCard
+                          ? null
+                          : (val) => setModalState(() => isShared = val),
+                    ),
+                  if (isShared) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Pilih Grup Tujuan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: validHouseholdIds.contains(selectedHouseholdId)
+                              ? selectedHouseholdId
+                              : (state.households.isNotEmpty
+                                    ? state.households.first.id
+                                    : null),
+                          isExpanded: true,
+                          items: state.households
+                              .map(
+                                (h) => DropdownMenuItem<String>(
+                                  value: h.id,
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        h.type.emoji,
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          h.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setModalState(() => selectedHouseholdId = val);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      final rawName = nameController.text.trim();
+                      if (rawName.isEmpty) {
+                        AppToast.showError(
+                          context,
+                          'Silakan masukkan nama akun.',
+                        );
+                        return;
+                      }
+                      final name = StringFormatter.capitalizeWords(rawName);
+                      final balance = CurrencyFormatter.parseRupiah(
+                        balanceController.text,
+                      );
+
+                      try {
+                        state.addAccount(
+                          name: name,
+                          accountTypeId: selectedAccountTypeId,
+                          isCreditCard: isCreditCard,
+                          creditLimit: isCreditCard
+                              ? creditLimitInput(
+                                  CurrencyAmountInput.toDecimal(
+                                    limitController.text,
+                                  ),
+                                )
+                              : null,
+                          type: selectedType,
+                          initialBalance: balance,
+                          accountNumber: numberController.text.trim().isEmpty
+                              ? 'Rek. Baru'
+                              : numberController.text.trim(),
+                          institution: AccountTypeDefinition.getDefinition(
+                            selectedType,
+                          ).categoryGroup,
+                          isShared: isShared,
+                          householdId: isShared ? selectedHouseholdId : null,
+                          parentAccountId: selectedParentId,
+                        );
+                      } catch (error) {
+                        AppToast.showError(context, error.toString());
+                        return;
+                      }
+
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: AppColors.primary,
+                          content: Text('Akun "$name" berhasil ditambahkan!'),
+                        ),
+                      );
+                    },
+                    child: const Text('Simpan Akun'),
                   ),
                 ],
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    final rawName = nameController.text.trim();
-                    if (rawName.isEmpty) {
-                      AppToast.showError(
-                        context,
-                        'Silakan masukkan nama akun.',
-                      );
-                      return;
-                    }
-                    final name = StringFormatter.capitalizeWords(rawName);
-                    final balance = CurrencyFormatter.parseRupiah(
-                      balanceController.text,
-                    );
-
-                    try {
-                      state.addAccount(
-                        name: name,
-                        accountTypeId: selectedAccountTypeId,
-                        isCreditCard: isCreditCard,
-                        creditLimit: isCreditCard
-                            ? creditLimitInput(limitController.text)
-                            : null,
-                        type: selectedType,
-                        initialBalance: balance,
-                        accountNumber: numberController.text.trim().isEmpty
-                            ? 'Rek. Baru'
-                            : numberController.text.trim(),
-                        institution: AccountTypeDefinition.getDefinition(
-                          selectedType,
-                        ).categoryGroup,
-                        isShared: isShared,
-                        householdId: isShared ? selectedHouseholdId : null,
-                        parentAccountId: selectedParentId,
-                      );
-                    } catch (error) {
-                      AppToast.showError(context, error.toString());
-                      return;
-                    }
-
-                    Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        behavior: SnackBarBehavior.floating,
-                        backgroundColor: AppColors.primary,
-                        content: Text('Akun "$name" berhasil ditambahkan!'),
-                      ),
-                    );
-                  },
-                  child: const Text('Simpan Akun'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -461,6 +511,10 @@ class _AccountsPageState extends State<AccountsPage> {
     final state = AppStateScope.of(context);
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     bool modalIsShared = account.isShared;
+    bool modalIsCreditCard = account.isCreditCard;
+    bool saving = false;
+    final classificationProblem = state.repository
+        ?.accountClassificationProblem(account.id);
     bool modalIsIncludeTotal = account.isIncludeTotal;
     final children = state.getChildrenForAccount(account.id);
     final hasChildren = children.isNotEmpty;
@@ -468,7 +522,8 @@ class _AccountsPageState extends State<AccountsPage> {
         ? account.balance + children.fold<int>(0, (sum, c) => sum + c.balance)
         : account.balance;
     final nameController = TextEditingController(text: account.name);
-    String? modalAccountTypeId = account.accountTypeId ??
+    String? modalAccountTypeId =
+        account.accountTypeId ??
         state.accountTypes
             .where((t) => t['name'] == account.institution)
             .map((t) => t['id'] as String)
@@ -605,36 +660,34 @@ class _AccountsPageState extends State<AccountsPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          if (account.isCreditCard) ...[
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceVariant.withValues(
-                                  alpha: 0.5,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.credit_card_rounded,
-                                    size: 16,
-                                    color: AppColors.expense,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Kartu Kredit (identitas jenis akun terkunci)',
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Kartu kredit'),
+                            subtitle: Text(
+                              classificationProblem ?? 'Akun kosong yang salah jenis bisa dikoreksi di sini.',
                             ),
-                          ] else if (state.accountTypes.isNotEmpty) ...[
+                            value: modalIsCreditCard,
+                            onChanged: classificationProblem == null
+                                ? (value) => setModalState(() {
+                                    modalIsCreditCard = value;
+                                    if (value) {
+                                      modalIsShared = false;
+                                      modalAccountTypeId =
+                                          state.accountTypes
+                                                  .where(
+                                                    (t) =>
+                                                        t['category'] == 'CASH',
+                                                  )
+                                                  .firstOrNull?['id']
+                                              as String?;
+                                    }
+                                  })
+                                : null,
+                          ),
+                          if (modalIsCreditCard)
+                            const Text('Jenis akun: Kartu Kredit'),
+                          if (!modalIsCreditCard &&
+                              state.accountTypes.isNotEmpty) ...[
                             DropdownButtonFormField<String>(
                               initialValue:
                                   state.accountTypes.any(
@@ -674,11 +727,15 @@ class _AccountsPageState extends State<AccountsPage> {
                                   ),
                                 );
                               }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setModalState(() => modalAccountTypeId = val);
-                                }
-                              },
+                              onChanged: classificationProblem == null
+                                  ? (val) {
+                                      if (val != null) {
+                                        setModalState(
+                                          () => modalAccountTypeId = val,
+                                        );
+                                      }
+                                    }
+                                  : null,
                             ),
                           ],
                         ],
@@ -858,165 +915,198 @@ class _AccountsPageState extends State<AccountsPage> {
                   const SizedBox(height: 16),
 
                   // Sharing Settings Card
-                  Material(
-                    color: modalIsShared
-                        ? const Color(0xFFF0FDF4)
-                        : Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(
-                        color: modalIsShared
-                            ? AppColors.accent.withValues(alpha: 0.5)
-                            : AppColors.border,
+                  if (!modalIsCreditCard)
+                    Material(
+                      color: modalIsShared
+                          ? const Color(0xFFF0FDF4)
+                          : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: BorderSide(
+                          color: modalIsShared
+                              ? AppColors.accent.withValues(alpha: 0.5)
+                              : AppColors.border,
+                        ),
                       ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            value: modalIsShared,
-                            activeThumbColor: AppColors.primary,
-                            title: const Text(
-                              'Bagikan ke Ruang Grup Bersama',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            subtitle: Text(
-                              modalIsShared
-                                  ? 'Rekening ini dapat diakses & dilihat anggota grup terpilih.'
-                                  : 'Rekening ini bersifat pribadi dan hanya terlihat oleh Anda.',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                            onChanged: (val) =>
-                                setModalState(() => modalIsShared = val),
-                          ),
-                          if (modalIsShared) ...[
-                            const Divider(height: 20),
-                            const Text(
-                              'Pilih Grup yang Dapat Mengakses',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value:
-                                      validHouseholdIds.contains(
-                                        modalSelectedHouseholdId,
-                                      )
-                                      ? modalSelectedHouseholdId
-                                      : (state.households.isNotEmpty
-                                            ? state.households.first.id
-                                            : null),
-                                  isExpanded: true,
-                                  items: state.households
-                                      .map(
-                                        (h) => DropdownMenuItem<String>(
-                                          value: h.id,
-                                          child: Row(
-                                            children: [
-                                              Text(
-                                                h.type.emoji,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  h.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setModalState(
-                                        () => modalSelectedHouseholdId = val,
-                                      );
-                                    }
-                                  },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: modalIsShared,
+                              activeThumbColor: AppColors.primary,
+                              title: const Text(
+                                'Bagikan ke Ruang Grup Bersama',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
+                              subtitle: Text(
+                                modalIsShared
+                                    ? 'Rekening ini dapat diakses & dilihat anggota grup terpilih.'
+                                    : 'Rekening ini bersifat pribadi dan hanya terlihat oleh Anda.',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              onChanged: (val) =>
+                                  setModalState(() => modalIsShared = val),
                             ),
+                            if (modalIsShared) ...[
+                              const Divider(height: 20),
+                              const Text(
+                                'Pilih Grup yang Dapat Mengakses',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value:
+                                        validHouseholdIds.contains(
+                                          modalSelectedHouseholdId,
+                                        )
+                                        ? modalSelectedHouseholdId
+                                        : (state.households.isNotEmpty
+                                              ? state.households.first.id
+                                              : null),
+                                    isExpanded: true,
+                                    items: state.households
+                                        .map(
+                                          (h) => DropdownMenuItem<String>(
+                                            value: h.id,
+                                            child: Row(
+                                              children: [
+                                                Text(
+                                                  h.type.emoji,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    h.name,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setModalState(
+                                          () => modalSelectedHouseholdId = val,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
-                  ),
 
                   const SizedBox(height: 24),
 
                   // Save button
                   ElevatedButton(
-                    onPressed: () {
-                      final newName = nameController.text.trim();
-                      if (newName.isNotEmpty &&
-                          (newName != account.name ||
-                              modalAccountTypeId != account.accountTypeId)) {
-                        state.updateAccount(
-                          accountId: account.id,
-                          name: newName,
-                          accountTypeId: modalAccountTypeId,
-                        );
-                      }
-                      if (modalIsIncludeTotal != account.isIncludeTotal &&
-                          !hasChildren) {
-                        state.updateAccountIncludeTotal(
-                          accountId: account.id,
-                          isIncludeTotal: modalIsIncludeTotal,
-                        );
-                      }
-                      state.updateAccountSharing(
-                        accountId: account.id,
-                        isShared: modalIsShared,
-                        householdId: modalIsShared
-                            ? modalSelectedHouseholdId
-                            : null,
-                      );
-
-                      Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: AppColors.primary,
-                          content: Text(
-                            modalIsShared
-                                ? 'Rekening "${account.name}" berhasil dibagikan ke grup!'
-                                : 'Rekening "${account.name}" kini disetel sebagai Pribadi.',
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final newName = nameController.text.trim();
+                            if (newName.isEmpty) {
+                              AppToast.showError(
+                                context,
+                                'Isi nama akun terlebih dahulu.',
+                              );
+                              return;
+                            }
+                            setModalState(() => saving = true);
+                            try {
+                              final changed =
+                                  newName != account.name ||
+                                  modalAccountTypeId != account.accountTypeId ||
+                                  modalIsCreditCard != account.isCreditCard ||
+                                  modalIsIncludeTotal != account.isIncludeTotal;
+                              if (changed) {
+                                await state.updateAccount(
+                                  accountId: account.id,
+                                  name: newName != account.name
+                                      ? newName
+                                      : null,
+                                  accountTypeId:
+                                      modalAccountTypeId !=
+                                          account.accountTypeId
+                                      ? modalAccountTypeId
+                                      : null,
+                                  isCreditCard:
+                                      modalIsCreditCard != account.isCreditCard
+                                      ? modalIsCreditCard
+                                      : null,
+                                  isIncludeTotal:
+                                      modalIsIncludeTotal !=
+                                          account.isIncludeTotal
+                                      ? modalIsIncludeTotal
+                                      : null,
+                                );
+                              }
+                              if (modalIsShared != account.isShared ||
+                                  (modalIsShared &&
+                                      modalSelectedHouseholdId !=
+                                          account.householdId)) {
+                                await state.updateAccountSharing(
+                                  accountId: account.id,
+                                  isShared: modalIsShared,
+                                  householdId: modalIsShared
+                                      ? modalSelectedHouseholdId
+                                      : account.householdId,
+                                );
+                              }
+                              if (!ctx.mounted) return;
+                              Navigator.of(ctx).pop();
+                              if (context.mounted) {
+                                AppToast.showSuccess(
+                                  context,
+                                  'Pengaturan akun tersimpan.',
+                                );
+                              }
+                            } catch (error) {
+                              if (context.mounted) {
+                                AppToast.showError(context, error.toString());
+                              }
+                            } finally {
+                              if (modalCtx.mounted) {
+                                setModalState(() => saving = false);
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -1027,6 +1117,64 @@ class _AccountsPageState extends State<AccountsPage> {
                       'Simpan Pengaturan Rekening',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppColors.expense,
+                    ),
+                    label: const Text(
+                      'Hapus akun',
+                      style: TextStyle(color: AppColors.expense),
+                    ),
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final problem = state.repository
+                                ?.accountRemovalProblem(account.id);
+                            if (problem != null) {
+                              AppToast.showError(context, problem);
+                              return;
+                            }
+                            final confirmed = await showDialog<bool>(
+                              context: ctx,
+                              builder: (dialog) => AlertDialog(
+                                title: const Text('Hapus akun ini?'),
+                                content: Text(
+                                  'Hapus akun kosong "${account.name}"?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialog, false),
+                                    child: const Text('Batal'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialog, true),
+                                    child: const Text('Hapus akun'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirmed != true || !ctx.mounted) return;
+                            try {
+                              state.deleteAccount(account.id);
+                              Navigator.of(ctx).pop();
+                              if (context.mounted) {
+                                AppToast.showSuccess(context, 'Akun dihapus.');
+                                ShellManagementScope.open(
+                                  context,
+                                  const AccountsPage(),
+                                );
+                              }
+                            } catch (error) {
+                              if (context.mounted) {
+                                AppToast.showError(context, error.toString());
+                              }
+                            }
+                          },
                   ),
                 ],
               ),
@@ -1110,18 +1258,22 @@ class _AccountsPageState extends State<AccountsPage> {
         .where((a) => !a.isShared && a.householdId == null)
         .toList();
     final totalPersonalBalance = personalAccounts
-        .where((a) =>
-            a.isIncludeTotal &&
-            a.isCashBankOrWallet &&
-            !(state.repository?.isMappedObligationAccount(a.id) ?? false))
+        .where(
+          (a) =>
+              a.isIncludeTotal &&
+              a.isCashBankOrWallet &&
+              !(state.repository?.isMappedObligationAccount(a.id) ?? false),
+        )
         .fold(0, (sum, a) => sum + a.balance);
 
     final totalSharedBalance = allAccounts
-        .where((a) =>
-            a.isShared &&
-            a.isIncludeTotal &&
-            a.isCashBankOrWallet &&
-            !(state.repository?.isMappedObligationAccount(a.id) ?? false))
+        .where(
+          (a) =>
+              a.isShared &&
+              a.isIncludeTotal &&
+              a.isCashBankOrWallet &&
+              !(state.repository?.isMappedObligationAccount(a.id) ?? false),
+        )
         .fold(0, (sum, a) => sum + a.balance);
 
     // Hitung akun yang difilter dan total yang ditampilkan di Hero Card
@@ -1147,10 +1299,12 @@ class _AccountsPageState extends State<AccountsPage> {
         return a.isShared && _activeFilter == 'hh-1';
       }).toList();
       heroBalance = filteredAccounts
-          .where((a) =>
-              a.isIncludeTotal &&
-              a.isCashBankOrWallet &&
-              !(state.repository?.isMappedObligationAccount(a.id) ?? false))
+          .where(
+            (a) =>
+                a.isIncludeTotal &&
+                a.isCashBankOrWallet &&
+                !(state.repository?.isMappedObligationAccount(a.id) ?? false),
+          )
           .fold(0, (sum, a) => sum + a.balance);
       heroTitle = 'Saldo Bersama: ${selectedGroup.name}';
     }
@@ -1168,24 +1322,24 @@ class _AccountsPageState extends State<AccountsPage> {
       totalNetWorth = state.totalNetWorth;
     } else {
       totalLiquid = filteredAccounts
-          .where((a) =>
-              a.isIncludeTotal &&
-              a.isCashBankOrWallet &&
-              !(state.repository?.isMappedObligationAccount(a.id) ?? false))
+          .where(
+            (a) =>
+                a.isIncludeTotal &&
+                a.isCashBankOrWallet &&
+                !(state.repository?.isMappedObligationAccount(a.id) ?? false),
+          )
           .fold(0, (sum, a) => sum + a.balance);
 
       totalInvest = filteredAccounts
           .where((a) => a.isIncludeTotal && a.type == AccountType.investment)
           .fold(0, (sum, a) => sum + a.balance);
 
-      totalDebt = filteredAccounts
-          .where((a) =>
-              a.isIncludeTotal &&
-              (a.type == AccountType.creditCard || a.isCreditCard) &&
-              !(state.repository?.isMappedObligationAccount(a.id) ?? false))
-          .fold(0, (sum, a) => sum + (a.balance < 0 ? -a.balance : a.balance.abs()));
-
-      totalNetWorth = totalLiquid + totalInvest - totalDebt;
+      final totals = state.accountDebtAndNetWorth(
+        filteredAccounts,
+        includeUnlinkedLoans: _activeFilter == 'personal',
+      );
+      totalDebt = totals.debt;
+      totalNetWorth = totals.netWorth;
     }
 
     final totalAssets = (totalLiquid + totalInvest) > 0
@@ -1921,6 +2075,14 @@ class _AccountsPageState extends State<AccountsPage> {
                                               _buildGroupBadge(account, state),
                                             ],
                                           ),
+                                          if (account.loanBalanceLabel != null)
+                                            Text(
+                                              account.loanBalanceLabel!,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
+                                            ),
                                           const SizedBox(height: 2),
                                           Text(
                                             hasChildren
@@ -1955,7 +2117,9 @@ class _AccountsPageState extends State<AccountsPage> {
                                         if (hasChildren)
                                           TextButton(
                                             onPressed: () =>
-                                                _toggleParentExpanded(account.id),
+                                                _toggleParentExpanded(
+                                                  account.id,
+                                                ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [

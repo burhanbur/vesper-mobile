@@ -27,26 +27,28 @@ List<AccountPickerSection> buildAccountPickerSections(
     final category = investment ? 'Investasi' : 'Cash';
     final stored = account.institution.trim();
     final normalized = stored.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
-    final label = switch (normalized) {
-      'cash' || 'kas' || 'kastunai' || 'kastunaidompet' => 'Cash',
-      'bank' || 'rekeningbank' => 'Rekening Bank',
-      'ewallet' || 'dompetdigital' => 'E-wallet',
-      'reksadana' || 'mutualfund' => 'Reksadana',
-      'saham' || 'stock' || 'stocks' => 'Saham',
-      'obligasi' || 'bond' => 'Obligasi',
-      'emas' || 'gold' => 'Emas',
-      'crypto' || 'kripto' => 'Crypto',
-      _ =>
-        stored.isNotEmpty
-            ? stored
-            : switch (account.type) {
-                AccountType.bank => 'Rekening Bank',
-                AccountType.wallet => 'E-wallet',
-                AccountType.creditCard => 'Kartu Kredit / Paylater',
-                AccountType.cash => 'Cash',
-                AccountType.investment => 'Lainnya',
-              },
-    };
+    final label = account.isCreditCard
+        ? 'Kartu Kredit / Paylater'
+        : switch (normalized) {
+            'cash' || 'kas' || 'kastunai' || 'kastunaidompet' => 'Cash',
+            'bank' || 'rekeningbank' => 'Rekening Bank',
+            'ewallet' || 'dompetdigital' => 'E-wallet',
+            'reksadana' || 'mutualfund' => 'Reksadana',
+            'saham' || 'stock' || 'stocks' => 'Saham',
+            'obligasi' || 'bond' => 'Obligasi',
+            'emas' || 'gold' => 'Emas',
+            'crypto' || 'kripto' => 'Crypto',
+            _ =>
+              stored.isNotEmpty
+                  ? stored
+                  : switch (account.type) {
+                      AccountType.bank => 'Rekening Bank',
+                      AccountType.wallet => 'E-wallet',
+                      AccountType.creditCard => 'Kartu Kredit / Paylater',
+                      AccountType.cash => 'Cash',
+                      AccountType.investment => 'Lainnya',
+                    },
+          };
     final key = '$category:$label';
     sections
         .putIfAbsent(key, () => AccountPickerSection(category, label, []))

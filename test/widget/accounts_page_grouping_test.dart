@@ -91,6 +91,128 @@ Future<_AccountsState> _pumpPage(
 }
 
 void main() {
+  Map<String, Map<String, dynamic>> emptyCard() => {
+    'card-mistake': {
+      'id': 'card-mistake',
+      'name': 'Kartu salah',
+      'user_id': 'user',
+      'account_type_id': 'E-wallet',
+      'balance': '0.00',
+      'version': '1',
+      'currency': 'IDR',
+      'is_credit_card': true,
+      'credit_limit': '9000000.00',
+    },
+  };
+  testWidgets(
+    'card label hides storage type and personal name edits do not change sharing',
+    (tester) async {
+      final state = await _pumpPage(tester, extraAccounts: emptyCard());
+      expect(state.getAccountById('card-mistake')!.institution, 'Kartu Kredit');
+      await tester.longPress(find.text('Kartu salah'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Kartu Kredit (identitas jenis akun terkunci)'),
+        findsNothing,
+      );
+      expect(find.text('Jenis akun: Kartu Kredit'), findsOneWidget);
+      expect(find.text('Bagikan ke Ruang Grup Bersama'), findsNothing);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nama Rekening / Akun'),
+        'Kartu Mandiri',
+      );
+      await tester.ensureVisible(find.text('Simpan Pengaturan Rekening'));
+      await tester.tap(find.text('Simpan Pengaturan Rekening'));
+      await tester.pumpAndSettle();
+      expect(state.getAccountById('card-mistake')!.name, 'Kartu Mandiri');
+      expect(state.repository!.outbox.single['payload'], {
+        'name': 'Kartu Mandiri',
+      });
+      expect(find.byType(BottomSheet), findsNothing);
+      await tester.pump(const Duration(seconds: 4));
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('corrects a mistakenly created empty card to a bank account', (
+    tester,
+  ) async {
+    final state = await _pumpPage(tester, extraAccounts: emptyCard());
+    await tester.longPress(find.text('Kartu salah'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kartu kredit'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(DropdownButtonFormField<String>, 'Jenis Rekening'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rekening Bank').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Simpan Pengaturan Rekening'));
+    await tester.tap(find.text('Simpan Pengaturan Rekening'));
+    await tester.pumpAndSettle();
+    final row = state.repository!.row('accounts', 'card-mistake')!;
+    expect(row['is_credit_card'], isFalse);
+    expect(row['credit_limit'], isNull);
+    expect(row['account_type_id'], 'Rekening Bank');
+    await tester.pump(const Duration(seconds: 4));
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'deletes a confirmed empty card without deleting financial history',
+    (tester) async {
+      final state = await _pumpPage(tester, extraAccounts: emptyCard());
+      await tester.longPress(find.text('Kartu salah'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Hapus akun'));
+      await tester.tap(find.text('Hapus akun'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Hapus akun'));
+      await tester.pumpAndSettle();
+      expect(state.repository!.row('accounts', 'card-mistake'), isNull);
+      expect(state.repository!.outbox.single['operation'], 'DELETE');
+      await tester.pump(const Duration(seconds: 4));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'creates a credit card with a nine million limit without technical type selection',
+    (tester) async {
+      final state = await _pumpPage(tester);
+      await tester.tap(find.byIcon(Icons.add_circle_outline_rounded));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ChoiceChip, 'Hutang & Piutang'), findsNothing);
+      await tester.tap(find.text('Kartu kredit'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tipe Akun'), findsNothing);
+      expect(find.text('Saldo Awal (Rp)'), findsNothing);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Limit kartu (Rp)'),
+        '9000000',
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.widgetWithText(TextField, 'Limit kartu (Rp)'),
+            )
+            .controller!
+            .text,
+        '9.000.000',
+      );
+      await tester.enterText(find.byType(TextField).last, 'BCA Credit Card');
+      await tester.ensureVisible(find.text('Simpan Akun'));
+      await tester.tap(find.text('Simpan Akun'));
+      await tester.pumpAndSettle();
+      final card = state.accounts.singleWhere(
+        (a) => a.name == 'BCA Credit Card',
+      );
+      expect(card.isCreditCard, isTrue);
+      expect(card.creditLimit, '9000000.00');
+      expect(card.balance, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'Uses picker category and subtype order, keeping pockets nested',
     (tester) async {

@@ -43,7 +43,7 @@ void main() {
     );
     await tester.tap(find.text('Simpan lokal'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(BottomSheet), findsOneWidget);
     expect(source.outbox, isEmpty);
     await tester.enterText(
       find.widgetWithText(TextField, 'Target nominal'),

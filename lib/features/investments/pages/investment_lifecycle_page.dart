@@ -85,133 +85,238 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
     String type = 'STOCK';
     String? error;
     try {
-      await showDialog<void>(
+      await showModalBottomSheet<void>(
         context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setDialogState) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            backgroundColor: Colors.white,
-            title: Text(
-              instrument == null
-                  ? 'Tambah instrumen IDR'
-                  : 'Harga ${instrument['code']}',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (instrument == null) ...[
-                    TextField(
-                      controller: code,
-                      decoration: const InputDecoration(labelText: 'Kode'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: name,
-                      decoration: const InputDecoration(labelText: 'Nama'),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: type,
-                      decoration: const InputDecoration(labelText: 'Tipe'),
-                      items:
-                          [
-                                'STOCK',
-                                'MUTUAL_FUND',
-                                'BOND',
-                                'CRYPTO',
-                                'COMMODITY',
-                                'OTHER',
-                              ]
-                              .map(
-                                (t) =>
-                                    DropdownMenuItem(value: t, child: Text(t)),
-                              )
-                              .toList(),
-                      onChanged: (t) => type = t!,
-                    ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        'Harga manual global untuk instrumen ini. Tanggal yang sama mengganti harga sebelumnya. Disimpan lokal sebelum dikirim.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
+          builder: (ctx, setDialogState) => Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 14,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    TextField(
-                      controller: date,
-                      decoration: const InputDecoration(
-                        labelText: 'Tanggal harga (YYYY-MM-DD)',
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            instrument == null
+                                ? 'Tambah instrumen IDR'
+                                : 'Harga ${instrument['code']}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: price,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                    const SizedBox(height: 16),
+                    if (instrument == null) ...[
+                      TextField(
+                        controller: code,
+                        decoration: InputDecoration(
+                          labelText: 'Kode',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'Harga IDR (maks. 8 desimal)',
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: name,
+                        decoration: InputDecoration(
+                          labelText: 'Nama',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: type,
+                        decoration: InputDecoration(
+                          labelText: 'Tipe',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                        items: [
+                          'STOCK',
+                          'MUTUAL_FUND',
+                          'BOND',
+                          'CRYPTO',
+                          'COMMODITY',
+                          'OTHER',
+                        ]
+                            .map(
+                              (t) => DropdownMenuItem(value: t, child: Text(t)),
+                            )
+                            .toList(),
+                        onChanged: (t) => type = t!,
+                      ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Harga manual global untuk instrumen ini. Tanggal yang sama mengganti harga sebelumnya. Disimpan lokal sebelum dikirim.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                      TextField(
+                        controller: date,
+                        decoration: InputDecoration(
+                          labelText: 'Tanggal harga (YYYY-MM-DD)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: price,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Harga IDR (maks. 8 desimal)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          error!,
+                          style: TextStyle(
+                            color: Theme.of(ctx).colorScheme.error,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimary,
+                              side: const BorderSide(color: AppColors.border),
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Batal'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            onPressed: () {
+                              try {
+                                if (instrument == null) {
+                                  active.saveInstrument(
+                                    code.text,
+                                    name.text,
+                                    type,
+                                  );
+                                } else {
+                                  active.savePrice(
+                                    instrument['id'] as String,
+                                    date.text,
+                                    price.text,
+                                  );
+                                }
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Tersimpan lokal • menunggu sinkronisasi',
+                                    ),
+                                  ),
+                                );
+                              } catch (failure) {
+                                setDialogState(
+                                  () => error = failure.toString(),
+                                );
+                              }
+                            },
+                            child: const Text('Simpan lokal'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Theme.of(ctx).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  try {
-                    if (instrument == null) {
-                      active.saveInstrument(code.text, name.text, type);
-                    } else {
-                      active.savePrice(
-                        instrument['id'] as String,
-                        date.text,
-                        price.text,
-                      );
-                    }
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Tersimpan lokal • menunggu sinkronisasi',
-                        ),
-                      ),
-                    );
-                  } catch (failure) {
-                    setDialogState(() => error = failure.toString());
-                  }
-                },
-                child: const Text('Simpan lokal'),
-              ),
-            ],
           ),
         ),
       );

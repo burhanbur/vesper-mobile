@@ -79,6 +79,25 @@ class ObligationsRepository {
         );
   List<Map<String, dynamic>> get cashAccounts =>
       source.rows('accounts').where((r) => _ownsAccount('${r['id']}')).toList();
+  List<Map<String, dynamic>> get fundingAccounts => cashAccounts
+      .where(
+        (account) =>
+            !source.isMappedObligationAccount(account['id'] as String) &&
+            !RegExp(
+              r'utang|piutang|kredit|credit|paylater',
+              caseSensitive: false,
+            ).hasMatch(
+              source
+                      .row(
+                        'account_types',
+                        account['account_type_id'] as String,
+                      )?['name']
+                      ?.toString() ??
+                  '',
+            ),
+      )
+      .toList();
+
   bool _ownsAccount(String id) {
     final row = source.row('accounts', id);
     final type = source.row('account_types', '${row?['account_type_id']}');

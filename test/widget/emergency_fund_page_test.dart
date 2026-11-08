@@ -51,7 +51,7 @@ void main() {
       await tester.tap(find.text('Simpan lokal'));
       await tester.pumpAndSettle();
       expect(source.outbox, isEmpty);
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(
         tester
             .widget<TextField>(

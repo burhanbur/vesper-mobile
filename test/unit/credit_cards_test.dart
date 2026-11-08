@@ -25,12 +25,59 @@ class _AccountSnapshotClient extends ApiClient {
 }
 
 void main() {
+  test('used card classification and deletion remain protected even with a zero balance', () {
+    final store = LocalStore(sqlite3.openInMemory());
+    final source = FinanceRepository(ApiClient(), store, 'owner');
+    source.atomic(() {
+      source.entities['accounts'] = {
+        'card': {
+          'id': 'card',
+          'user_id': 'owner',
+          'balance': '0.00',
+          'version': '1',
+          'is_credit_card': true,
+        },
+      };
+      source.entities['transactions'] = {
+        'purchase': {
+          'id': 'purchase',
+          'account_id': 'card',
+          'amount': '100.00',
+          'type': 'EXPENSE',
+        },
+      };
+    });
+    expect(
+      source.accountClassificationProblem('card'),
+      contains('riwayat transaksi'),
+    );
+    expect(
+      () => source.mutate('accounts', 'UPDATE', {
+        'is_credit_card': false,
+        'credit_limit': null,
+      }, id: 'card'),
+      throwsA(isA<ApiFailure>()),
+    );
+    expect(
+      () => source.mutate('accounts', 'DELETE', null, id: 'card'),
+      throwsA(isA<ApiFailure>()),
+    );
+    expect(source.outbox, isEmpty);
+    store.close();
+  });
+
   test('exact debt, contractual limit, credit and whole-IDR validation', () {
     final summary = CreditCardSummary('-1200000.00', '1000000.00');
     expect(accountDecimal(summary.remaining!), '-200000.00');
-    expect(CreditCardSummary('500000.00', '1000000.00').remaining, accountMinor('1000000.00'));
+    expect(
+      CreditCardSummary('500000.00', '1000000.00').remaining,
+      accountMinor('1000000.00'),
+    );
     expect(CreditCardSummary('0.01', null).remaining, isNull);
-    expect(accountDecimal(accountMinor('-999999999999999999.99')), '-999999999999999999.99');
+    expect(
+      accountDecimal(accountMinor('-999999999999999999.99')),
+      '-999999999999999999.99',
+    );
     expect(creditLimitInput(''), isNull);
     expect(creditLimitInput('1000000'), '1000000.00');
     for (final value in ['0', '-1', '1.25', '1,25']) {
@@ -44,34 +91,85 @@ void main() {
     store = LocalStore(sqlite3.openInMemory());
     repo = FinanceRepository(ApiClient(), store, 'user');
     repo.atomic(() {
-      repo.entities['account_types'] = {'bank': {'id': 'bank', 'name': 'Bank', 'user_id': 'user', 'category': 'CASH'}};
+      repo.entities['account_types'] = {
+        'bank': {
+          'id': 'bank',
+          'name': 'Bank',
+          'user_id': 'user',
+          'category': 'CASH',
+        },
+      };
       repo.entities['accounts'] = {
-        'bank': {'id': 'bank', 'name': 'Bank', 'user_id': 'user', 'account_type_id': 'bank', 'currency': 'IDR', 'balance': '5000000.00', 'version': '9007199254740993123', 'is_credit_card': false, 'credit_limit': null},
-        'card': {'id': 'card', 'name': 'Not a name heuristic', 'user_id': 'user', 'account_type_id': 'bank', 'currency': 'IDR', 'balance': '-2000000.00', 'version': '9007199254740993124', 'is_credit_card': true, 'credit_limit': '1000000.00'},
+        'bank': {
+          'id': 'bank',
+          'name': 'Bank',
+          'user_id': 'user',
+          'account_type_id': 'bank',
+          'currency': 'IDR',
+          'balance': '5000000.00',
+          'version': '9007199254740993123',
+          'is_credit_card': false,
+          'credit_limit': null,
+        },
+        'card': {
+          'id': 'card',
+          'name': 'Not a name heuristic',
+          'user_id': 'user',
+          'account_type_id': 'bank',
+          'currency': 'IDR',
+          'balance': '-2000000.00',
+          'version': '9007199254740993124',
+          'is_credit_card': true,
+          'credit_limit': '1000000.00',
+        },
       };
     });
   });
   tearDown(() => store.close());
 
-  test('ordinary repayment and expenses preserve overpayment across restart', () {
-    repo.createTransfer(fromAccountId: 'bank', toAccountId: 'card', amount: 2500000, date: DateTime.utc(2026));
-    expect(repo.outbox.length, 1);
-    expect(repo.rows('transactions').length, 2);
-    expect(repo.row('accounts', 'card')!['balance'], '500000.00');
-    repo = FinanceRepository(ApiClient(), store, 'user');
-    for (final amount in [200000, 400000]) {
-      repo.mutate('transactions', 'CREATE', {'account_id': 'card', 'type': 'EXPENSE', 'amount': '$amount.00', 'category_id': 'food'}, balanceDelta: {'card': -amount});
-    }
-    expect(repo.row('accounts', 'card')!['balance'], '-100000.00');
-    expect(repo.row('accounts', 'card')!['version'], '9007199254740993124');
-    expect(repo.outbox.length, 3);
-    expect(repo.rows('transactions').where((t) => t['type'] == 'EXPENSE').length, 2);
-  });
+  test(
+    'ordinary repayment and expenses preserve overpayment across restart',
+    () {
+      repo.createTransfer(
+        fromAccountId: 'bank',
+        toAccountId: 'card',
+        amount: 2500000,
+        date: DateTime.utc(2026),
+      );
+      expect(repo.outbox.length, 1);
+      expect(repo.rows('transactions').length, 2);
+      expect(repo.row('accounts', 'card')!['balance'], '500000.00');
+      repo = FinanceRepository(ApiClient(), store, 'user');
+      for (final amount in [200000, 400000]) {
+        repo.mutate(
+          'transactions',
+          'CREATE',
+          {
+            'account_id': 'card',
+            'type': 'EXPENSE',
+            'amount': '$amount.00',
+            'category_id': 'food',
+          },
+          balanceDelta: {'card': -amount},
+        );
+      }
+      expect(repo.row('accounts', 'card')!['balance'], '-100000.00');
+      expect(repo.row('accounts', 'card')!['version'], '9007199254740993124');
+      expect(repo.outbox.length, 3);
+      expect(
+        repo.rows('transactions').where((t) => t['type'] == 'EXPENSE').length,
+        2,
+      );
+    },
+  );
 
   test('pending expense preserves authoritative fractional balance', () async {
-    repo.mutate('transactions', 'CREATE', {
-      'account_id': 'card', 'type': 'EXPENSE', 'amount': '1.00',
-    }, balanceDelta: {'card': -1});
+    repo.mutate(
+      'transactions',
+      'CREATE',
+      {'account_id': 'card', 'type': 'EXPENSE', 'amount': '1.00'},
+      balanceDelta: {'card': -1},
+    );
     repo = FinanceRepository(_AccountSnapshotClient(), store, 'user');
     await repo.refreshList('accounts', '/accounts');
     expect(repo.row('accounts', 'card')!['balance'], '-2000001.25');
@@ -82,16 +180,31 @@ void main() {
     repo.atomic(() {
       repo.entities['accounts']['card']['balance'] = '-999999999999999999.00';
     });
-    final id = repo.mutate('transactions', 'CREATE', {
-      'account_id': 'card', 'type': 'EXPENSE', 'amount': '2.00',
-    }, balanceDelta: {'card': -2});
+    final id = repo.mutate(
+      'transactions',
+      'CREATE',
+      {'account_id': 'card', 'type': 'EXPENSE', 'amount': '2.00'},
+      balanceDelta: {'card': -2},
+    );
     expect(repo.row('accounts', 'card')!['balance'], '-1000000000000000001.00');
-    repo.mutate('transactions', 'DELETE', null, id: id, balanceDelta: {'card': 2});
+    repo.mutate(
+      'transactions',
+      'DELETE',
+      null,
+      id: id,
+      balanceDelta: {'card': 2},
+    );
     expect(repo.row('accounts', 'card')!['balance'], '-999999999999999999.00');
     repo.atomic(() => repo.entities['accounts']['card']['balance'] = '-0.25');
-    expect(() => repo.mutate('transactions', 'CREATE', {
-      'account_id': 'card', 'type': 'EXPENSE', 'amount': '1.00',
-    }, balanceDelta: {'card': -1}), throwsA(isA<ApiFailure>()));
+    expect(
+      () => repo.mutate(
+        'transactions',
+        'CREATE',
+        {'account_id': 'card', 'type': 'EXPENSE', 'amount': '1.00'},
+        balanceDelta: {'card': -1},
+      ),
+      throwsA(isA<ApiFailure>()),
+    );
     expect(repo.row('accounts', 'card')!['balance'], '-0.25');
     expect(repo.outbox, isEmpty);
   });
@@ -103,20 +216,71 @@ void main() {
   });
 
   test('card excluded from cash, pocket and trade funding; no outgoing transfer or income', () {
-    expect(GoalsRepository(repo).cashAccounts.map((a) => a['id']), isNot(contains('card')));
-    expect(pocketCandidates('user', repo.rows('accounts'), repo.rows('account_types')).map((a) => a.id), isNot(contains('card')));
+    expect(
+      GoalsRepository(repo).cashAccounts.map((a) => a['id']),
+      isNot(contains('card')),
+    );
+    expect(
+      pocketCandidates(
+        'user',
+        repo.rows('accounts'),
+        repo.rows('account_types'),
+      ).map((a) => a.id),
+      isNot(contains('card')),
+    );
     expect(repo.canTradeAccount('card', 'CASH'), isFalse);
-    expect(() => repo.createTransfer(fromAccountId: 'card', toAccountId: 'bank', amount: 1, date: DateTime.utc(2026)), throwsA(isA<ApiFailure>()));
-    expect(() => repo.mutate('transactions', 'CREATE', {'account_id': 'card', 'type': 'INCOME'}), throwsA(isA<ApiFailure>()));
+    expect(
+      () => repo.createTransfer(
+        fromAccountId: 'card',
+        toAccountId: 'bank',
+        amount: 1,
+        date: DateTime.utc(2026),
+      ),
+      throwsA(isA<ApiFailure>()),
+    );
+    expect(
+      () => repo.mutate('transactions', 'CREATE', {
+        'account_id': 'card',
+        'type': 'INCOME',
+      }),
+      throwsA(isA<ApiFailure>()),
+    );
     expect(repo.outbox, isEmpty);
   });
 
   test('creation zero-only, metadata durable, identity conversion refused', () {
-    final id = repo.mutate('accounts', 'CREATE', {'name': 'New', 'account_type_id': 'bank', 'currency': 'IDR', 'is_credit_card': true, 'credit_limit': null}, local: {'balance': '0.00'});
+    final id = repo.mutate(
+      'accounts',
+      'CREATE',
+      {
+        'name': 'New',
+        'account_type_id': 'bank',
+        'currency': 'IDR',
+        'is_credit_card': true,
+        'credit_limit': null,
+      },
+      local: {'balance': '0.00'},
+    );
     repo = FinanceRepository(ApiClient(), store, 'user');
     expect(repo.row('accounts', id)!['is_credit_card'], isTrue);
     expect(repo.row('accounts', id)!['credit_limit'], isNull);
-    expect(() => repo.mutate('accounts', 'UPDATE', {'is_credit_card': true}, id: 'bank'), throwsA(isA<ApiFailure>()));
-    expect(() => repo.mutate('accounts', 'CREATE', {'account_type_id': 'bank', 'is_credit_card': true}, local: {'balance': '-1.00'}), throwsA(isA<ApiFailure>()));
+    repo.mutate('accounts', 'DELETE', null, id: id);
+    expect(repo.row('accounts', id), isNull);
+    expect(repo.outbox, isEmpty);
+    expect(
+      () => repo.mutate('accounts', 'UPDATE', {
+        'is_credit_card': true,
+      }, id: 'bank'),
+      throwsA(isA<ApiFailure>()),
+    );
+    expect(
+      () => repo.mutate(
+        'accounts',
+        'CREATE',
+        {'account_type_id': 'bank', 'is_credit_card': true},
+        local: {'balance': '-1.00'},
+      ),
+      throwsA(isA<ApiFailure>()),
+    );
   });
 }

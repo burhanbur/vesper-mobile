@@ -72,155 +72,298 @@ class _CashFlowPageState extends State<CashFlowPage>
             !repo.debts.any((d) => d['id'] == key),
       );
     String? error;
-    await showDialog<void>(
+    await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, update) => AlertDialog(
-          title: const Text('Asumsi proyeksi'),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
+        builder: (ctx, update) => Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Disimpan hanya per pengguna/perangkat. Tidak mengubah saldo, jadwal asli, atau memindahkan uang.',
-                  ),
-                  DropdownButtonFormField<int>(
-                    initialValue: count,
-                    decoration: const InputDecoration(
-                      labelText: 'Horizon termasuk hari ini',
-                    ),
-                    items: [
-                      for (final d in [7, 30, 60, 90])
-                        DropdownMenuItem(value: d, child: Text('$d hari')),
-                    ],
-                    onChanged: (v) => update(() => count = v!),
-                  ),
-                  DropdownButtonFormField<int>(
-                    initialValue: offset,
-                    decoration: const InputDecoration(
-                      labelText: 'Zona hari proyeksi (tanpa DST)',
-                    ),
-                    items: [
-                      for (final e in {
-                        0: 'GMT+00:00',
-                        420: 'WIB',
-                        480: 'WITA',
-                        540: 'WIT',
-                      }.entries)
-                        DropdownMenuItem(value: e.key, child: Text(e.value)),
-                    ],
-                    onChanged: (v) => update(() => offset = v!),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Sertakan nominal perkiraan tagihan'),
-                    value: estimates,
-                    onChanged: (v) => update(() => estimates = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Bawa tunggakan ke hari pertama'),
-                    value: overdue,
-                    onChanged: (v) => update(() => overdue = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Asumsikan piutang dibayar sesuai jadwal',
-                    ),
-                    value: receivables,
-                    onChanged: (v) => update(() => receivables = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Sisihkan alokasi goal yang terdanai'),
-                    value: reserves,
-                    onChanged: (v) => update(() => reserves = v),
-                  ),
-                  const Text('Akun kas IDR untuk skenario ini'),
-                  for (final a in repo.accounts)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${a['name']}'),
-                      value: ids.contains(a['id']),
-                      onChanged: (v) => update(() {
-                        if (v == true) {
-                          ids.add(a['id'] as String);
-                        } else {
-                          ids.remove(a['id']);
-                        }
-                      }),
-                    ),
-                  const Text(
-                    'Akun pembayaran/penerimaan pinjaman tanpa tagihan aktif. Jika sudah ditautkan ke Tagihan & Jadwal, akun pada tagihan dipakai. Pilih akun di luar pilihan skenario bila pembayaran dilakukan dari akun tersebut. Pokok dihitung sekali.',
-                  ),
-                  for (final debt in repo.debts)
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(
-                        '${debt['id']}:${mappings[debt['id']]}:${ids.join(',')}',
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      initialValue: mappings[debt['id']],
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: '${debt['counterparty']} (${debt['kind']})',
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('Belum ditetapkan'),
-                        ),
-                        for (final a in repo.accounts)
-                          DropdownMenuItem(
-                            value: a['id'] as String,
-                            child: Text('${a['name']}'),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 16, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          child: const Icon(
+                            Icons.tune_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Asumsi proyeksi',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
                       ],
-                      onChanged: (v) => update(() {
-                        if (v == null) {
-                          mappings.remove(debt['id']);
-                        } else {
-                          mappings['${debt['id']}'] = v;
-                        }
-                      }),
                     ),
-                  if (error != null)
-                    Text(
-                      error!,
-                      style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+                  ),
+                  const Divider(height: 1, color: AppColors.border),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 15,
+                                  color: AppColors.textMuted,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Disimpan hanya per pengguna/perangkat. Tidak mengubah saldo, jadwal asli, atau memindahkan uang.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textMuted,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<int>(
+                            initialValue: count,
+                            decoration: InputDecoration(
+                              labelText: 'Horizon termasuk hari ini',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: [
+                              for (final d in [7, 30, 60, 90])
+                                DropdownMenuItem(value: d, child: Text('$d hari')),
+                            ],
+                            onChanged: (v) => update(() => count = v!),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<int>(
+                            initialValue: offset,
+                            decoration: InputDecoration(
+                              labelText: 'Zona hari proyeksi (tanpa DST)',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: [
+                              for (final e in {
+                                0: 'GMT+00:00',
+                                420: 'WIB',
+                                480: 'WITA',
+                                540: 'WIT',
+                              }.entries)
+                                DropdownMenuItem(value: e.key, child: Text(e.value)),
+                            ],
+                            onChanged: (v) => update(() => offset = v!),
+                          ),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Sertakan nominal perkiraan tagihan'),
+                            value: estimates,
+                            onChanged: (v) => update(() => estimates = v),
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Bawa tunggakan ke hari pertama'),
+                            value: overdue,
+                            onChanged: (v) => update(() => overdue = v),
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Asumsikan piutang dibayar sesuai jadwal',
+                            ),
+                            value: receivables,
+                            onChanged: (v) => update(() => receivables = v),
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Sisihkan alokasi goal yang terdanai'),
+                            value: reserves,
+                            onChanged: (v) => update(() => reserves = v),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Akun kas IDR untuk skenario ini',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          for (final a in repo.accounts)
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text('${a['name']}'),
+                              value: ids.contains(a['id']),
+                              onChanged: (v) => update(() {
+                                if (v == true) {
+                                  ids.add(a['id'] as String);
+                                } else {
+                                  ids.remove(a['id']);
+                                }
+                              }),
+                            ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Akun pembayaran/penerimaan pinjaman tanpa tagihan aktif. Jika sudah ditautkan ke Tagihan & Jadwal, akun pada tagihan dipakai. Pilih akun di luar pilihan skenario bila pembayaran dilakukan dari akun tersebut. Pokok dihitung sekali.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          for (final debt in repo.debts) ...[
+                            DropdownButtonFormField<String>(
+                              key: ValueKey(
+                                '${debt['id']}:${mappings[debt['id']]}:${ids.join(',')}',
+                              ),
+                              initialValue: mappings[debt['id']],
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: '${debt['counterparty']} (${debt['kind']})',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  child: Text('Belum ditetapkan'),
+                                ),
+                                for (final a in repo.accounts)
+                                  DropdownMenuItem(
+                                    value: a['id'] as String,
+                                    child: Text('${a['name']}'),
+                                  ),
+                              ],
+                              onChanged: (v) => update(() {
+                                if (v == null) {
+                                  mappings.remove(debt['id']);
+                                } else {
+                                  mappings['${debt['id']}'] = v;
+                                }
+                              }),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          if (error != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                error!,
+                                style: TextStyle(
+                                  color: Theme.of(ctx).colorScheme.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(top: BorderSide(color: AppColors.border)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Batal'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () {
+                              final ok = active.save({
+                                'days': count,
+                                'utc_offset_minutes': offset,
+                                'include_estimates': estimates,
+                                'include_overdue': overdue,
+                                'include_receivables': receivables,
+                                'reserve_goals': reserves,
+                                'account_ids': ids.toList(),
+                                'debt_accounts': mappings,
+                              });
+                              if (ok) {
+                                Navigator.pop(ctx);
+                              } else {
+                                update(() => error = active.error);
+                              }
+                            },
+                            child: const Text('Simpan asumsi'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final ok = active.save({
-                  'days': count,
-                  'utc_offset_minutes': offset,
-                  'include_estimates': estimates,
-                  'include_overdue': overdue,
-                  'include_receivables': receivables,
-                  'reserve_goals': reserves,
-                  'account_ids': ids.toList(),
-                  'debt_accounts': mappings,
-                });
-                if (ok) {
-                  Navigator.pop(ctx);
-                } else {
-                  update(() => error = active.error);
-                }
-              },
-              child: const Text('Simpan asumsi'),
-            ),
-          ],
         ),
       ),
     );

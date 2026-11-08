@@ -124,8 +124,8 @@ class _MainShellState extends State<MainShell> {
               icon: Icons.swap_horiz_rounded,
               color: AppColors.transfer,
               bgColor: AppColors.transferLight,
-              title: 'Transfer Antar Akun / Utang',
-              subtitle: 'Pindah dana rekening & pencatatan utang-piutang',
+              title: 'Transfer / Bayar kartu kredit',
+              subtitle: 'Pindah uang atau bayar tagihan kartu dari rekening',
               onTap: () {
                 Navigator.of(ctx).pop();
                 AddTransactionModal.show(
