@@ -338,8 +338,37 @@ class _BillsPageState extends State<BillsPage> {
                                   const SizedBox(height: 10),
                                   TextField(
                                     controller: anchor,
+                                    readOnly: true,
+                                    onTap: () async {
+                                      final current = DateTime.tryParse(anchor.text) ?? DateTime.now();
+                                      final picked = await showDatePicker(
+                                        context: ctx,
+                                        initialDate: current,
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                        helpText: 'PILIH TANGGAL AWAL',
+                                      );
+                                      if (picked != null) {
+                                        update(() {
+                                          anchor.text = goalDay(picked);
+                                        });
+                                      }
+                                    },
                                     decoration: InputDecoration(
                                       labelText: 'Tanggal awal (YYYY-MM-DD)',
+                                      helperText: anchor.text.isNotEmpty
+                                          ? DateFormatter.calendarDate(anchor.text)
+                                          : null,
+                                      prefixIcon: const Icon(
+                                        Icons.calendar_today_rounded,
+                                        size: 18,
+                                        color: AppColors.primary,
+                                      ),
+                                      suffixIcon: const Icon(
+                                        Icons.arrow_drop_down_rounded,
+                                        size: 24,
+                                        color: AppColors.textSecondary,
+                                      ),
                                       labelStyle: const TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 13,
@@ -356,8 +385,49 @@ class _BillsPageState extends State<BillsPage> {
                                   const SizedBox(height: 10),
                                   TextField(
                                     controller: end,
+                                    readOnly: true,
+                                    onTap: () async {
+                                      final current = DateTime.tryParse(end.text) ??
+                                          (DateTime.tryParse(anchor.text) ?? DateTime.now());
+                                      final picked = await showDatePicker(
+                                        context: ctx,
+                                        initialDate: current,
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                        helpText: 'PILIH TANGGAL AKHIR',
+                                      );
+                                      if (picked != null) {
+                                        update(() {
+                                          end.text = goalDay(picked);
+                                        });
+                                      }
+                                    },
                                     decoration: InputDecoration(
                                       labelText: 'Tanggal akhir opsional (YYYY-MM-DD)',
+                                      hintText: 'Pilih tanggal selesai',
+                                      helperText: end.text.isNotEmpty
+                                          ? DateFormatter.calendarDate(end.text)
+                                          : null,
+                                      prefixIcon: const Icon(
+                                        Icons.event_rounded,
+                                        size: 18,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      suffixIcon: end.text.isNotEmpty
+                                          ? IconButton(
+                                              icon: const Icon(
+                                                Icons.clear_rounded,
+                                                size: 18,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                              tooltip: 'Hapus tanggal akhir',
+                                              onPressed: () => update(() => end.clear()),
+                                            )
+                                          : const Icon(
+                                              Icons.arrow_drop_down_rounded,
+                                              size: 24,
+                                              color: AppColors.textSecondary,
+                                            ),
                                       labelStyle: const TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 13,

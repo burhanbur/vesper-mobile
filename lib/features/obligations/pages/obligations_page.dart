@@ -368,11 +368,57 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: due,
+                        readOnly: true,
+                        onTap: () async {
+                          final current = DateTime.tryParse(due.text) ??
+                              DateTime.now().add(const Duration(days: 30));
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: current,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                            helpText: 'PILIH TANGGAL JATUH TEMPO',
+                          );
+                          if (picked != null) {
+                            update(() {
+                              due.text =
+                                  '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                            });
+                          }
+                        },
                         decoration: InputDecoration(
                           labelText: 'Jatuh tempo (YYYY-MM-DD, opsional)',
+                          hintText: 'Pilih tanggal jatuh tempo',
+                          helperText: due.text.isNotEmpty
+                              ? DateFormatter.calendarDate(due.text)
+                              : null,
+                          prefixIcon: const Icon(
+                            Icons.event_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                          suffixIcon: due.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 18,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  tooltip: 'Hapus tanggal jatuh tempo',
+                                  onPressed: () => update(() => due.clear()),
+                                )
+                              : const Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  size: 24,
+                                  color: AppColors.textSecondary,
+                                ),
+                          labelStyle: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                            horizontal: 14,
+                            vertical: 12,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),

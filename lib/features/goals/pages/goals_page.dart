@@ -201,8 +201,38 @@ class _GoalsPageState extends State<GoalsPage> {
                               const SizedBox(height: 8),
                               TextField(
                                 controller: date,
+                                readOnly: true,
+                                onTap: () async {
+                                  final current = DateTime.tryParse(date.text) ??
+                                      DateTime.now().add(const Duration(days: 365));
+                                  final picked = await showDatePicker(
+                                    context: ctx,
+                                    initialDate: current,
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                    helpText: 'PILIH TANGGAL TARGET',
+                                  );
+                                  if (picked != null) {
+                                    update(() {
+                                      date.text = goalDay(picked);
+                                    });
+                                  }
+                                },
                                 decoration: InputDecoration(
                                   labelText: 'Tanggal target (YYYY-MM-DD)',
+                                  helperText: date.text.isNotEmpty
+                                      ? DateFormatter.calendarDate(date.text)
+                                      : null,
+                                  prefixIcon: const Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 18,
+                                    color: AppColors.primary,
+                                  ),
+                                  suffixIcon: const Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    size: 24,
+                                    color: AppColors.textSecondary,
+                                  ),
                                   labelStyle: const TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 13,

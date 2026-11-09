@@ -211,8 +211,42 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
                       ),
                       TextField(
                         controller: date,
+                        readOnly: true,
+                        onTap: () async {
+                          final current = DateTime.tryParse(date.text) ?? DateTime.now();
+                          final picked = await showDatePicker(
+                            context: ctx,
+                            initialDate: current,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime.now(),
+                            helpText: 'PILIH TANGGAL HARGA',
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              date.text =
+                                  '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                            });
+                          }
+                        },
                         decoration: InputDecoration(
                           labelText: 'Tanggal harga (YYYY-MM-DD)',
+                          helperText: date.text.isNotEmpty
+                              ? DateFormatter.calendarDate(date.text)
+                              : null,
+                          prefixIcon: const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                          suffixIcon: const Icon(
+                            Icons.arrow_drop_down_rounded,
+                            size: 24,
+                            color: AppColors.textSecondary,
+                          ),
+                          labelStyle: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
