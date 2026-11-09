@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../../app/app_state.dart';
 import '../../../core/utils/app_time_zone.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
-import '../data/csv_file.dart';
+import '../data/export_file.dart';
 import '../data/financial_export_controller.dart';
 import '../data/financial_export_repository.dart';
 
@@ -115,10 +118,10 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     });
   }
 
-  Future<void> saveCsv() async {
+  Future<void> saveExport({bool backup = false}) async {
     final active = controller;
     final export = result;
-    if (active == null || export == null || saving) return;
+    if (active == null || (!backup && export == null) || saving) return;
     setState(() {
       saving = true;
       error = null;
@@ -126,15 +129,26 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     });
     try {
       active.requireCurrent();
-      final path = await saveFinancialCsv(
-        'vesper-${date(start)}-${date(end)}-$currency-${DateTime.now().millisecondsSinceEpoch}.csv',
-        export.csv,
+      final bytes = backup
+          ? await active.repository.backup(
+              timeZone: AppStateScope.of(context).timeZone,
+              currency: currency,
+            )
+          : Uint8List.fromList(utf8.encode(export!.xls));
+      active.requireCurrent();
+      final name = backup
+          ? 'money_android_tmp_backup(${DateTime.now().millisecondsSinceEpoch}).mmbak'
+          : '${date(start)}_${date(end)}.xls';
+      final path = await saveFinancialFile(
+        name,
+        bytes,
+        backup ? 'application/octet-stream' : 'application/vnd.ms-excel',
       );
       if (mounted && active.isCurrent) {
         setState(
           () => message = path == null
               ? 'Penyimpanan dibatalkan.'
-              : 'CSV disimpan: $path',
+              : 'Berkas disimpan: $path',
         );
       }
     } catch (failure) {
@@ -254,7 +268,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
-          // Section 1: Ekspor CSV Card
+          // Section 1: Ekspor Excel Card
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -289,7 +303,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
-                        'Ekspor transaksi CSV',
+                        'Ekspor data',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -320,7 +334,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                         child: Text(
                           'Hanya akun aktif milik sendiri, termasuk akun tersembunyi dan '
                           'transaksi lokal yang belum tersinkron. Data pribadi anggota rumah tangga lain '
-                          'tidak disertakan. Periode mengikuti zona waktu pilihan di Pengaturan; timestamp CSV memakai format UTC untuk pertukaran data. '
+                          'tidak disertakan. Periode mengikuti zona waktu pilihan di Pengaturan; tanggal Excel memakai zona waktu tersebut. '
                           'Berkas berisi data keuangan pribadi.',
                           style: TextStyle(
                             fontSize: 11.5,
@@ -426,6 +440,19 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                         }),
                 ),
                 const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: saving ? null : () => saveExport(backup: true),
+                  icon: const Icon(Icons.backup_outlined),
+                  label: Text('Simpan backup $currency (.mmbak)'),
+                ),
+                const Text(
+                  'Backup Money Manager menyimpan semua akun dan riwayat dalam mata uang yang dipilih, tanpa batas tanggal. Filter tanggal dan akun hanya untuk Excel. Detail investasi dan pinjaman Vesper tidak dapat dipulihkan di Money Manager.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
                   key: ValueKey('export-account:$selectedAccount:$currency'),
                   initialValue: selectedAccount,
@@ -504,7 +531,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                         }),
                   icon: const Icon(Icons.table_view_outlined, size: 18),
                   label: const Text(
-                    'Siapkan CSV',
+                    'Siapkan Excel',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -521,10 +548,10 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${export.count} baris • ${export.currency}\n'
-                          'Kredit ledger: ${financialDecimal(export.credits)}\n'
-                          'Debit ledger: ${financialDecimal(export.debits)}\n'
-                          'Perubahan bersih: ${financialDecimal(export.credits - export.debits)}',
+                          '${export.excelRowCount} baris • ${export.currency}\n'
+                          'Uang masuk: ${CurrencyFormatter.formatCurrency(financialDecimal(export.credits), currency: export.currency)}\n'
+                          'Uang keluar: ${CurrencyFormatter.formatCurrency(financialDecimal(export.debits), currency: export.currency)}\n'
+                          'Selisih: ${CurrencyFormatter.formatCurrency(financialDecimal(export.credits - export.debits), currency: export.currency)}',
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -553,34 +580,14 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              onPressed: saving ? null : saveCsv,
+                              onPressed: saving ? null : () => saveExport(),
                               icon: const Icon(
                                 Icons.download_outlined,
                                 size: 16,
                               ),
-                              label: Text(saving ? 'Menyimpan…' : 'Simpan CSV'),
-                            ),
-                            const SizedBox(width: 8),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                foregroundColor: AppColors.primary,
+                              label: Text(
+                                saving ? 'Menyimpan…' : 'Simpan Excel',
                               ),
-                              onPressed: saving
-                                  ? null
-                                  : () async {
-                                      active.requireCurrent();
-                                      await Clipboard.setData(
-                                        ClipboardData(text: export.csv),
-                                      );
-                                      if (mounted && active.isCurrent) {
-                                        setState(
-                                          () => message =
-                                              'CSV disalin ke clipboard.',
-                                        );
-                                      }
-                                    },
-                              icon: const Icon(Icons.copy_rounded, size: 16),
-                              label: const Text('Salin CSV'),
                             ),
                           ],
                         ),

@@ -61,24 +61,6 @@ class AddTransactionModal extends StatefulWidget {
         ),
       );
     }
-    if (transactionToEdit?.type == TransactionType.transfer ||
-        transactionToEdit?.transferId != null) {
-      return showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Transfer tidak dapat diubah'),
-          content: const Text(
-            'Transfer yang sudah dicatat tidak dapat diubah atau dihapus. Tidak ada transaksi yang dibuat.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Mengerti'),
-            ),
-          ],
-        ),
-      );
-    }
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -116,8 +98,19 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     final toEdit = widget.transactionToEdit;
     if (toEdit != null) {
       _selectedType = toEdit.type;
-      _selectedAccountId = toEdit.accountId;
-      _selectedToAccountId = toEdit.toAccountId;
+      if (toEdit.type == TransactionType.transfer) {
+        if (toEdit.isIncoming) {
+          _selectedAccountId = toEdit.toAccountId ?? widget.initialAccountId;
+          _selectedToAccountId = toEdit.accountId;
+        } else {
+          _selectedAccountId = toEdit.accountId;
+          _selectedToAccountId =
+              toEdit.toAccountId ?? widget.initialToAccountId;
+        }
+      } else {
+        _selectedAccountId = toEdit.accountId;
+        _selectedToAccountId = toEdit.toAccountId;
+      }
       _selectedCategory = toEdit.categoryName;
       _selectedDate = toEdit.date;
       _noteController.text = toEdit.note ?? '';
@@ -221,15 +214,40 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     final state = AppStateScope.of(context);
 
     if (_isEditing) {
-      state.updateTransaction(
-        id: widget.transactionToEdit!.id,
-        type: _selectedType,
-        amount: amount,
-        accountId: accountId,
-        categoryName: _selectedCategory,
-        note: _noteController.text.trim(),
-        date: _selectedDate,
-      );
+      if (_selectedType == TransactionType.transfer ||
+          widget.transactionToEdit?.type == TransactionType.transfer ||
+          widget.transactionToEdit?.transferId != null) {
+        final transferId = widget.transactionToEdit?.transferId;
+        if (transferId == null) {
+          AppToast.showError(context, 'ID transfer tidak valid.');
+          return;
+        }
+        final toAccountId = _selectedToAccountId;
+        if (toAccountId == null || toAccountId == accountId) {
+          AppToast.showError(context, 'Pilih dua akun berbeda.');
+          return;
+        }
+        state.updateTransfer(
+          transferId: transferId,
+          fromAccountId: accountId,
+          toAccountId: toAccountId,
+          amount: amount,
+          date: _selectedDate,
+          note: _noteController.text.trim().isNotEmpty
+              ? _noteController.text.trim()
+              : null,
+        );
+      } else {
+        state.updateTransaction(
+          id: widget.transactionToEdit!.id,
+          type: _selectedType,
+          amount: amount,
+          accountId: accountId,
+          categoryName: _selectedCategory,
+          note: _noteController.text.trim(),
+          date: _selectedDate,
+        );
+      }
     } else if (_selectedType == TransactionType.transfer) {
       final toAccountId =
           _selectedToAccountId ??
@@ -267,7 +285,9 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         backgroundColor: AppColors.primary,
         content: Text(
           _isEditing
-              ? 'Perubahan transaksi berhasil disimpan!'
+              ? (_selectedType == TransactionType.transfer
+                    ? 'Perubahan transfer berhasil disimpan!'
+                    : 'Perubahan transaksi berhasil disimpan!')
               : (state.isOfflineMode
                     ? 'Transaksi tersimpan lokal ke SQLite (antre sinkronisasi saat online)'
                     : 'Transaksi berhasil disimpan!'),

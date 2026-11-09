@@ -57,39 +57,6 @@ void seedExport(FinanceRepository source) {
   });
 }
 
-// Parse independently so quoting, embedded newlines and escaped cells are checked.
-List<List<String>> parseCsv(String csv) {
-  final result = <List<String>>[];
-  final text = csv.replaceFirst('\uFEFF', '');
-  var row = <String>[];
-  var field = StringBuffer();
-  var quoted = false;
-  for (var i = 0; i < text.length; i++) {
-    final char = text[i];
-    if (char == '"') {
-      if (quoted && i + 1 < text.length && text[i + 1] == '"') {
-        field.write('"');
-        i++;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (char == ',' && !quoted) {
-      row.add(field.toString());
-      field = StringBuffer();
-    } else if (char == '\r' && !quoted && text[i + 1] == '\n') {
-      row.add(field.toString());
-      result.add(row);
-      row = [];
-      field = StringBuffer();
-      i++;
-    } else {
-      field.write(char);
-    }
-  }
-  expect(quoted, false);
-  return result;
-}
-
 void main() {
   for (final indexed in [false, true]) {
     group(indexed ? 'indexed WM07' : 'snapshot WM07', () {
@@ -193,43 +160,33 @@ void main() {
           financialDecimal(result.credits - result.debits),
           '90071992547409.79',
         );
-        expect(result.csv, isNot(contains('FOREIGN_SECRET')));
+        expect(result.xls, isNot(contains('FOREIGN_SECRET')));
         expect(export(account: 'account').count, 3);
         expect(export(currency: 'USD').count, 1);
         expect(() => export(account: 'foreign'), throwsA(isA<ApiFailure>()));
       });
 
-      test(
-        'UTF-8 BOM, CRLF, CSV quotes/newlines and spreadsheet injection',
-        () {
-          final notes = [
-            '猫, café "quoted"\nbaris kedua',
-            '=HYPERLINK("x")',
-            ' +SUM(1,2)',
-            '\t@SUM(1,2)',
-            '-2+3',
-            '@x',
-            'normal',
-          ];
-          transactions([
-            for (var i = 0; i < notes.length; i++) tx('row-$i', note: notes[i]),
-          ]);
-          final result = export();
-          expect(utf8.encode(result.csv).take(3), [239, 187, 191]);
-          expect(result.csv.endsWith('\r\n'), true);
-          final rows = parseCsv(result.csv);
-          expect(rows, hasLength(8));
-          expect(rows.every((row) => row.length == 17), true);
-          final byId = {for (final row in rows.skip(1)) row[0]: row};
-          expect(byId['row-0']![9], notes[0]);
-          expect(byId['row-0']![2], "'=SUM(1,2)");
-          for (var i = 1; i <= 5; i++) {
-            expect(byId['row-$i']![9], "'${notes[i]}");
-          }
-          expect(byId['row-6']![9], 'normal');
-          expect(byId['row-0']![6], '1.00');
-        },
-      );
+      test('Excel template, literal text, HTML escaping and exact money', () {
+        transactions([
+          tx('normal', note: 'café <script> & "quoted"\nbaris kedua'),
+          tx('formula', note: '=HYPERLINK("x")'),
+          tx('large', amount: '90071992547409.91'),
+        ]);
+        final html = export().xls;
+        expect(html, startsWith('<html'));
+        expect(RegExp('<th>').allMatches(html), hasLength(11));
+        expect(html, contains('Income/Expense'));
+        expect(
+          html,
+          contains(
+            'café &lt;script&gt; &amp; &quot;quoted&quot;<br>baris kedua',
+          ),
+        );
+        expect(html, isNot(contains('<script>')));
+        expect(html, contains('&#39;=HYPERLINK'));
+        expect(html, contains('class="text" x:str>90071992547409.91</td>'));
+        expect(source.outbox, isEmpty);
+      });
 
       test('half-open UTC boundaries, offset timestamps and tombstones', () {
         transactions([
@@ -239,10 +196,10 @@ void main() {
           tx('end', at: '2026-10-21T00:00:00Z'),
           {...tx('tombstone'), 'deleted_at': '2026-10-20T12:00:00Z'},
         ]);
-        final rows = parseCsv(export().csv).skip(1).toList();
-        expect(rows.map((r) => r[0]).toSet(), {'start', 'last'});
-        expect(rows.first[14], '2026-10-20T00:00:00.000Z');
-        expect(rows.first[15], '2026-10-21T00:00:00.000Z');
+        final rows = export().transactions;
+        expect(rows.map((r) => r['id']).toSet(), {'start', 'last'});
+        expect(export().start, DateTime.utc(2026, 10, 20));
+        expect(export().end, DateTime.utc(2026, 10, 21));
       });
 
       test(
@@ -253,9 +210,9 @@ void main() {
               tx('row-${i.toString().padLeft(3, '0')}'),
           ]);
           final result = export();
-          final rows = parseCsv(result.csv).skip(1).toList();
+          final rows = result.transactions;
           expect(result.count, 237);
-          expect(rows.map((r) => r[0]).toSet(), hasLength(237));
+          expect(rows.map((r) => r['id']).toSet(), hasLength(237));
           expect(financialDecimal(result.credits), '237.00');
         },
       );
@@ -291,7 +248,8 @@ void main() {
             ]);
           });
           final rows = {
-            for (final row in parseCsv(export().csv).skip(1)) row[0]: row[11],
+            for (final row in export().transactions)
+              row['id']: row['export_sync_status'],
           };
           expect(rows, {
             'manual': 'rejected',
@@ -306,7 +264,7 @@ void main() {
         () {
           transactions([]);
           expect(export().count, 0);
-          expect(parseCsv(export().csv), hasLength(1));
+          expect(RegExp('<tr>').allMatches(export().xls), hasLength(1));
           source.atomic(() {
             source.state.remove('transaction_snapshot_coverage');
           });

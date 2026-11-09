@@ -1,4 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'money_manager_backup.dart';
+import 'money_manager_excel.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/app_time_zone.dart';
@@ -20,17 +24,26 @@ String financialDecimal(BigInt value) =>
     '${value.isNegative ? '-' : ''}${value.abs() ~/ BigInt.from(100)}.${(value.abs() % BigInt.from(100)).toString().padLeft(2, '0')}';
 
 class FinancialExport {
-  final String csv;
+  final List<Map<String, dynamic>> accounts, categories, transactions;
+  final AppTimeZone timeZone;
+  final DateTime start, end;
   final int count;
   final BigInt credits, debits;
   final String currency;
   const FinancialExport(
-    this.csv,
     this.count,
     this.credits,
     this.debits,
     this.currency,
+    this.accounts,
+    this.categories,
+    this.transactions,
+    this.timeZone,
+    this.start,
+    this.end,
   );
+  String get xls => moneyManagerExcel(this);
+  int get excelRowCount => moneyManagerExcelRows(this).length;
 }
 
 class BalanceReconciliation {
@@ -69,17 +82,6 @@ class FinancialExportRepository {
         !accounts.any((child) => child['parent_account_id'] == a['id']);
   }).toList();
 
-  // Quote every field; text that could become a spreadsheet formula is literal.
-  String _cell(Object? value, {bool numeric = false}) {
-    var text = value?.toString() ?? '';
-    if (!numeric &&
-        (RegExp(r'^[\s\u0000-\u001f]*[=+@-]').hasMatch(text) ||
-            RegExp(r'^[\t\r\n]').hasMatch(text))) {
-      text = "'$text";
-    }
-    return '"${text.replaceAll('"', '""')}"';
-  }
-
   /// Inclusive date-picker range in the chosen calendar. Construct the next
   /// calendar midnight before converting; a device day may be 23 or 25 hours.
   FinancialExport exportCalendar({
@@ -97,6 +99,7 @@ class FinancialExportRepository {
     ),
     currency: currency,
     accountId: accountId,
+    timeZone: timeZone,
   );
 
   FinancialExport export({
@@ -104,6 +107,7 @@ class FinancialExportRepository {
     required DateTime end,
     required String currency,
     String? accountId,
+    AppTimeZone timeZone = AppTimeZone.device,
   }) {
     if (!start.isBefore(end)) throw const ApiFailure('Periode tidak valid.');
     if (!source.hasTransactionSnapshot || source.isSyncing) {
@@ -118,28 +122,34 @@ class FinancialExportRepository {
     if (selected.isEmpty) {
       throw const ApiFailure('Pilih akun milik sendiri yang valid.');
     }
-    final generated = DateTime.now().toUtc().toIso8601String();
-    final lines = <String>[
-      [
-        'transaction_id',
-        'account_id',
-        'account_name',
-        'currency',
-        'type',
-        'amount',
-        'signed_amount',
-        'transacted_at_utc',
-        'category_name',
-        'description',
-        'transfer_id',
-        'sync_status',
-        'version',
-        'scope',
-        'period_start_utc',
-        'period_end_exclusive_utc',
-        'exported_at_utc',
-      ].map((v) => _cell(v)).join(','),
-    ];
+    final exportedTransactions = <Map<String, dynamic>>[];
+    final ownedAccounts = {for (final a in accounts) a['id']: a};
+    Map<String, List<Map<String, dynamic>>>? transferLegs;
+    String? peerAccount(Map<String, dynamic> row) {
+      if (row['type'] != 'TRANSFER' || row['transfer_id'] == null) return null;
+      final transfer = source.row('transfers', '${row['transfer_id']}');
+      final direct =
+          transfer?[row['account_id'] == transfer['from_account_id']
+              ? 'to_account_id'
+              : 'from_account_id'];
+      if (ownedAccounts.containsKey(direct)) return direct as String;
+      transferLegs ??= () {
+        final result = <String, List<Map<String, dynamic>>>{};
+        for (final leg in source.rows('transactions')) {
+          if (leg['deleted_at'] == null &&
+              leg['transfer_id'] != null &&
+              ownedAccounts.containsKey(leg['account_id'])) {
+            result.putIfAbsent('${leg['transfer_id']}', () => []).add(leg);
+          }
+        }
+        return result;
+      }();
+      return transferLegs!['${row['transfer_id']}']
+              ?.where((leg) => leg['id'] != row['id'])
+              .firstOrNull?['account_id']
+          as String?;
+    }
+
     final queued = <String, String>{};
     for (final item in source.outbox) {
       if (item['entity_type'] == 'transactions') {
@@ -186,44 +196,74 @@ class FinancialExportRepository {
         };
         if (signed > BigInt.zero) credits += signed;
         if (signed < BigInt.zero) debits += signed.abs();
-        final category = source.row('categories', '${row['category_id']}');
-        final fields = <Object?>[
-          row['id'],
-          account['id'],
-          account['name'],
-          currency,
-          type,
-          financialDecimal(amount),
-          financialDecimal(signed),
-          DateTime.parse('${row['transacted_at']}').toUtc().toIso8601String(),
-          category?['user_id'] == source.userId ? (category?['name']) : null,
-          row['description'],
-          row['transfer_id'],
-          queued['${row['id']}'] ??
+        exportedTransactions.add({
+          ...row,
+          if (row['type'] == 'TRANSFER')
+            'export_peer_account_id': peerAccount(row),
+          'export_sync_status':
+              queued['${row['id']}'] ??
               (row['version'] == '0' ? 'pending' : 'synced'),
-          row['version'],
-          'owned_local_ledger',
-          start.toUtc().toIso8601String(),
-          end.toUtc().toIso8601String(),
-          generated,
-        ];
-        lines.add(
-          [
-            for (var i = 0; i < fields.length; i++)
-              _cell(fields[i], numeric: i == 5 || i == 6),
-          ].join(','),
-        );
+        });
         count++;
       }
       cursor = page.next;
     } while (cursor != null);
     return FinancialExport(
-      '\uFEFF${lines.join('\r\n')}\r\n',
       count,
       credits,
       debits,
       currency,
+      ownedAccounts.values
+          .where((a) => a['currency'] == currency)
+          .map(
+            (a) => <String, dynamic>{
+              ...a,
+              'export_account_category': source.row(
+                'account_types',
+                '${a['account_type_id']}',
+              )?['category'],
+            },
+          )
+          .toList(),
+      source
+          .rows('categories')
+          .where(
+            (c) =>
+                c['user_id'] == source.userId &&
+                (c['deleted_at'] == null ||
+                    exportedTransactions.any(
+                      (t) => t['category_id'] == c['id'],
+                    )),
+          )
+          .map((c) => Map<String, dynamic>.from(c))
+          .toList(),
+      exportedTransactions,
+      timeZone,
+      start,
+      end,
     );
+  }
+
+  Future<Uint8List> backup({required AppTimeZone timeZone, String? currency}) {
+    if (!source.hasTransactionSnapshot || source.isSyncing) {
+      throw const ApiFailure('Selesaikan sinkronisasi awal sebelum ekspor.');
+    }
+    if (accounts.isEmpty) {
+      throw const ApiFailure('Belum ada akun untuk diekspor.');
+    }
+    if (currency != null && !accounts.any((a) => a['currency'] == currency)) {
+      throw const ApiFailure('Tidak ada akun dalam mata uang yang dipilih.');
+    }
+    return createMoneyManagerBackup([
+      for (final code in accounts.map((a) => '${a['currency']}').toSet())
+        if (currency == null || code == currency)
+          export(
+            start: DateTime.utc(1),
+            end: DateTime.utc(9999, 12, 31),
+            currency: code,
+            timeZone: timeZone,
+          ),
+    ]);
   }
 
   BalanceReconciliation compare(String id, String statement, String reference) {

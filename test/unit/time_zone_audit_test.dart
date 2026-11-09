@@ -119,7 +119,7 @@ void main() {
             );
             expect(export.count, 2);
             expect(export.debits, BigInt.from(2000));
-            expect(export.csv, contains(start.toIso8601String()));
+            expect(export.start, start);
             expect(source.outbox, isEmpty);
           },
         );

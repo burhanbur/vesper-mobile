@@ -117,7 +117,8 @@ class TransactionItemTile extends StatelessWidget {
         : null;
     final canModify =
         transaction.type == TransactionType.income ||
-        transaction.type == TransactionType.expense;
+        transaction.type == TransactionType.expense ||
+        transaction.type == TransactionType.transfer;
 
     showModalBottomSheet<void>(
       context: context,
@@ -204,9 +205,21 @@ class TransactionItemTile extends StatelessWidget {
             const SizedBox(height: 12),
 
             _buildDetailRow('Jenis Transaksi', transaction.typeLabel),
-            _buildDetailRow('Akun', account?.name ?? 'Akun Utama'),
-            if (toAccount != null)
-              _buildDetailRow('Akun Tujuan', toAccount.name),
+            if (transaction.type == TransactionType.transfer) ...[
+              if (transaction.isIncoming) ...[
+                _buildDetailRow('Akun Penerima', account?.name ?? 'Akun Utama'),
+                if (toAccount != null)
+                  _buildDetailRow('Dari Akun', toAccount.name),
+              ] else ...[
+                _buildDetailRow('Akun Pengirim', account?.name ?? 'Akun Utama'),
+                if (toAccount != null)
+                  _buildDetailRow('Ke Akun', toAccount.name),
+              ],
+            ] else ...[
+              _buildDetailRow('Akun', account?.name ?? 'Akun Utama'),
+              if (toAccount != null)
+                _buildDetailRow('Akun Tujuan', toAccount.name),
+            ],
             _buildDetailRow(
               'Tanggal & Waktu',
               DateFormatter.formatFull(
@@ -234,10 +247,20 @@ class TransactionItemTile extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(ctx).pop();
+                        final isTransfer =
+                            transaction.type == TransactionType.transfer;
                         AddTransactionModal.show(
                           context,
                           initialType: transaction.type,
-                          initialAccountId: transaction.accountId,
+                          initialAccountId: isTransfer &&
+                                  transaction.isIncoming &&
+                                  transaction.toAccountId != null
+                              ? transaction.toAccountId!
+                              : transaction.accountId,
+                          initialToAccountId: isTransfer &&
+                                  transaction.isIncoming
+                              ? transaction.accountId
+                              : transaction.toAccountId,
                           transactionToEdit: transaction,
                         );
                       },
@@ -288,14 +311,18 @@ class TransactionItemTile extends StatelessWidget {
     BuildContext pageCtx,
     AppState state,
   ) {
+    final isTransfer = transaction.type == TransactionType.transfer;
     showDialog<void>(
       context: sheetCtx,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Hapus Transaksi?'),
+        title: Text(isTransfer ? 'Hapus Transfer?' : 'Hapus Transaksi?'),
         content: Text(
-          'Transaksi "${transaction.note?.isNotEmpty == true ? transaction.note : transaction.categoryName}" '
-          'sebesar ${CurrencyFormatter.formatRupiah(transaction.amount)} akan dihapus. '
-          'Saldo akun terkait akan dikembalikan secara otomatis.',
+          isTransfer
+              ? 'Transfer sebesar ${CurrencyFormatter.formatRupiah(transaction.amount)} akan dihapus. '
+                  'Saldo akun asal dan tujuan akan dikembalikan secara otomatis.'
+              : 'Transaksi "${transaction.note?.isNotEmpty == true ? transaction.note : transaction.categoryName}" '
+                  'sebesar ${CurrencyFormatter.formatRupiah(transaction.amount)} akan dihapus. '
+                  'Saldo akun terkait akan dikembalikan secara otomatis.',
         ),
         actions: [
           TextButton(
@@ -308,12 +335,20 @@ class TransactionItemTile extends StatelessWidget {
               Navigator.of(dialogCtx).pop(); // close dialog
               Navigator.of(sheetCtx).pop(); // close bottom sheet
               try {
-                state.deleteTransaction(transaction.id);
+                if (isTransfer && transaction.transferId != null) {
+                  state.deleteTransfer(transaction.transferId!);
+                } else {
+                  state.deleteTransaction(transaction.id);
+                }
                 ScaffoldMessenger.of(pageCtx).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: AppColors.primary,
-                    content: Text('Transaksi berhasil dihapus.'),
+                    content: Text(
+                      isTransfer
+                          ? 'Transfer berhasil dihapus.'
+                          : 'Transaksi berhasil dihapus.',
+                    ),
                   ),
                 );
               } on ApiFailure catch (err) {
@@ -321,7 +356,7 @@ class TransactionItemTile extends StatelessWidget {
                   SnackBar(
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: AppColors.expense,
-                    content: Text(err.toString()),
+                    content: Text(err.message),
                   ),
                 );
               }

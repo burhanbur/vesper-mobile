@@ -431,7 +431,7 @@ class SettingsPage extends StatelessWidget {
                       leading: const Icon(Icons.file_download_outlined),
                       title: const Text('Ekspor & Rekonsiliasi'),
                       subtitle: const Text(
-                        'CSV transaksi dan pencocokan saldo',
+                        'Excel, backup Money Manager, dan pencocokan saldo',
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).push<void>(

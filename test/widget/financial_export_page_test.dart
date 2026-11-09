@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -13,7 +14,7 @@ import '../unit/financial_export_test.dart' show seedExport;
 
 void main() {
   testWidgets(
-    'export uses selected zone and clears prepared CSV when zone changes',
+    'export uses selected zone and clears prepared Excel when zone changes',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1000, 2200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -59,13 +60,13 @@ void main() {
       await tester.tap(find.text('1').first);
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Siapkan CSV'));
+      await tester.tap(find.text('Siapkan Excel'));
       await tester.pumpAndSettle();
       expect(find.textContaining('1 baris'), findsOneWidget);
       state.setTimeZone(AppTimeZone.wib);
       await tester.pumpAndSettle();
-      expect(find.text('Salin CSV'), findsNothing);
-      await tester.tap(find.text('Siapkan CSV'));
+      expect(find.text('Simpan Excel'), findsNothing);
+      await tester.tap(find.text('Siapkan Excel'));
       await tester.pumpAndSettle();
       expect(find.textContaining('0 baris'), findsOneWidget);
       expect(repo.outbox, isEmpty);
@@ -74,7 +75,7 @@ void main() {
   );
 
   testWidgets(
-    'export/copy, invalid input, confirmation cancel/save and session isolation',
+    'export/save, invalid input, confirmation cancel/save and session isolation',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1000, 2200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -108,19 +109,19 @@ void main() {
         state.dispose();
         store.close();
       });
-      String? clipboard;
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      Map<dynamic, dynamic>? saved;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
+        const MethodChannel('vesper/financial_export'),
         (call) async {
-          if (call.method == 'Clipboard.setData') {
-            clipboard = (call.arguments as Map)['text'] as String;
-          }
-          return null;
+          saved = call.arguments as Map;
+          return 'content://exports/file';
         },
       );
       addTearDown(
         () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
+          const MethodChannel('vesper/financial_export'),
           null,
         ),
       );
@@ -130,14 +131,19 @@ void main() {
           child: const MaterialApp(home: FinancialExportPage()),
         ),
       );
-      await tester.tap(find.text('Siapkan CSV'));
+      await tester.tap(find.text('Siapkan Excel'));
       await tester.pumpAndSettle();
       expect(find.textContaining('1 baris'), findsOneWidget);
-      await tester.ensureVisible(find.text('Salin CSV'));
-      await tester.tap(find.text('Salin CSV'));
+      await tester.ensureVisible(find.text('Simpan Excel'));
+      await tester.tap(find.text('Simpan Excel'));
       await tester.pumpAndSettle();
-      expect(clipboard, contains('Catatan awal'));
-      expect(clipboard, startsWith('\uFEFF'));
+      expect(saved!['name'], endsWith('.xls'));
+      expect(saved!['mimeType'], 'application/vnd.ms-excel');
+      expect(
+        String.fromCharCodes(saved!['bytes'] as List<int>),
+        contains('Catatan awal'),
+      );
+      expect(find.textContaining('CSV'), findsNothing);
 
       final cash = find.byWidgetPredicate(
         (w) =>

@@ -1,13 +1,14 @@
-import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-Future<String?> saveFinancialCsv(String name, String csv) async {
-  final blob = web.Blob(
-    [utf8.encode(csv).toJS].toJS,
-    web.BlobPropertyBag(type: 'text/csv;charset=utf-8'),
-  );
+Future<String?> saveFinancialFile(
+  String name,
+  Uint8List bytes,
+  String mimeType,
+) async {
+  final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: mimeType));
   final url = web.URL.createObjectURL(blob);
   final link = web.HTMLAnchorElement()
     ..href = url

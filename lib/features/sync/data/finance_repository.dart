@@ -1421,9 +1421,410 @@ class FinanceRepository {
     return id;
   }
 
+  int _parseRupiah(dynamic value) {
+    final text = value?.toString() ?? '0';
+    if (text.isEmpty) return 0;
+    if (!RegExp(r'^-?\d+(?:\.00)?$').hasMatch(text)) {
+      throw const ApiFailure('Saldo pecahan Rupiah belum didukung.');
+    }
+    return int.parse(text.split('.').first);
+  }
+
+  void deleteTransfer(String transferId) {
+    const max = 9007199254740991;
+    final transfer = row('transfers', transferId);
+    final outboxIndex = outbox.indexWhere(
+      (e) => e['entity_type'] == 'transfers' && e['entity_id'] == transferId,
+    );
+    final existingOutbox =
+        outboxIndex != -1 ? (outbox[outboxIndex] as Map) : null;
+    final legs = rows(
+      'transactions',
+    ).where((r) => r['transfer_id'] == transferId).toList();
+    final existingPayload = existingOutbox?['payload'] as Map?;
+
+    final fromAccountId =
+        transfer?['from_account_id'] ??
+        existingPayload?['from_account_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) < 0).firstOrNull?['account_id'];
+    final toAccountId =
+        transfer?['to_account_id'] ??
+        existingPayload?['to_account_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) > 0).firstOrNull?['account_id'];
+
+    if (fromAccountId == null || toAccountId == null) {
+      throw const ApiFailure('Transfer tidak ditemukan.');
+    }
+
+    if (_tradeTouches('accounts', fromAccountId) ||
+        _tradeTouches('accounts', toAccountId)) {
+      throw const ApiFailure(
+        'Transaksi akun sedang dalam proses sinkronisasi investasi.',
+      );
+    }
+
+    final rawAmount =
+        transfer?['amount'] ??
+        existingPayload?['amount'] ??
+        legs.firstOrNull?['amount'];
+    if (rawAmount == null) {
+      throw const ApiFailure('Data transfer tidak lengkap.');
+    }
+    final amount = _parseRupiah(rawAmount).abs();
+
+    final from = row('accounts', fromAccountId);
+    final to = row('accounts', toAccountId);
+    if (from == null || to == null) {
+      throw const ApiFailure('Akun transfer tidak ditemukan.');
+    }
+
+    final balances = <String, String>{};
+    for (final account in [from, to]) {
+      final text = '${account['balance']}';
+      if (!RegExp(r'^-?\d+(?:\.00)?$').hasMatch(text)) {
+        throw const ApiFailure('Saldo pecahan Rupiah belum didukung.');
+      }
+      final balance =
+          BigInt.parse(text.split('.').first) +
+          BigInt.from(account == from ? amount : -amount);
+      if (balance.abs() > BigInt.from(max)) {
+        throw const ApiFailure('Saldo melampaui batas presisi aman.');
+      }
+      balances[account['id'] as String] = '$balance.00';
+    }
+
+    final fromId =
+        transfer?['from_transaction_id'] ??
+        existingPayload?['from_transaction_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) < 0).firstOrNull?['id'];
+    final toId =
+        transfer?['to_transaction_id'] ??
+        existingPayload?['to_transaction_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) > 0).firstOrNull?['id'];
+
+    final oldVersion =
+        transfer?['version'] ??
+        legs.firstOrNull?['version'] ??
+        '0';
+
+    atomic(() {
+      if (existingOutbox != null) {
+        if (existingOutbox['operation'] == 'CREATE') {
+          outbox.removeAt(outboxIndex);
+          _put('transfers', transferId, null);
+        } else {
+          outbox.removeAt(outboxIndex);
+          outbox.add({
+            'id': const Uuid().v4(),
+            'entity_type': 'transfers',
+            'entity_id': transferId,
+            'operation': 'DELETE',
+            'payload': {
+              'from_account_id': fromAccountId,
+              'to_account_id': toAccountId,
+            },
+            'client_version':
+                existingOutbox['client_version'] ?? oldVersion,
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+            'attempts': 0,
+            'status': 'pending',
+            'balance_delta': {fromAccountId: amount, toAccountId: -amount},
+            'before': transfer,
+          });
+          _put('transfers', transferId, null);
+        }
+      } else {
+        outbox.add({
+          'id': const Uuid().v4(),
+          'entity_type': 'transfers',
+          'entity_id': transferId,
+          'operation': 'DELETE',
+          'payload': {
+            'from_account_id': fromAccountId,
+            'to_account_id': toAccountId,
+          },
+          'client_version': oldVersion,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'attempts': 0,
+          'status': 'pending',
+          'balance_delta': {fromAccountId: amount, toAccountId: -amount},
+          'before': transfer,
+        });
+        _put('transfers', transferId, null);
+      }
+
+      if (fromId != null) _put('transactions', fromId as String, null);
+      if (toId != null) _put('transactions', toId as String, null);
+      for (final leg in legs) {
+        _put('transactions', leg['id'] as String, null);
+      }
+
+      for (final account in [from, to]) {
+        _put('accounts', account['id'] as String, {
+          ...account,
+          'balance': balances[account['id']],
+        });
+      }
+    });
+  }
+
+  void updateTransfer({
+    required String transferId,
+    required String fromAccountId,
+    required String toAccountId,
+    required int amount,
+    required DateTime date,
+    String? description,
+  }) {
+    const max = 9007199254740991;
+    final transfer = row('transfers', transferId);
+    final outboxIndex = outbox.indexWhere(
+      (e) => e['entity_type'] == 'transfers' && e['entity_id'] == transferId,
+    );
+    final existingOutbox =
+        outboxIndex != -1 ? (outbox[outboxIndex] as Map) : null;
+    final legs = rows(
+      'transactions',
+    ).where((r) => r['transfer_id'] == transferId).toList();
+    final existingPayload = existingOutbox?['payload'] as Map?;
+
+    final oldFromAccountId =
+        transfer?['from_account_id'] ??
+        existingPayload?['from_account_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) < 0).firstOrNull?['account_id'];
+    final oldToAccountId =
+        transfer?['to_account_id'] ??
+        existingPayload?['to_account_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) > 0).firstOrNull?['account_id'];
+
+    if (oldFromAccountId == null || oldToAccountId == null) {
+      throw const ApiFailure('Transfer tidak ditemukan.');
+    }
+
+    final rawOldAmount =
+        transfer?['amount'] ??
+        existingPayload?['amount'] ??
+        legs.firstOrNull?['amount'];
+    if (rawOldAmount == null) {
+      throw const ApiFailure('Data transfer tidak lengkap.');
+    }
+    final oldAmount = _parseRupiah(rawOldAmount).abs();
+
+    final from = row('accounts', fromAccountId);
+    final to = row('accounts', toAccountId);
+    final note = description?.trim();
+
+    if (isMappedObligationAccount(fromAccountId) ||
+        isMappedObligationAccount(toAccountId) ||
+        isMappedObligationAccount(oldFromAccountId) ||
+        isMappedObligationAccount(oldToAccountId)) {
+      throw const ApiFailure(
+        'Akun terikat pinjaman; gunakan modul Utang / Piutang.',
+      );
+    }
+
+    if (_tradeTouches('accounts', fromAccountId) ||
+        _tradeTouches('accounts', toAccountId) ||
+        _tradeTouches('accounts', oldFromAccountId) ||
+        _tradeTouches('accounts', oldToAccountId) ||
+        fromAccountId == toAccountId ||
+        from == null ||
+        to == null ||
+        amount <= 0 ||
+        amount > max ||
+        (note?.length ?? 0) > 5000) {
+      throw const ApiFailure('Pilih dua akun berbeda dan nominal yang valid.');
+    }
+
+    if (isCreditCard(fromAccountId)) {
+      throw const ApiFailure('Kartu kredit bukan sumber dana transfer.');
+    }
+
+    if (isCreditCard(toAccountId)) {
+      final sourceType = row('account_types', '${from['account_type_id']}');
+      if (from['user_id'] != userId ||
+          to['user_id'] != userId ||
+          sourceType?['category'] != 'CASH' ||
+          _sharedAccount(fromAccountId) ||
+          _sharedAccount(toAccountId) ||
+          rows('accounts').any(
+            (a) =>
+                a['parent_account_id'] == fromAccountId ||
+                a['parent_account_id'] == toAccountId,
+          )) {
+        throw const ApiFailure(
+          'Pilih sumber bank pribadi milik pemilik kartu.',
+        );
+      }
+    }
+
+    final affectedAccountIds = {
+      oldFromAccountId,
+      oldToAccountId,
+      fromAccountId,
+      toAccountId,
+    };
+    final affectedAccounts = <String, Map<String, dynamic>>{};
+    for (final accId in affectedAccountIds) {
+      final acc = row('accounts', accId);
+      if (acc == null ||
+          acc['deleted_at'] != null ||
+          acc['currency'] != 'IDR') {
+        throw const ApiFailure('Transfer membutuhkan akun IDR aktif.');
+      }
+      affectedAccounts[accId] = acc;
+    }
+
+    final deltas = <String, BigInt>{};
+    void addDelta(String accId, int delta) {
+      deltas[accId] = (deltas[accId] ?? BigInt.zero) + BigInt.from(delta);
+    }
+
+    // Revert old transfer balances
+    addDelta(oldFromAccountId, oldAmount);
+    addDelta(oldToAccountId, -oldAmount);
+    // Apply new transfer balances
+    addDelta(fromAccountId, -amount);
+    addDelta(toAccountId, amount);
+
+    final newBalances = <String, String>{};
+    for (final entry in deltas.entries) {
+      final accId = entry.key;
+      final delta = entry.value;
+      final acc = affectedAccounts[accId]!;
+      final text = '${acc['balance']}';
+      if (!RegExp(r'^-?\d+(?:\.00)?$').hasMatch(text)) {
+        throw const ApiFailure('Saldo pecahan Rupiah belum didukung.');
+      }
+      final newBal = BigInt.parse(text.split('.').first) + delta;
+      if (newBal.abs() > BigInt.from(max)) {
+        throw const ApiFailure('Saldo melampaui batas presisi aman.');
+      }
+      newBalances[accId] = '$newBal.00';
+    }
+
+    final fromId =
+        transfer?['from_transaction_id'] ??
+        existingPayload?['from_transaction_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) < 0).firstOrNull?['id'] ??
+        const Uuid().v4();
+    final toId =
+        transfer?['to_transaction_id'] ??
+        existingPayload?['to_transaction_id'] ??
+        legs.where((l) => _parseRupiah(l['amount']) > 0).firstOrNull?['id'] ??
+        const Uuid().v4();
+
+    final timestamp = DateTime.fromMillisecondsSinceEpoch(
+      date.millisecondsSinceEpoch,
+      isUtc: true,
+    ).toIso8601String();
+
+    final newPayload = <String, dynamic>{
+      'from_account_id': fromAccountId,
+      'to_account_id': toAccountId,
+      'from_transaction_id': fromId,
+      'to_transaction_id': toId,
+      'amount': '$amount.00',
+      'transacted_at': timestamp,
+      'description': note == null || note.isEmpty ? null : note,
+    };
+
+    final oldVersion =
+        transfer?['version'] ?? legs.firstOrNull?['version'] ?? '0';
+
+    atomic(() {
+      if (existingOutbox != null) {
+        if (existingOutbox['operation'] == 'CREATE') {
+          existingOutbox['payload'] = newPayload;
+          existingOutbox['status'] = 'pending';
+          existingOutbox['attempts'] = 0;
+          existingOutbox['error'] = null;
+        } else {
+          outbox.removeAt(outboxIndex);
+          outbox.add({
+            'id': const Uuid().v4(),
+            'entity_type': 'transfers',
+            'entity_id': transferId,
+            'operation': 'UPDATE',
+            'payload': newPayload,
+            'client_version':
+                existingOutbox['client_version'] ?? oldVersion,
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+            'attempts': 0,
+            'status': 'pending',
+            'balance_delta': deltas.map((k, v) => MapEntry(k, v.toInt())),
+            'before': transfer,
+          });
+        }
+      } else {
+        outbox.add({
+          'id': const Uuid().v4(),
+          'entity_type': 'transfers',
+          'entity_id': transferId,
+          'operation': 'UPDATE',
+          'payload': newPayload,
+          'client_version': oldVersion,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'attempts': 0,
+          'status': 'pending',
+          'balance_delta': deltas.map((k, v) => MapEntry(k, v.toInt())),
+          'before': transfer,
+        });
+      }
+
+      _put('transfers', transferId, {
+        ...?transfer,
+        ...newPayload,
+        'id': transferId,
+        'user_id': transfer?['user_id'] ?? userId,
+        'version': oldVersion,
+      });
+
+      final oldFromLeg =
+          legs.where((l) => _parseRupiah(l['amount']) < 0).firstOrNull;
+      final oldToLeg =
+          legs.where((l) => _parseRupiah(l['amount']) > 0).firstOrNull;
+
+      _put('transactions', fromId as String, {
+        'id': fromId,
+        'account_id': fromAccountId,
+        'amount': '-$amount.00',
+        'type': 'TRANSFER',
+        'category_id': null,
+        'transfer_id': transferId,
+        'transacted_at': timestamp,
+        'description': newPayload['description'],
+        'created_by': oldFromLeg?['created_by'] ?? userId,
+        'version': oldFromLeg?['version'] ?? '0',
+      });
+
+      _put('transactions', toId as String, {
+        'id': toId,
+        'account_id': toAccountId,
+        'amount': '$amount.00',
+        'type': 'TRANSFER',
+        'category_id': null,
+        'transfer_id': transferId,
+        'transacted_at': timestamp,
+        'description': newPayload['description'],
+        'created_by': oldToLeg?['created_by'] ?? userId,
+        'version': oldToLeg?['version'] ?? '0',
+      });
+
+      for (final entry in newBalances.entries) {
+        final acc = affectedAccounts[entry.key]!;
+        _put('accounts', entry.key, {
+          ...acc,
+          'balance': entry.value,
+        });
+      }
+    });
+  }
+
   bool _transferTouches(String accountId) => outbox.any(
     (item) =>
         item['entity_type'] == 'transfers' &&
+        item['payload'] is Map &&
         (item['payload']['from_account_id'] == accountId ||
             item['payload']['to_account_id'] == accountId),
   );
@@ -1431,6 +1832,7 @@ class FinanceRepository {
   bool _pendingLeg(String id) => outbox.any(
     (item) =>
         item['entity_type'] == 'transfers' &&
+        item['payload'] is Map &&
         (item['payload']['from_transaction_id'] == id ||
             item['payload']['to_transaction_id'] == id),
   );
@@ -1712,15 +2114,16 @@ class FinanceRepository {
               }
             }
             if (e['entity_type'] == 'transfers') {
-              final payload = e['payload'] as Map;
-              if (outbox.any(
-                (dependency) =>
-                    dependency['entity_type'] == 'accounts' &&
-                    [
-                      payload['from_account_id'],
-                      payload['to_account_id'],
-                    ].contains(dependency['entity_id']),
-              )) {
+              final payload = e['payload'] as Map?;
+              if (payload != null &&
+                  outbox.any(
+                    (dependency) =>
+                        dependency['entity_type'] == 'accounts' &&
+                        [
+                          payload['from_account_id'],
+                          payload['to_account_id'],
+                        ].contains(dependency['entity_id']),
+                  )) {
                 return false;
               }
             }
@@ -1833,12 +2236,16 @@ class FinanceRepository {
               // Pull pages may have advanced past deferred account events while
               // the command was unresolved. Replay the feed after acknowledgement.
               state['cursor'] = '0';
-              _put(
-                'transfers',
-                item['entity_id'] as String,
-                result['server_data'] ??
-                    row('transfers', item['entity_id'] as String),
-              );
+              if (item['operation'] == 'DELETE') {
+                _put('transfers', item['entity_id'] as String, null);
+              } else {
+                _put(
+                  'transfers',
+                  item['entity_id'] as String,
+                  result['server_data'] ??
+                      row('transfers', item['entity_id'] as String),
+                );
+              }
             }
             outbox.remove(item);
             final deferred = state['transfer_account_snapshots'] as Map?;

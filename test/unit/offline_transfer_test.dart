@@ -416,6 +416,107 @@ void main() {
           );
         },
       );
+
+      test(
+        'offline transfer delete removes outbox command, rows, and reverts balances',
+        () {
+          final transferId = create(amount: 25);
+          expect(repo.row('accounts', 'from')!['balance'], '75.00');
+          expect(repo.row('accounts', 'to')!['balance'], '45.00');
+          expect(repo.outbox, hasLength(1));
+          expect(repo.rows('transactions'), hasLength(2));
+
+          repo.deleteTransfer(transferId);
+
+          expect(repo.outbox, isEmpty);
+          expect(repo.rows('transactions'), isEmpty);
+          expect(repo.row('transfers', transferId), isNull);
+          expect(repo.row('accounts', 'from')!['balance'], '100.00');
+          expect(repo.row('accounts', 'to')!['balance'], '20.00');
+        },
+      );
+
+      test(
+        'offline transfer update modifies pending outbox command, rows, and adjusts balances',
+        () {
+          final transferId = create(amount: 25);
+          expect(repo.row('accounts', 'from')!['balance'], '75.00');
+          expect(repo.row('accounts', 'to')!['balance'], '45.00');
+
+          repo.updateTransfer(
+            transferId: transferId,
+            fromAccountId: 'from',
+            toAccountId: 'to',
+            amount: 40,
+            date: date,
+            description: 'Updated note',
+          );
+
+          expect(repo.outbox, hasLength(1));
+          final item = repo.outbox.single as Map;
+          expect(item['entity_type'], 'transfers');
+          expect(item['operation'], 'CREATE');
+          final payload = item['payload'] as Map;
+          expect(payload['amount'], '40.00');
+          expect(payload['description'], 'Updated note');
+
+          expect(repo.row('accounts', 'from')!['balance'], '60.00');
+          expect(repo.row('accounts', 'to')!['balance'], '60.00');
+
+          final legs = repo.rows('transactions');
+          expect(legs, hasLength(2));
+          expect(legs.map((r) => r['amount']), containsAll(['-40.00', '40.00']));
+          expect(legs.every((r) => r['description'] == 'Updated note'), isTrue);
+        },
+      );
+
+      test(
+        'synced transfer delete queues DELETE mutation and reverts balances',
+        () {
+          final transferId = create(amount: 25);
+          repo.outbox.clear(); // simulate synced state
+
+          repo.deleteTransfer(transferId);
+
+          expect(repo.outbox, hasLength(1));
+          final item = repo.outbox.single as Map;
+          expect(item['entity_type'], 'transfers');
+          expect(item['operation'], 'DELETE');
+          expect(item['entity_id'], transferId);
+
+          expect(repo.rows('transactions'), isEmpty);
+          expect(repo.row('transfers', transferId), isNull);
+          expect(repo.row('accounts', 'from')!['balance'], '100.00');
+          expect(repo.row('accounts', 'to')!['balance'], '20.00');
+        },
+      );
+
+      test(
+        'synced transfer update queues UPDATE mutation and adjusts balances',
+        () {
+          final transferId = create(amount: 25);
+          repo.outbox.clear(); // simulate synced state
+
+          repo.updateTransfer(
+            transferId: transferId,
+            fromAccountId: 'from',
+            toAccountId: 'to',
+            amount: 50,
+            date: date,
+            description: 'Synced edit',
+          );
+
+          expect(repo.outbox, hasLength(1));
+          final item = repo.outbox.single as Map;
+          expect(item['entity_type'], 'transfers');
+          expect(item['operation'], 'UPDATE');
+          expect(item['entity_id'], transferId);
+          expect((item['payload'] as Map)['amount'], '50.00');
+
+          expect(repo.row('accounts', 'from')!['balance'], '50.00');
+          expect(repo.row('accounts', 'to')!['balance'], '70.00');
+        },
+      );
     });
   }
 }

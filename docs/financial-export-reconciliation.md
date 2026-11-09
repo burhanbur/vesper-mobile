@@ -1,106 +1,83 @@
-# Financial export and reconciliation (WM-07)
+# Financial export and reconciliation
 
-Entry point: **Lainnya & Pengaturan → Ekspor & Rekonsiliasi**.
+Entry point: **Lainnya & Pengaturan -> Ekspor & Rekonsiliasi**.
 
-## Export contract
+## Export
 
-The export is a snapshot of the current user's local transaction ledger. The first
-complete transaction download must have finished, and export is disabled while
-sync is applying changes. It includes pending/rejected local entries, labelled
-with their outbox status. It is not a server-certified statement. Only undeleted
-accounts owned by the signed-in user are eligible, including hidden accounts;
-deleted accounts and other household members' accounts are excluded, even when
-household reports are accessible. No tokens, secrets, device identifiers, private
-obligation details, or household member profiles are exported.
+CSV export and clipboard copy have been removed. Export is generated locally
+without uploading financial data or depending on an API response. The first
+complete transaction snapshot is required and sync must not be applying changes.
+Only the signed-in user's active accounts, including hidden accounts, are
+exported. Other members' accounts, tombstones, credentials and device keys are
+excluded. Pending/rejected local ledger entries are included.
 
-Choose one currency and optionally one account. Start/end dates are inclusive
-calendar dates in the Settings timezone, translated to a half-open UTC interval [start midnight,
-midnight after end). Construct the next calendar midnight before converting,
-so device daylight-saving days need not be 24 hours. Changing the timezone
-clears a prepared export. CSV event timestamps remain UTC. Each transaction leg has its own row. Transfers and derived
-investment/obligation cash settlements remain ledger entries, not additional
-income/expense. Credit, debit, and net totals use exact integer cents and include
-these movements; they are not income/expense report totals. Opening balances are
-not transactions and are not included.
+### Excel (.xls)
 
-CSV is UTF-8 with BOM, comma separated, CRLF terminated. All fields are quoted;
-embedded quotes are doubled, and embedded newlines remain inside quoted fields.
-Text starting with spreadsheet formula characters (including after whitespace)
-is prefixed with an apostrophe. Monetary columns are validated decimal strings
-with two decimal places and no grouping separators; they are not rounded.
+Matches the supplied Money Manager Excel HTML format (not BIFF and not a renamed
+CSV). Eleven columns in order: Date, Account, Category, Subcategory, Note, IDR,
+Income/Expense, Description, Amount, Currency, Account. When exporting another
+currency, its code replaces the IDR heading; values remain in the original
+currency and no exchange rate is invented. Flat Vesper categories leave
+Subcategory empty. Transfer Category contains the other account; the final
+Account column contains the amount in account currency, as in the reference. Transaction descriptions are in Note; Description is empty.
 
-Columns, in order:
+Choose inclusive calendar dates, one currency, and optionally an account.
+Settings timezone determines the date range and the displayed calendar time;
+changing it clears the prepared workbook. Paired transfers appear once as
+Transfer-Out, like the example. A destination-only selection shows Transfer-In.
+Both legs still contribute to exact movement totals, which include transfers
+and settlements and are not income/expense reporting totals.
 
-| Column | Meaning |
-| --- | --- |
-| transaction_id | Ledger row UUID |
-| account_id, account_name | Owned account identity and current name |
-| currency | Selected currency |
-| type | Original ledger type |
-| amount | Original stored decimal amount (transfers may be signed) |
-| signed_amount | Cash direction: credit positive, debit negative |
-| transacted_at_utc | ISO 8601 UTC transaction timestamp |
-| category_name | Current owner category label, if available |
-| description | Transaction note, including reconciliation audit reference |
-| transfer_id | Optional transfer correlation UUID |
-| sync_status | Outbox status, pending, or synced |
-| version | Local/server row version |
-| scope | `owned_local_ledger` |
-| period_start_utc | Inclusive selected boundary |
-| period_end_exclusive_utc | Exclusive selected boundary |
-| exported_at_utc | Snapshot generation time |
+Cells are HTML escaped and text cells explicitly use Excel text formatting;
+formula-like text also receives a literal apostrophe. Values beyond Excel's
+15-digit precision are text so their decimal digits are retained. All financial
+calculations use integer minor units. Excel may warn that this HTML workbook's
+content differs from its .xls extension, as with the supplied example.
 
-Android saves through the system Create Document picker without storage
-permissions. The new native channel requires a full app restart/rebuild after
-updating; hot reload alone cannot register it. Web triggers a CSV download.
-Other native platforms write to the app documents directory and display its path.
-Copy CSV is also available on all platforms. The user explicitly chooses export
-or copy; no financial data is uploaded by this feature.
+### Money Manager Android (.mmbak)
 
-## Reconciliation
+A new plain SQLite database using the supplied backup's v19 schema, tables and
+indexes. The schema asset contains DDL only, never sample financial records.
+Includes all owned active accounts, categories (including historical labels),
+and all available transaction history, for the selected currency, regardless of Excel date/account filters. Credit cards use the Card group.
+Income/expense use DO_TYPE 0/1; transfer debit/credit use 3/4 with reciprocal
+transaction and account references. Derived cash settlements remain ledger
+entries. Opening entries are calculated as current leaf balance minus exported
+movements so a complete history reproduces the current balance. Parent account
+containers receive no artificial opening entries.
 
-Reconciliation compares the current local balance, including queued mutations,
-against a user-entered **current** statement balance. It does not calculate a
-historical closing balance and does not reuse the export period. Only owned,
-undeleted leaf CASH accounts in IDR without an active obligation mapping qualify.
-Amounts must be whole Rupiah within the existing safe integer presentation limit;
-negative statement balances are allowed, and fractional values are rejected.
+A separate VESPER_EXPORT table retains original account fields (including credit
+limits) and transaction payloads with local sync status. Money Manager does not
+understand Vesper investment positions, loan contracts or these extra fields.
+This is a Money Manager exchange export, not a complete Vesper disaster-recovery
+backup or a new Vesper restore feature. Actual restore in the Money Manager app
+still requires manual compatibility testing; SQLite integrity alone does not
+prove app-level restore support.
 
-A statement/reference reason is required. The preview shows recorded, statement,
-and difference values. Matching balances create no transaction. A nonzero
-difference requires a separate confirmation explaining that it becomes a new
-income/expense and affects reports. The user should record missing bank
-transactions first to avoid compensating for them twice.
+Money Manager's REAL amount column has less precision than Vesper's decimal
+strings. Unsupported large amounts are explicitly rejected with an Excel
+alternative. Each backup contains one selected currency because Vesper has no exchange-rate
+source. Export another .mmbak for each additional currency; no foreign amounts
+are silently converted.
 
-Confirmation checks session ownership and re-reads the eligible account and
-balance. A changed balance invalidates the preview. Existing adjustment guards
-reject syncing and unresolved command conflicts. The existing atomic local
-adjustment saves a categorized INCOME/EXPENSE transaction, balance delta, and sync
-queue together. The description embeds JSON with schema, original balance,
-statement balance, difference, currency, reference, and comparison timestamp.
-The ledger UUID identifies the adjustment; it is exported with the note and
-sync status. No prior transaction or opening balance is rewritten. Existing
-transaction correction and sync conflict flows apply. References belong in the
-note, never in a secret field.
+Both native and browser exports construct the database in an isolated in-memory
+filesystem, never by copying the live encrypted Vesper store. Native uses the
+existing sqlite3 dependency. The browser uses its matching 3.7.0 WASM binary,
+bundled from the official sqlite3.dart release, without a runtime CDN request:
+https://github.com/simolus3/sqlite3.dart/releases/tag/sqlite3-3.7.0
+License: assets/licenses/sqlite3-wasm-LICENSE.txt (SQLite itself is public domain).
 
-No new backend API, dependency, or database migration is needed: existing
-transaction authorization, versioning, idempotency, and sync handle adjustments.
+Android uses the system Create Document picker and a binary saveFile channel.
+Cancellation returns without writing. Other native platforms save into app
+documents; browsers download a local Blob. Native changes require a full rebuild.
 
-## Delivery validation
+${reconciliation}
+## Validation
 
-Initial delivery waived automated validation at the user's request. The user
-subsequently requested WM-07 testing on 2026-10-20.
-
-`test/unit/financial_export_test.dart` covers both snapshot and encrypted indexed
-SQLite stores: exact decimal totals, account/currency/owner exclusions, BOM and
-CSV quoting, spreadsheet formula escaping, UTC half-open boundaries, tombstones,
-pagination past 100 rows, pending/rejected/command statuses, empty/incomplete
-snapshots, durable audited adjustments, unchanged/negative balances, precision
-and reference validation, ineligible accounts, stale previews and session changes.
-
-`test/widget/financial_export_page_test.dart` covers preparing/copying CSV,
-invalid statement input, cancelling and confirming an adjustment, and switching
-sessions. Existing balance-adjustment tests cover transaction payloads, replay,
-conflicts and atomic rollback. Validation results are recorded in the roadmap
-delivery log. Building Android checks the new Kotlin channel; the system document
-picker still requires a manual device check.
+Unit coverage includes ownership, exact decimals, filtering and pagination,
+worksheet layout, literal/escaped cells, transfer pairing, SQLite integrity,
+v19 tables, card identity, opening balances and precision/rate failures.
+Browser coverage generates and reopens an actual WASM SQLite database.
+Widget coverage checks binary Excel delivery, no CSV actions, reconciliation,
+and session isolation. The Android document picker and actual Money Manager
+restore require a manual device check.

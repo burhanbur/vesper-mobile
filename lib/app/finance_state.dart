@@ -1034,6 +1034,47 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             )
             .firstOrNull;
         final amount = rupiah(r['amount']);
+        String? toAccountId;
+        if (r['type'] == 'TRANSFER' || r['transfer_id'] != null) {
+          final transferId = r['transfer_id'] as String?;
+          if (transferId != null) {
+            final tRow = _repo.row('transfers', transferId);
+            final pendingTransfer = _repo.outbox
+                .where(
+                  (e) =>
+                      e['entity_type'] == 'transfers' &&
+                      e['entity_id'] == transferId,
+                )
+                .firstOrNull;
+            final payload = pendingTransfer?['payload'] as Map?;
+            final fromAcc =
+                tRow?['from_account_id'] ?? payload?['from_account_id'];
+            final toAcc =
+                tRow?['to_account_id'] ?? payload?['to_account_id'];
+            if (fromAcc != null && toAcc != null) {
+              toAccountId = r['account_id'] == fromAcc ? toAcc : fromAcc;
+            } else {
+              final pair = records
+                  .where(
+                    (other) =>
+                        other['id'] != r['id'] &&
+                        other['transfer_id'] == transferId,
+                  )
+                  .firstOrNull ??
+                  _repo
+                      .rows('transactions')
+                      .where(
+                        (other) =>
+                            other['id'] != r['id'] &&
+                            other['transfer_id'] == transferId,
+                      )
+                      .firstOrNull;
+              if (pair != null) {
+                toAccountId = pair['account_id'] as String?;
+              }
+            }
+          }
+        }
         return TransactionItem(
           id: r['id'],
           type: switch (r['type']) {
@@ -1046,6 +1087,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           amount: amount.abs(),
           ledgerAmount: amount,
           accountId: r['account_id'],
+          toAccountId: toAccountId,
           categoryId: r['category_id'] as String?,
           categoryName:
               categories
@@ -1250,6 +1292,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (existingRow['transfer_id'] != null ||
         existingRow['type'] == 'TRANSFER') {
+      final transferId = existingRow['transfer_id'] as String?;
+      if (transferId != null) {
+        return deleteTransfer(transferId);
+      }
       throw const ApiFailure(
         'Transaksi transfer tidak dapat dihapus langsung.',
       );
@@ -1270,6 +1316,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     );
     _changed();
     return true;
+  }
+
+  bool deleteTransfer(String transferId) {
+    _repo.deleteTransfer(transferId);
+    _changed();
+    return true;
+  }
+
+  void updateTransfer({
+    required String transferId,
+    required String fromAccountId,
+    required String toAccountId,
+    required int amount,
+    required DateTime date,
+    String? note,
+  }) {
+    _repo.updateTransfer(
+      transferId: transferId,
+      fromAccountId: fromAccountId,
+      toAccountId: toAccountId,
+      amount: amount,
+      date: date,
+      description: note,
+    );
+    _changed();
   }
 
   /// Returns false for an unchanged local balance; never sends a balance update.
@@ -2191,6 +2262,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         deleteTransaction(entry.entityId);
         return;
       }
+    }
+    if (entry.entityType == 'transfers' && entry.entityId.isNotEmpty) {
+      deleteTransfer(entry.entityId);
+      return;
     }
     repo.atomic(() {
       final item = repo.outbox.firstWhere(
