@@ -51,6 +51,50 @@ class _BillsPageState extends State<BillsPage> {
     super.dispose();
   }
 
+  Future<bool> confirmAndDeleteSchedule(
+    Map<String, dynamic> bill, {
+    BuildContext? sheetContext,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        title: const Text('Hapus Jadwal Tagihan?'),
+        content: Text(
+          'Jadwal "${bill['title']}" akan dihapus. Riwayat transaksi yang sudah dicatat sebelumnya tidak akan terhapus.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.expense,
+            ),
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      final active = controller!, repo = active.repository;
+      final ok = active.save(() => repo.deleteSchedule(bill['id'] as String));
+      if (ok) {
+        if (sheetContext != null && sheetContext.mounted) {
+          Navigator.pop(sheetContext);
+        }
+        if (mounted) {
+          setState(() {
+            message = 'Jadwal tagihan berhasil dihapus.';
+          });
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   Future<void> schedule({Map<String, dynamic>? bill}) async {
     final active = controller!, repo = active.repository;
     final title = TextEditingController(text: bill?['title'] as String?);
@@ -127,6 +171,19 @@ class _BillsPageState extends State<BillsPage> {
                               ),
                             ),
                             const Spacer(),
+                            if (bill != null)
+                              IconButton(
+                                tooltip: 'Hapus jadwal',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.expense,
+                                  size: 22,
+                                ),
+                                onPressed: () => confirmAndDeleteSchedule(
+                                  bill,
+                                  sheetContext: ctx,
+                                ),
+                              ),
                             IconButton(
                               icon: const Icon(Icons.close, size: 20),
                               onPressed: () => Navigator.pop(ctx),
@@ -605,6 +662,35 @@ class _BillsPageState extends State<BillsPage> {
                                   height: 1.35,
                                 ),
                               ),
+                              if (bill != null) ...[
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.expense,
+                                      side: const BorderSide(
+                                        color: AppColors.expense,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Hapus jadwal ini'),
+                                    onPressed: () => confirmAndDeleteSchedule(
+                                      bill,
+                                      sheetContext: ctx,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               if (error != null)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8),
@@ -1670,6 +1756,22 @@ class _BillsPageState extends State<BillsPage> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: 'Kelola jadwal',
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 28,
+                          minHeight: 28,
+                        ),
+                        onPressed: () => schedule(bill: o.bill),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1912,6 +2014,17 @@ class _BillsPageState extends State<BillsPage> {
                     ),
                     onPressed: () => schedule(bill: bill),
                     child: const Text('Ubah / arsip'),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: 'Hapus jadwal',
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.expense,
+                      size: 20,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => confirmAndDeleteSchedule(bill),
                   ),
                 ],
               ),

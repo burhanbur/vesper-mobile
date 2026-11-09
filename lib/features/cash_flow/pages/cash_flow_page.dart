@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
@@ -594,6 +595,8 @@ class _CashFlowPageState extends State<CashFlowPage>
         if (result != null) ...[
           _buildHeroForecastCard(result, money, state),
           const SizedBox(height: 14),
+          _buildTrajectoryChart(result, money, state),
+          const SizedBox(height: 14),
         ],
         _buildScenarioHeader(context, config),
         if (result != null && result.warnings.isNotEmpty) ...[
@@ -1038,52 +1041,93 @@ class _CashFlowPageState extends State<CashFlowPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'PROYEKSI SALDO AKHIR',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: AppColors.textMuted,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PROYEKSI SALDO AKHIR',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Proyeksi penutup: ${money(r.closing)}',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                color: r.closing < BigInt.zero
+                                    ? AppColors.expense
+                                    : AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         color: r.minimum < BigInt.zero
                             ? AppColors.expenseLight
                             : AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: r.minimum < BigInt.zero
                               ? AppColors.expense.withValues(alpha: 0.25)
                               : AppColors.border,
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Icon(
-                            Icons.south_rounded,
-                            size: 11,
-                            color: r.minimum < BigInt.zero
-                                ? AppColors.expense
-                                : AppColors.textSecondary,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.south_rounded,
+                                size: 11,
+                                color: r.minimum < BigInt.zero
+                                    ? AppColors.expense
+                                    : AppColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Titik Terendah',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Titik terendah: ${money(r.minimum)}',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: r.minimum < BigInt.zero
-                                  ? AppColors.expense
-                                  : AppColors.textPrimary,
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Titik terendah: ${money(r.minimum)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: r.minimum < BigInt.zero
+                                    ? AppColors.expense
+                                    : AppColors.textPrimary,
+                              ),
                             ),
                           ),
                         ],
@@ -1092,18 +1136,6 @@ class _CashFlowPageState extends State<CashFlowPage>
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Proyeksi penutup: ${money(r.closing)}',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                    color: r.closing < BigInt.zero
-                        ? AppColors.expense
-                        : AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 4),
                 Row(
                   children: [
                     const Icon(
@@ -1121,7 +1153,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // Core Metrics Structured Card
                 Container(
@@ -1168,125 +1200,179 @@ class _CashFlowPageState extends State<CashFlowPage>
                 ),
                 const SizedBox(height: 12),
 
-                // Inflow vs Outflow Mini-Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.border.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
+                // Inflow, Outflow, and Net 3-Tile Row with FittedBox
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.income.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.income.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: AppColors.incomeLight,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_downward_rounded,
-                                size: 12,
-                                color: AppColors.income,
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(
-                                'Masuk: ${money(totalInflow)}',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.arrow_downward_rounded,
+                                  size: 12,
                                   color: AppColors.income,
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                                SizedBox(width: 4),
+                                Text(
+                                  'Masuk',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.income,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(totalInflow),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.income,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Container(height: 18, width: 1, color: AppColors.border),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Row(
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.expense.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.expense.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: AppColors.expenseLight,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_upward_rounded,
-                                size: 12,
-                                color: AppColors.expense,
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(
-                                'Keluar: ${money(totalOutflow)}',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.arrow_upward_rounded,
+                                  size: 12,
                                   color: AppColors.expense,
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                                SizedBox(width: 4),
+                                Text(
+                                  'Keluar',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.expense,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(totalOutflow),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.expense,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Container(height: 18, width: 1, color: AppColors.border),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: netFlow >= BigInt.zero
-                                    ? AppColors.incomeLight
-                                    : AppColors.expenseLight,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Icon(
-                                netFlow >= BigInt.zero
-                                    ? Icons.trending_up_rounded
-                                    : Icons.trending_down_rounded,
-                                size: 12,
-                                color: netFlow >= BigInt.zero
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (netFlow >= BigInt.zero
+                                  ? AppColors.income
+                                  : AppColors.expense)
+                              .withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (netFlow >= BigInt.zero
                                     ? AppColors.income
-                                    : AppColors.expense,
-                              ),
+                                    : AppColors.expense)
+                                .withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  netFlow >= BigInt.zero
+                                      ? Icons.trending_up_rounded
+                                      : Icons.trending_down_rounded,
+                                  size: 12,
+                                  color: netFlow >= BigInt.zero
+                                      ? AppColors.income
+                                      : AppColors.expense,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Net',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: netFlow >= BigInt.zero
+                                        ? AppColors.income
+                                        : AppColors.expense,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 7),
-                            Expanded(
+                            const SizedBox(height: 3),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
                               child: Text(
-                                'Net: ${money(netFlow)}',
+                                money(netFlow),
                                 style: TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: netFlow >= BigInt.zero
                                       ? AppColors.income
                                       : AppColors.expense,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -1327,6 +1413,239 @@ class _CashFlowPageState extends State<CashFlowPage>
                   ],
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrajectoryChart(
+    CashFlowForecast r,
+    String Function(BigInt) money,
+    AppState state,
+  ) {
+    if (state.isBalanceHidden) {
+      return Container(
+        height: 150,
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.visibility_off_outlined, size: 28, color: AppColors.textMuted),
+            SizedBox(height: 8),
+            Text(
+              'Grafik Saldo Disembunyikan',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Ketuk ikon mata untuk melihat kurva tren',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (r.days.isEmpty) return const SizedBox.shrink();
+
+    final spots = <FlSpot>[];
+    for (var i = 0; i < r.days.length; i++) {
+      spots.add(FlSpot(i.toDouble(), r.days[i].closing.toDouble() / 100.0));
+    }
+
+    double minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
+    double maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+    if (minY == maxY) {
+      minY -= 1000;
+      maxY += 1000;
+    }
+    final yRange = maxY - minY;
+    final chartMinY = minY - (yRange * 0.15);
+    final chartMaxY = maxY + (yRange * 0.15);
+    final isDeficit = r.closing < BigInt.zero;
+    final lineColor = isDeficit ? AppColors.expense : AppColors.primary;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.015),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: lineColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.show_chart_rounded, size: 16, color: lineColor),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Tren Proyeksi Saldo',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${r.days.length} Hari',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 150,
+            child: LineChart(
+              LineChartData(
+                minY: chartMinY,
+                maxY: chartMaxY,
+                minX: 0,
+                maxX: (r.days.length - 1).toDouble().clamp(1, double.infinity),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: AppColors.border.withValues(alpha: 0.5),
+                    strokeWidth: 1,
+                    dashArray: [4, 4],
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      interval: (r.days.length / 3).clamp(1, double.infinity),
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= r.days.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final date = r.days[idx].date;
+                        final label = date.length >= 10 ? date.substring(5) : date;
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.primaryDark,
+                    tooltipRoundedRadius: 8,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        final idx = spot.x.toInt().clamp(0, r.days.length - 1);
+                        final day = r.days[idx];
+                        return LineTooltipItem(
+                          '${day.date}\n${money(day.closing)}',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+                extraLinesData: chartMinY < 0 && chartMaxY > 0
+                    ? ExtraLinesData(
+                        horizontalLines: [
+                          HorizontalLine(
+                            y: 0,
+                            color: AppColors.expense.withValues(alpha: 0.5),
+                            strokeWidth: 1.2,
+                            dashArray: [4, 4],
+                          ),
+                        ],
+                      )
+                    : null,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.25,
+                    color: lineColor,
+                    barWidth: 2.5,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: r.days.length <= 14,
+                      getDotPainter: (spot, percent, bar, index) =>
+                          FlDotCirclePainter(
+                        radius: 3,
+                        color: lineColor,
+                        strokeWidth: 1.5,
+                        strokeColor: Colors.white,
+                      ),
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          lineColor.withValues(alpha: 0.2),
+                          lineColor.withValues(alpha: 0.0),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1401,14 +1720,14 @@ class _CashFlowPageState extends State<CashFlowPage>
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         for (final a in r.accounts)
           Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
               boxShadow: [
                 BoxShadow(
@@ -1424,14 +1743,14 @@ class _CashFlowPageState extends State<CashFlowPage>
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(7),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
                         Icons.account_balance_rounded,
-                        size: 16,
+                        size: 18,
                         color: AppColors.primary,
                       ),
                     ),
@@ -1441,7 +1760,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                         a.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 15,
                           color: AppColors.textPrimary,
                         ),
                       ),
@@ -1449,7 +1768,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 3,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: a.firstShortfall == null
@@ -1462,7 +1781,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                             ? 'Aman'
                             : 'Defisit Terdeteksi',
                         style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: a.firstShortfall == null
                               ? AppColors.income
@@ -1472,40 +1791,139 @@ class _CashFlowPageState extends State<CashFlowPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  'Aktual: ${money(a.actual)}; tersedia: ${money(a.available)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Saldo Aktual',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(a.actual),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Tersedia: ${money(a.available)}',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(width: 1, height: 36, color: AppColors.border),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Proyeksi Penutup',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(a.days.last.closing),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: a.days.last.closing < BigInt.zero
+                                      ? AppColors.expense
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Min: ${money(a.days.map((d) => d.low).reduce((x, y) => x < y ? x : y))}',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Penutup: ${money(a.days.last.closing)}',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                    color: a.days.last.closing < BigInt.zero
-                        ? AppColors.expense
-                        : AppColors.textPrimary,
+                if (a.firstShortfall != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningLight.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.warning.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 16,
+                          color: AppColors.warning,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Potensi kekurangan ${a.firstShortfall!.date}: ${money(a.firstShortfall!.low)}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.warning,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  a.firstShortfall == null
-                      ? 'Tidak ada kekurangan pada skenario akun ini.'
-                      : 'Potensi kekurangan ${a.firstShortfall!.date}: ${money(a.firstShortfall!.low)}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: a.firstShortfall == null
-                        ? FontWeight.normal
-                        : FontWeight.w600,
-                    color: a.firstShortfall == null
-                        ? AppColors.textMuted
-                        : AppColors.warning,
+                ] else ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Tidak ada kekurangan pada skenario akun ini.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1578,13 +1996,13 @@ class _CashFlowPageState extends State<CashFlowPage>
         const SizedBox(height: 12),
         for (final d in r.days)
           Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: d.low < BigInt.zero
                   ? AppColors.expense.withValues(alpha: 0.04)
                   : Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: d.low < BigInt.zero
                     ? AppColors.expense.withValues(alpha: 0.3)
@@ -1612,87 +2030,210 @@ class _CashFlowPageState extends State<CashFlowPage>
                         color: AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        d.date,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 11,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            d.date,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const Spacer(),
-                    if (d.inflow > BigInt.zero) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.income.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '+${money(d.inflow)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.income,
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        if (d.inflow > BigInt.zero)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.income.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '+${money(d.inflow)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.income,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    if (d.outflow > BigInt.zero) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.expense.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '-${money(d.outflow)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.expense,
+                        if (d.outflow > BigInt.zero)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.expense.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '-${money(d.outflow)}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.expense,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Pembuka ${money(d.opening)}\nMasuk ${money(d.inflow)} • keluar ${money(d.outflow)}\nMinimum ${money(d.low)} • penutup ${money(d.closing)}',
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.textSecondary,
-                    height: 1.35,
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Pembuka',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(d.opening),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(width: 1, height: 24, color: AppColors.border),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Penutup',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(d.closing),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: d.closing < BigInt.zero
+                                      ? AppColors.expense
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(width: 1, height: 24, color: AppColors.border),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Titik Terendah',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                money(d.low),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: d.low < BigInt.zero
+                                      ? AppColors.expense
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (d.low < BigInt.zero) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
+                      horizontal: 10,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.expense.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'Potensi defisit harian: titik terendah ${money(d.low)}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.expense,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.expense.withValues(alpha: 0.25),
                       ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 14,
+                          color: AppColors.expense,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Potensi defisit harian: titik terendah ${money(d.low)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.expense,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1784,11 +2325,11 @@ class _CashFlowPageState extends State<CashFlowPage>
           ),
         for (final e in r.entries)
           Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.border),
               boxShadow: [
                 BoxShadow(
@@ -1798,49 +2339,117 @@ class _CashFlowPageState extends State<CashFlowPage>
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: e.income
-                        ? AppColors.income.withValues(alpha: 0.1)
-                        : AppColors.expense.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    e.income
-                        ? Icons.arrow_downward_rounded
-                        : Icons.arrow_upward_rounded,
-                    size: 16,
-                    color: e.income ? AppColors.income : AppColors.expense,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${e.title} • ${e.income ? 'masuk' : 'keluar'} ${money(e.amount)}',
-                        style: const TextStyle(
-                          fontSize: 12.5,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: e.income
+                            ? AppColors.income.withValues(alpha: 0.1)
+                            : AppColors.expense.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        e.income
+                            ? Icons.arrow_downward_rounded
+                            : Icons.arrow_upward_rounded,
+                        size: 16,
+                        color: e.income ? AppColors.income : AppColors.expense,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            e.title,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            e.source,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: e.income
+                            ? AppColors.income.withValues(alpha: 0.08)
+                            : AppColors.expense.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${e.income ? '+' : '-'}${money(e.amount)}',
+                        style: TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: e.income ? AppColors.income : AppColors.expense,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${e.date} • jatuh tempo ${e.dueDate}\n${e.source}${e.assumption ? ' • ASUMSI' : ''}${e.overdue ? ' • TUNGGAKAN' : ''}\nAkun: ${r.accounts.firstWhere((a) => a.id == e.accountId, orElse: () => ForecastAccount(e.accountId, 'Akun', BigInt.zero, BigInt.zero, const [])).name}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                          height: 1.3,
-                        ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _buildParamChip(
+                      Icons.event_rounded,
+                      'Jatuh tempo: ${e.dueDate}',
+                    ),
+                    if (e.date != e.dueDate)
+                      _buildParamChip(
+                        Icons.schedule_rounded,
+                        'Rencana: ${e.date}',
                       ),
-                    ],
-                  ),
+                    if (e.assumption)
+                      _buildParamChip(
+                        Icons.lightbulb_outline_rounded,
+                        'ASUMSI',
+                        accentColor: AppColors.warning,
+                      ),
+                    if (e.overdue)
+                      _buildParamChip(
+                        Icons.priority_high_rounded,
+                        'TUNGGAKAN',
+                        accentColor: AppColors.expense,
+                      ),
+                    _buildParamChip(
+                      Icons.account_balance_wallet_outlined,
+                      r.accounts
+                          .firstWhere(
+                            (a) => a.id == e.accountId,
+                            orElse: () => ForecastAccount(
+                              e.accountId,
+                              'Akun',
+                              BigInt.zero,
+                              BigInt.zero,
+                              const [],
+                            ),
+                          )
+                          .name,
+                    ),
+                  ],
                 ),
               ],
             ),

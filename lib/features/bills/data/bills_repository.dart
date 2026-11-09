@@ -406,6 +406,16 @@ class BillsRepository {
     );
   }
 
+  void deleteSchedule(String id) {
+    if (source.isSyncing) {
+      throw const ApiFailure('Tunggu sinkronisasi selesai.');
+    }
+    if (!schedules.any((b) => b['id'] == id)) {
+      throw const ApiFailure('Jadwal tidak tersedia.');
+    }
+    source.mutate('bill_schedules', 'DELETE', null, id: id);
+  }
+
   List<Map<String, dynamic>> linkable(BillDueItem o) {
     if (o.bill['obligation_id'] != null) {
       return source.rows('obligation_events').where((e) {

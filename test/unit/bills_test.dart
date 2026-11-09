@@ -376,6 +376,21 @@ void main() {
         expect(jsonEncode(s.state), before);
         expect(jsonEncode(store.read()), before);
       });
+      test('deleteSchedule deletes local schedule and queues mutation', () {
+        expect(repo.schedules.any((b) => b['id'] == billId), isTrue);
+        repo.deleteSchedule(billId);
+        expect(repo.schedules.any((b) => b['id'] == billId), isFalse);
+        expect(
+          s.outbox.any(
+            (e) =>
+                e['entity_type'] == 'bill_schedules' &&
+                e['entity_id'] == billId &&
+                e['operation'] == 'DELETE',
+          ),
+          isTrue,
+        );
+        expect(() => repo.deleteSchedule(billId), throwsA(isA<ApiFailure>()));
+      });
     });
   }
 }

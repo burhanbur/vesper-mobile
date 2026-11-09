@@ -133,4 +133,89 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'delete schedule requires confirmation and deletes schedule locally',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final source = FinanceRepository(ApiClient(), store, 'owner')
+        ..offline = true;
+      seedBills(source);
+      final state = AppState(repository: source)..currentUserId = 'owner';
+      state.toggleOfflineMode();
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: BillsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Open schedule modal via 'Kelola jadwal' on the occurrence card
+      final manageButton = find.byTooltip('Kelola jadwal').first;
+      expect(manageButton, findsOneWidget);
+      await tester.tap(manageButton);
+      await tester.pumpAndSettle();
+
+      // Inside the schedule modal, delete action exists
+      expect(find.text('Ubah pengingat / arsip'), findsOneWidget);
+      final deleteInHeader = find.byTooltip('Hapus jadwal');
+      expect(deleteInHeader, findsOneWidget);
+
+      // Tap delete in header
+      await tester.tap(deleteInHeader);
+      await tester.pumpAndSettle();
+
+      // Confirmation dialog should appear
+      expect(find.text('Hapus Jadwal Tagihan?'), findsOneWidget);
+
+      // Cancel deletion
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Batal'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        source.rows('bill_schedules').where((b) => b['id'] == billId),
+        isNotEmpty,
+      );
+
+      // Tap delete again and confirm
+      await tester.tap(deleteInHeader);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Hapus'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        source
+            .rows('bill_schedules')
+            .where((b) => b['id'] == billId && b['deleted_at'] == null),
+        isEmpty,
+      );
+      expect(
+        source.outbox.any(
+          (e) =>
+              e['entity_type'] == 'bill_schedules' &&
+              e['entity_id'] == billId &&
+              e['operation'] == 'DELETE',
+        ),
+        isTrue,
+      );
+      expect(find.text('Jadwal tagihan berhasil dihapus.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }
