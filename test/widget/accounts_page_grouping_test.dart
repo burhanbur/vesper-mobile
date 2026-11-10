@@ -361,4 +361,28 @@ void main() {
       expect(find.text('Bebas Hutang'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'Add account modal allows selecting parent account to create child pocket',
+    (tester) async {
+      await _pumpPage(tester);
+
+      // Open add account modal
+      final addAccountButton = find.byIcon(Icons.add_circle_outline_rounded).first;
+      await tester.tap(addAccountButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tambah Akun / Rekening Baru'), findsOneWidget);
+      // Verify parent selector is visible
+      expect(find.text('Jadikan Kantong (Child Pocket)?'), findsOneWidget);
+      expect(find.text('Bukan Kantong (Akun Utama Terpisah)'), findsWidgets);
+
+      // Tap on another chip, e.g., 'E-wallet'
+      await tester.tap(find.text('E-wallet'));
+      await tester.pumpAndSettle();
+
+      // Parent selector must remain visible even after choosing a different cash/wallet chip
+      expect(find.text('Jadikan Kantong (Child Pocket)?'), findsOneWidget);
+    },
+  );
 }

@@ -914,6 +914,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       },
       local: {'balance': '0.00'},
     );
+    if (parentAccountId != null) {
+      final parent = getAccountById(parentAccountId);
+      if (parent != null && parent.isIncludeTotal) {
+        _repo.mutate('accounts', 'UPDATE', {
+          'is_include_total': false,
+        }, id: parentAccountId);
+      }
+    }
     _changed();
   }
 

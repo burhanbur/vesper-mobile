@@ -60,13 +60,10 @@ class _AccountsPageState extends State<AccountsPage> {
     final balanceController = TextEditingController();
     final limitController = TextEditingController();
     bool isCreditCard = false;
-    AccountType selectedType = AccountType.bank;
     bool isShared = false;
     String? selectedParentId;
 
     final state = AppStateScope.of(context);
-    String? selectedAccountTypeId =
-        state.accountTypes.firstOrNull?['id'] as String?;
     final newAccountTypes = state.accountTypes
         .where(
           (type) => !RegExp(
@@ -75,7 +72,32 @@ class _AccountsPageState extends State<AccountsPage> {
           ).hasMatch(type['name'].toString()),
         )
         .toList();
-    selectedAccountTypeId = newAccountTypes.firstOrNull?['id'] as String?;
+
+    AccountType resolveType(Map<String, dynamic>? def) {
+      if (def == null) return AccountType.bank;
+      if (def['category'] == 'INVESTMENT') return AccountType.investment;
+      if (def['category'] == 'LIABILITY') return AccountType.creditCard;
+      final name = (def['name'] as String? ?? '')
+          .toLowerCase()
+          .replaceAll(RegExp(r'[\s_-]'), '');
+      if (name.contains('bank')) return AccountType.bank;
+      if (name.contains('wallet') || name.contains('dompet')) {
+        return AccountType.wallet;
+      }
+      if (name.contains('kredit') ||
+          name.contains('credit') ||
+          name.contains('paylater') ||
+          name.contains('hutang') ||
+          name.contains('loan')) {
+        return AccountType.creditCard;
+      }
+      return AccountType.cash;
+    }
+
+    final initialTypeDef = newAccountTypes.firstOrNull;
+    String? selectedAccountTypeId = initialTypeDef?['id'] as String?;
+    AccountType selectedType = resolveType(initialTypeDef);
+
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     String selectedHouseholdId =
         validHouseholdIds.contains(state.activeHouseholdId)
@@ -86,7 +108,11 @@ class _AccountsPageState extends State<AccountsPage> {
           (a) =>
               !a.isCreditCard &&
               a.parentAccountId == null &&
-              a.type == AccountType.bank,
+              !a.isLegacyLoan &&
+              a.type != AccountType.investment &&
+              (a.ownerUserId.isEmpty ||
+                  state.currentUserId.isEmpty ||
+                  a.ownerUserId == state.currentUserId),
         )
         .toList();
 
@@ -175,9 +201,10 @@ class _AccountsPageState extends State<AccountsPage> {
                             if (val) {
                               setModalState(() {
                                 selectedAccountTypeId = def['id'] as String;
-                                selectedType = def['category'] == 'INVESTMENT'
-                                    ? AccountType.investment
-                                    : AccountType.cash;
+                                selectedType = resolveType(def);
+                                if (selectedType == AccountType.investment) {
+                                  selectedParentId = null;
+                                }
                               });
                             }
                           },
@@ -204,9 +231,14 @@ class _AccountsPageState extends State<AccountsPage> {
                         selectedParentId = null;
                         balanceController.clear();
                       } else {
-                        selectedAccountTypeId =
-                            newAccountTypes.firstOrNull?['id'] as String?;
-                        selectedType = AccountType.bank;
+                        final curDef = newAccountTypes.firstWhere(
+                          (t) => t['id'] == selectedAccountTypeId,
+                          orElse: () => newAccountTypes.isNotEmpty
+                              ? newAccountTypes.first
+                              : <String, dynamic>{},
+                        );
+                        selectedAccountTypeId = curDef['id'] as String?;
+                        selectedType = resolveType(curDef);
                       }
                     }),
                   ),
@@ -296,8 +328,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   ],
                   // Nested Pocket Option
                   if (!isCreditCard &&
-                      selectedType == AccountType.bank &&
-                      parentCandidates.isNotEmpty) ...[
+                      selectedType != AccountType.investment) ...[
                     const Text(
                       'Jadikan Kantong (Child Pocket)?',
                       style: TextStyle(
@@ -307,41 +338,75 @@ class _AccountsPageState extends State<AccountsPage> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          value: selectedParentId,
-                          isExpanded: true,
-                          hint: const Text(
-                            'Bukan Kantong (Akun Utama Terpisah)',
-                          ),
-                          items: [
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text(
-                                'Bukan Kantong (Akun Utama Terpisah)',
-                              ),
+                    if (parentCandidates.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: selectedParentId,
+                            isExpanded: true,
+                            hint: const Text(
+                              'Bukan Kantong (Akun Utama Terpisah)',
                             ),
-                            ...parentCandidates.map(
-                              (p) => DropdownMenuItem<String?>(
-                                value: p.id,
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
                                 child: Text(
-                                  'Di bawah ${p.name} (${p.institution})',
+                                  'Bukan Kantong (Akun Utama Terpisah)',
+                                ),
+                              ),
+                              ...parentCandidates.map(
+                                (p) => DropdownMenuItem<String?>(
+                                  value: p.id,
+                                  child: Text(
+                                    'Di bawah ${p.name} (${p.institution})',
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              setModalState(() => selectedParentId = val);
+                            },
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 16,
+                              color: AppColors.textMuted,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Belum ada akun utama yang dapat dijadikan induk kantong.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                             ),
                           ],
-                          onChanged: (val) {
-                            setModalState(() => selectedParentId = val);
-                          },
                         ),
                       ),
-                    ),
                     const SizedBox(height: 16),
                   ],
                   // Shared with group toggle
