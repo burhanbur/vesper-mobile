@@ -2190,7 +2190,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   String get syncFeedbackMessage {
     if (dataError != null) {
-      return 'Data belum berhasil dimuat. Coba lagi nanti.';
+      return 'Gagal memuat: $dataError';
     }
     final status = syncStatus;
     if (status.reviewCount > 0) {

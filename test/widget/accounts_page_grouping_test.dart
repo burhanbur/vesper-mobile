@@ -383,6 +383,13 @@ void main() {
 
       // Parent selector must remain visible even after choosing a different cash/wallet chip
       expect(find.text('Jadikan Kantong (Child Pocket)?'), findsOneWidget);
+
+      // Tap on investment chip, e.g. 'Saham'
+      await tester.tap(find.text('Saham'));
+      await tester.pumpAndSettle();
+
+      // Parent selector must also remain visible for investment accounts
+      expect(find.text('Jadikan Kantong (Child Pocket)?'), findsOneWidget);
     },
   );
 }

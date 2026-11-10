@@ -35,7 +35,7 @@ class OfflineBanner extends StatelessWidget {
         : state.loading
         ? 'Menampilkan data lokal sambil mengambil akun dan riwayat transaksi. Riwayat besar memerlukan waktu lebih lama.'
         : failed
-        ? 'Pemuatan belum selesai. Data lokal tetap tersedia; Anda bisa mencoba memuat ulang.'
+        ? '${state.dataError != null && state.dataError!.trim().isNotEmpty ? '${state.dataError}. ' : ''}Data lokal tetap tersedia; Anda bisa mencoba memuat ulang.'
         : status.reviewCount > 0
         ? 'Ada perubahan ditolak server atau konflik. Buka rincian untuk melihat penyebabnya.'
         : status.waitingCount > 0

@@ -109,7 +109,6 @@ class _AccountsPageState extends State<AccountsPage> {
               !a.isCreditCard &&
               a.parentAccountId == null &&
               !a.isLegacyLoan &&
-              a.type != AccountType.investment &&
               (a.ownerUserId.isEmpty ||
                   state.currentUserId.isEmpty ||
                   a.ownerUserId == state.currentUserId),
@@ -202,9 +201,6 @@ class _AccountsPageState extends State<AccountsPage> {
                               setModalState(() {
                                 selectedAccountTypeId = def['id'] as String;
                                 selectedType = resolveType(def);
-                                if (selectedType == AccountType.investment) {
-                                  selectedParentId = null;
-                                }
                               });
                             }
                           },
@@ -327,8 +323,7 @@ class _AccountsPageState extends State<AccountsPage> {
                     const SizedBox(height: 16),
                   ],
                   // Nested Pocket Option
-                  if (!isCreditCard &&
-                      selectedType != AccountType.investment) ...[
+                  if (!isCreditCard) ...[
                     const Text(
                       'Jadikan Kantong (Child Pocket)?',
                       style: TextStyle(
