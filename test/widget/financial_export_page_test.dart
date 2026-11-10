@@ -155,7 +155,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('foreign ('), findsNothing);
       expect(find.textContaining('usd ('), findsNothing);
-      await tester.tap(find.text('=SUM(1,2) (1000.00 IDR)').last);
+      await tester.tap(find.text('=SUM(1,2)').last);
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byType(TextField).first);
       await tester.enterText(find.byType(TextField).first, '1200.01');

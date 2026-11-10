@@ -164,23 +164,98 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     final active = controller!;
     final preview = comparison;
     if (preview == null || preview.difference == BigInt.zero) return;
+    final isSurplus = preview.difference > BigInt.zero;
+    final diffFormatted =
+        CurrencyFormatter.formatMinorRupiah(preview.difference.abs());
+    final recordedFormatted =
+        CurrencyFormatter.formatMinorRupiah(preview.recorded);
+    final statementFormatted =
+        CurrencyFormatter.formatMinorRupiah(preview.statement);
+
     final accepted = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
-        title: const Text(
-          'Catat penyesuaian saldo?',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSurplus
+                    ? AppColors.incomeLight
+                    : AppColors.expenseLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isSurplus
+                    ? Icons.arrow_downward_rounded
+                    : Icons.arrow_upward_rounded,
+                color: isSurplus ? AppColors.income : AppColors.expense,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Catat penyesuaian saldo?',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
         ),
-        content: Text(
-          'Saldo tercatat: ${financialDecimal(preview.recorded)} IDR\n'
-          'Saldo rekening koran: ${financialDecimal(preview.statement)} IDR\n'
-          'Selisih: ${financialDecimal(preview.difference)} IDR\n\n'
-          'Referensi: ${preview.reference}\n\n'
-          'Selisih dicatat sebagai transaksi pemasukan/pengeluaran baru hari ini '
-          'dan memengaruhi laporan. Riwayat lama tetap ada. '
-          'Pastikan tidak ada transaksi bank yang belum dicatat.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  _dialogRow('Saldo tercatat', recordedFormatted),
+                  const SizedBox(height: 6),
+                  _dialogRow('Saldo rekening koran', statementFormatted),
+                  const Divider(height: 16),
+                  _dialogRow(
+                    isSurplus ? 'Selisih pemasukan' : 'Selisih pengeluaran',
+                    '${isSurplus ? '+' : '-'}$diffFormatted',
+                    isHighlight: true,
+                    highlightColor:
+                        isSurplus ? AppColors.income : AppColors.expense,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Referensi: ${preview.reference}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Selisih dicatat sebagai transaksi pemasukan/pengeluaran baru hari ini '
+              'dan memengaruhi laporan. Riwayat lama tetap ada. '
+              'Pastikan tidak ada transaksi bank yang belum dicatat.',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: AppColors.textMuted,
+                height: 1.35,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -188,6 +263,12 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
             child: const Text('Batal'),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Catat penyesuaian'),
           ),
@@ -205,6 +286,155 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
         message = 'Penyesuaian tersimpan lokal dan masuk antrean sinkronisasi.';
       }
     });
+  }
+
+  String normalizeStatementAmount(String raw) {
+    var text = raw.trim();
+    if (text.isEmpty) return '';
+    final isNegative = text.startsWith('-');
+    final withoutSign = text.replaceFirst('-', '').trim();
+    final clean = withoutSign.replaceFirst(RegExp(r'^Rp\s*'), '');
+
+    if (clean.contains(',')) {
+      final parts = clean.split(',');
+      final whole = parts[0].replaceAll('.', '');
+      final fraction = parts.length > 1 ? parts[1] : '';
+      final result = fraction.isEmpty ? whole : '$whole.$fraction';
+      return isNegative ? '-$result' : result;
+    }
+
+    if (clean.contains('.')) {
+      if (RegExp(r'^\d{1,3}(?:\.\d{3})+$').hasMatch(clean)) {
+        final whole = clean.replaceAll('.', '');
+        return isNegative ? '-$whole' : whole;
+      }
+      final lastDot = clean.lastIndexOf('.');
+      final beforeLastDot = clean.substring(0, lastDot);
+      final afterLastDot = clean.substring(lastDot + 1);
+      if (afterLastDot.length <= 2 && RegExp(r'^\d+$').hasMatch(afterLastDot)) {
+        final whole = beforeLastDot.replaceAll('.', '');
+        return '${isNegative ? '-' : ''}$whole.$afterLastDot';
+      }
+      final whole = clean.replaceAll('.', '');
+      return isNegative ? '-$whole' : whole;
+    }
+
+    return isNegative ? '-$clean' : clean;
+  }
+
+  void _onStatementChanged(String val) {
+    setState(() => comparison = null);
+
+    final trimmed = val.trim();
+    if (trimmed.isEmpty) return;
+
+    if (trimmed.contains(',') ||
+        trimmed.contains('e') ||
+        trimmed.contains('E')) {
+      return;
+    }
+    if (trimmed.contains('.')) {
+      final withoutSign =
+          trimmed.replaceFirst('-', '').replaceFirst(RegExp(r'^Rp\s*'), '');
+      if (!RegExp(r'^\d{1,3}(?:\.\d{3})+$').hasMatch(withoutSign)) {
+        return;
+      }
+    }
+
+    final isNegative = trimmed.startsWith('-');
+    final digits = trimmed.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.isEmpty) {
+      if (isNegative && statement.text != '-') {
+        statement.value = const TextEditingValue(
+          text: '-',
+          selection: TextSelection.collapsed(offset: 1),
+        );
+      }
+      return;
+    }
+
+    final parsed = BigInt.tryParse(digits);
+    if (parsed == null) return;
+
+    final rawDigits = parsed.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < rawDigits.length; i++) {
+      if (i > 0 && (rawDigits.length - i) % 3 == 0) {
+        buffer.write('.');
+      }
+      buffer.write(rawDigits[i]);
+    }
+
+    final formatted = (isNegative ? '-' : '') + buffer.toString();
+    if (statement.text != formatted) {
+      statement.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+  }
+
+  static Widget _dialogRow(
+    String label,
+    String value, {
+    bool isHighlight = false,
+    Color? highlightColor,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w500,
+            color: isHighlight ? AppColors.textPrimary : AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isHighlight ? 14 : 12,
+            fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
+            color: highlightColor ?? AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? valueColor,
+    bool isBold = false,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isBold ? 13 : 12,
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            color: valueColor ?? AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -634,13 +864,26 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                     ),
                     const SizedBox(width: 12),
                     const Expanded(
-                      child: Text(
-                        'Rekonsiliasi saldo saat ini',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rekonsiliasi saldo saat ini',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Cocokkan catatan aplikasi dengan mutasi bank',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -682,15 +925,25 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                   key: ValueKey('cash:$selectedCash'),
                   initialValue: selectedCash,
                   isExpanded: true,
+                  hint: const Text(
+                    'Pilih rekening kas / bank',
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Akun rekonsiliasi',
                     labelStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 20,
+                      color: AppColors.primary,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: 14,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -712,7 +965,43 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                     for (final a in cash)
                       DropdownMenuItem(
                         value: a['id'] as String,
-                        child: Text('${a['name']} (${a['balance']} IDR)'),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${a['name']}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceVariant,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                CurrencyFormatter.formatCurrency(
+                                  a['balance'],
+                                  currency: '${a['currency'] ?? 'IDR'}',
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                   onChanged: (v) => setState(() {
@@ -721,19 +1010,38 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                     message = null;
                   }),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 TextField(
                   controller: statement,
                   decoration: InputDecoration(
-                    labelText:
-                        'Saldo rekening koran (contoh: 150000 atau -50000)',
+                    labelText: 'Saldo rekening koran',
+                    hintText: '0',
+                    prefixText: 'Rp ',
+                    prefixStyle: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.receipt_long_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                    helperText:
+                        'Saldo riil saat ini (mendukung minus jika overdraft)',
+                    helperMaxLines: 2,
+                    helperStyle: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
                     labelStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: 14,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -754,21 +1062,33 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                   keyboardType: const TextInputType.numberWithOptions(
                     signed: true,
                   ),
-                  onChanged: (_) => setState(() => comparison = null),
+                  onChanged: _onStatementChanged,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 TextField(
                   controller: reference,
                   maxLength: 500,
                   decoration: InputDecoration(
                     labelText: 'Referensi rekening koran / alasan',
+                    hintText: 'Contoh: Rekening koran per 10 Nov 2026',
+                    prefixIcon: const Icon(
+                      Icons.description_outlined,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                    helperText: 'Wajib diisi sebagai catatan audit rekonsiliasi',
+                    helperStyle: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
                     labelStyle: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
-                      vertical: 12,
+                      vertical: 14,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -791,8 +1111,11 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.border),
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.2,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -801,7 +1124,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                   onPressed: () => perform(() {
                     comparison = repo.compare(
                       selectedCash ?? '',
-                      statement.text,
+                      normalizeStatementAmount(statement.text),
                       reference.text,
                     );
                     message = null;
@@ -813,58 +1136,187 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                   ),
                   label: const Text(
                     'Bandingkan saldo',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
                   ),
                 ),
                 if (comparison case final preview?) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      color: preview.difference == BigInt.zero
+                          ? AppColors.incomeLight.withValues(alpha: 0.5)
+                          : AppColors.surfaceVariant.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: preview.difference == BigInt.zero
+                            ? AppColors.income.withValues(alpha: 0.3)
+                            : AppColors.border,
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'Tercatat: ${financialDecimal(preview.recorded)} IDR\n'
-                          'Rekening koran: ${financialDecimal(preview.statement)} IDR\n'
-                          'Selisih: ${financialDecimal(preview.difference)} IDR',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            height: 1.4,
-                            color: AppColors.textPrimary,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: preview.difference == BigInt.zero
+                                    ? AppColors.income
+                                    : (preview.difference > BigInt.zero
+                                          ? AppColors.primary
+                                          : AppColors.expense),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                preview.difference == BigInt.zero
+                                    ? Icons.check_rounded
+                                    : (preview.difference > BigInt.zero
+                                          ? Icons.add_rounded
+                                          : Icons.remove_rounded),
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                preview.difference == BigInt.zero
+                                    ? 'Saldo Cocok & Sesuai'
+                                    : (preview.difference > BigInt.zero
+                                          ? 'Selisih Lebih (Surplus)'
+                                          : 'Selisih Kurang (Defisit)'),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: preview.difference == BigInt.zero
+                                      ? AppColors.income
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            if (preview.difference == BigInt.zero)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.income.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Cocok',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.income,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.border.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              _summaryRow(
+                                icon: Icons.account_balance_wallet_outlined,
+                                label: 'Saldo Tercatat di Aplikasi',
+                                value: CurrencyFormatter.formatMinorRupiah(
+                                  preview.recorded,
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Divider(height: 1),
+                              ),
+                              _summaryRow(
+                                icon: Icons.receipt_long_outlined,
+                                label: 'Saldo Rekening Koran Bank',
+                                value: CurrencyFormatter.formatMinorRupiah(
+                                  preview.statement,
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Divider(height: 1),
+                              ),
+                              _summaryRow(
+                                icon: Icons.difference_outlined,
+                                label: 'Selisih Penyesuaian',
+                                value: preview.difference == BigInt.zero
+                                    ? 'Rp 0'
+                                    : '${preview.difference > BigInt.zero ? '+' : '-'}${CurrencyFormatter.formatMinorRupiah(preview.difference.abs())}',
+                                valueColor: preview.difference == BigInt.zero
+                                    ? AppColors.income
+                                    : (preview.difference > BigInt.zero
+                                          ? AppColors.income
+                                          : AppColors.expense),
+                                isBold: true,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         if (preview.difference == BigInt.zero)
                           const Text(
-                            'Saldo cocok. Tidak ada penyesuaian.',
+                            'Saldo lokal Anda sudah identik dengan rekening koran. Tidak ada transaksi penyesuaian yang perlu dibuat.',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.income,
+                              color: AppColors.textMuted,
+                              height: 1.35,
                             ),
                           )
-                        else
-                          FilledButton(
+                        else ...[
+                          Text(
+                            preview.difference > BigInt.zero
+                                ? 'Saldo rekening koran lebih tinggi. Menyetujui akan mencatat transaksi pemasukan penyesuaian baru.'
+                                : 'Saldo rekening koran lebih rendah. Menyetujui akan mencatat transaksi pengeluaran penyesuaian baru.',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textMuted,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
                             style: FilledButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.tune_rounded, size: 18),
+                            onPressed: confirm,
+                            label: const Text(
+                              'Tinjau penyesuaian',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
                               ),
                             ),
-                            onPressed: confirm,
-                            child: const Text(
-                              'Tinjau penyesuaian',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -879,10 +1331,30 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
               decoration: BoxDecoration(
                 color: AppColors.expenseLight,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.expense.withValues(alpha: 0.3),
+                ),
               ),
-              child: Text(
-                error!,
-                style: const TextStyle(color: AppColors.expense, fontSize: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 16,
+                    color: AppColors.expense,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      error!,
+                      style: const TextStyle(
+                        color: AppColors.expense,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           if (message != null)
@@ -892,10 +1364,30 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
               decoration: BoxDecoration(
                 color: AppColors.incomeLight,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.income.withValues(alpha: 0.3),
+                ),
               ),
-              child: SelectableText(
-                message!,
-                style: const TextStyle(color: AppColors.income, fontSize: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 16,
+                    color: AppColors.income,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SelectableText(
+                      message!,
+                      style: const TextStyle(
+                        color: AppColors.income,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
