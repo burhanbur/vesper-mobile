@@ -245,11 +245,11 @@ void main() {
       expect(find.text('Simpan Perubahan'), findsOneWidget);
 
       // Update amount
-      final amountFinder = find.widgetWithText(TextFormField, 'Rp 20.000');
+      final amountFinder = find.widgetWithText(TextField, 'Rp 20.000');
       if (amountFinder.evaluate().isNotEmpty) {
         await tester.enterText(amountFinder, '35000');
       } else {
-        await tester.enterText(find.byType(TextFormField).first, '35000');
+        await tester.enterText(find.byType(TextField).first, '35000');
       }
       await tester.pumpAndSettle();
 

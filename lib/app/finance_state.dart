@@ -661,6 +661,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> syncPendingNow() {
     _cancelRetries();
+    final repo = repository;
+    if (repo != null) {
+      repo.atomic(() {
+        for (final item in repo.outbox) {
+          if (['rejected', 'conflict'].contains(item['status'])) {
+            item['status'] = 'pending';
+            item.remove('error');
+          }
+        }
+      });
+    }
     return refresh();
   }
 
@@ -2264,17 +2275,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void discardOutboxEntry(SyncStatusEntry entry) {
     if (entry.id.isEmpty) return;
     final repo = _repo;
-    if (entry.entityType == 'transactions' && entry.entityId.isNotEmpty) {
-      final tx = repo.row('transactions', entry.entityId);
-      if (tx != null) {
-        deleteTransaction(entry.entityId);
-        return;
-      }
-    }
-    if (entry.entityType == 'transfers' && entry.entityId.isNotEmpty) {
-      deleteTransfer(entry.entityId);
-      return;
-    }
     repo.atomic(() {
       final item = repo.outbox.firstWhere(
         (e) => e['id'] == entry.id,
@@ -2282,12 +2282,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
       if (item != null) {
         repo.outbox.remove(item);
-        if (item['operation'] == 'CREATE' && entry.entityId.isNotEmpty) {
+        if (item['entity_type'] == 'transfers') {
+          if (item['operation'] == 'CREATE') {
+            repo.entities['transfers']?.remove(entry.entityId);
+            final legs = repo
+                .rows('transactions')
+                .where((t) => t['transfer_id'] == entry.entityId)
+                .toList();
+            for (final leg in legs) {
+              repo.entities['transactions']?.remove(leg['id']);
+            }
+          } else if (item['before'] is Map) {
+            repo.entities['transfers']?[entry.entityId] = item['before'];
+          }
+          repo.state['cursor'] = '0';
+        } else if (item['operation'] == 'CREATE' && entry.entityId.isNotEmpty) {
           repo.entities[entry.entityType]?.remove(entry.entityId);
         }
       }
     });
     _changed();
+    unawaited(refresh());
   }
 
   int get totalLiquidCash => accounts

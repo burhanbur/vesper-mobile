@@ -517,6 +517,46 @@ void main() {
           expect(repo.row('accounts', 'to')!['balance'], '70.00');
         },
       );
+
+      test(
+        'syncing transfer update applies and clears outbox',
+        () async {
+          client.emptyPull = true;
+          client.loseResponse = false;
+          final transferId = create(amount: 25);
+          repo.outbox.clear();
+
+          repo.updateTransfer(
+            transferId: transferId,
+            fromAccountId: 'from',
+            toAccountId: 'to',
+            amount: 50,
+            date: date,
+            description: 'Synced edit',
+          );
+
+          await repo.sync();
+          expect(repo.outbox, isEmpty);
+          expect(repo.row('transfers', transferId)!['amount'], '50.00');
+        },
+      );
+
+      test(
+        'syncing transfer delete applies and removes row from state',
+        () async {
+          client.emptyPull = true;
+          client.loseResponse = false;
+          final transferId = create(amount: 25);
+          repo.outbox.clear();
+
+          repo.deleteTransfer(transferId);
+          expect(repo.outbox, hasLength(1));
+
+          await repo.sync();
+          expect(repo.outbox, isEmpty);
+          expect(repo.row('transfers', transferId), isNull);
+        },
+      );
     });
   }
 }

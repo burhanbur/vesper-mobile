@@ -2217,6 +2217,7 @@ class FinanceRepository {
               ((item['entity_type'] == 'transfers' ||
                       _isTrade(item) ||
                       _isRecordCommand(item)) &&
+                  result['status'] == 'applied' &&
                   result['entity_id'] != item['entity_id'])) {
             throw const ApiFailure(
               'Identitas respons sinkronisasi tidak valid.',

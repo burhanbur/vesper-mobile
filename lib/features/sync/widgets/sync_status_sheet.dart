@@ -68,7 +68,8 @@ class SyncStatusSheet {
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        if (entry.isRejected && entry.id.isNotEmpty)
+                        if ((entry.isRejected || entry.needsReview) &&
+                            entry.id.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Wrap(
