@@ -1014,6 +1014,8 @@ class FinanceRepository {
     await _syncing;
   }
 
+  String get cursor => (state['cursor'] as String?) ?? '0';
+
   String? accountRemovalProblem(String id) =>
       _accountUseProblem(id, includeDeleted: false);
 

@@ -349,7 +349,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Timer? _mutationDebounceTimer;
+
+  void requestDebouncedSync([
+    Duration delay = const Duration(milliseconds: 1200),
+  ]) {
+    if (_disposed || !_authenticated || _offline) return;
+    _mutationDebounceTimer?.cancel();
+    _mutationDebounceTimer = Timer(delay, () {
+      _mutationDebounceTimer = null;
+      requestAutomaticSync();
+    });
+  }
+
   void requestAutomaticSync() {
+    _mutationDebounceTimer?.cancel();
+    _mutationDebounceTimer = null;
     if (_disposed || !_authenticated || _offline || _refreshTask != null) {
       return;
     }
@@ -518,17 +533,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   FinanceRepository get _repo =>
       repository ?? (throw const ApiFailure('Data lokal belum siap.'));
   List<Map<String, dynamic>> _rows(String type) => repository?.rows(type) ?? [];
-  Future<void> refresh() {
+  Future<void> refresh({bool full = false}) {
     final active = _refreshTask;
     if (active != null) return active;
-    final task = _refresh();
+    final task = _refresh(full: full);
     _refreshTask = task;
     return task.whenComplete(() {
       if (identical(_refreshTask, task)) _refreshTask = null;
     });
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool full = false}) async {
     final repo = repository;
     if (repo == null || _offline || _disposed) return;
     final generation = _generation;
@@ -565,6 +580,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'categories',
         'groups',
       ]) {
+        if (!full &&
+            resource != 'groups' &&
+            repo.rows(resource).isNotEmpty &&
+            repo.cursor != '0') {
+          continue;
+        }
         await loadResource(resource);
       }
       if (!active()) return;
@@ -594,9 +615,20 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'instruments',
       ]) {
         if (!active()) return;
-        if (resource == 'transactions' &&
+        if (!full &&
+            resource == 'transactions' &&
             syncCompleted &&
             repo.hasTransactionSnapshot) {
+          continue;
+        }
+        if (!full &&
+            resource == 'ref_account_types' &&
+            repo.rows('ref_account_types').isNotEmpty) {
+          continue;
+        }
+        if (!full &&
+            resource == 'ref_categories' &&
+            repo.rows('ref_categories').isNotEmpty) {
           continue;
         }
         await loadResource(resource);
@@ -693,7 +725,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void _changed() {
     _notify();
-    if (!_offline) unawaited(refresh());
+    if (!_offline) requestDebouncedSync();
   }
 
   void toggleOfflineMode() {
@@ -2102,7 +2134,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void retryInvestmentTrade(String queueId) {
     _repo.retryInvestmentTrade(queueId);
     _notify();
-    requestAutomaticSync();
+    requestDebouncedSync();
   }
 
   Future<void> requestInvestmentCancellation(String queueId) async {
@@ -2158,7 +2190,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       description: note,
     );
     _notify();
-    requestAutomaticSync();
+    requestDebouncedSync();
   }
 
   void updateInstrumentPrice(String assetId, double newPrice) =>
@@ -2599,22 +2631,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void obligationSaved() {
     _notify();
-    requestAutomaticSync();
+    requestDebouncedSync();
   }
 
   void goalsSaved() {
     _notify();
-    requestAutomaticSync();
+    requestDebouncedSync();
   }
 
   void emergencyPlanSaved() {
     _notify();
-    requestAutomaticSync();
+    requestDebouncedSync();
   }
 
   void billsSaved() {
     _notify();
-    requestAutomaticSync();
+    requestDebouncedSync();
   }
 
   DashboardBalanceView get dashboardBalanceView {
@@ -2767,6 +2799,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _disposed = true;
+    _mutationDebounceTimer?.cancel();
+    _mutationDebounceTimer = null;
     _cancelRetries();
     if (_observingLifecycle) WidgetsBinding.instance.removeObserver(this);
     unawaited(_connectivitySubscription?.cancel());

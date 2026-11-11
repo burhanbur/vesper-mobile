@@ -23,12 +23,20 @@ import '../../cash_flow/pages/cash_flow_page.dart';
 import '../../sync/widgets/sync_conflict_modal.dart';
 import '../data/devices_repository.dart';
 import 'devices_page.dart';
+import 'edit_profile_page.dart';
 import 'security_page.dart';
-import '../widgets/edit_profile_modal.dart';
 import '../widgets/time_zone_sheet.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
+
+  void _openEditProfile(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const EditProfilePage(),
+      ),
+    );
+  }
 
   void _showSyncQueueModal(BuildContext context, AppState state) {
     showModalBottomSheet<void>(
@@ -205,7 +213,7 @@ class SettingsPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(24),
-                  onTap: () => EditProfileModal.show(context),
+                  onTap: () => _openEditProfile(context),
                   child: Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -289,7 +297,7 @@ class SettingsPage extends StatelessWidget {
                             color: AppColors.textSecondary,
                           ),
                           tooltip: 'Ubah Profil',
-                          onPressed: () => EditProfileModal.show(context),
+                          onPressed: () => _openEditProfile(context),
                         ),
                       ],
                     ),
@@ -764,7 +772,7 @@ class SettingsPage extends StatelessWidget {
                         ),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => EditProfileModal.show(context),
+                      onTap: () => _openEditProfile(context),
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(

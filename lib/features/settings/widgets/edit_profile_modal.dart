@@ -3,17 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../pages/edit_profile_page.dart';
 
 class EditProfileModal extends StatefulWidget {
   const EditProfileModal({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => const EditProfileModal(),
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (ctx) => const EditProfilePage(),
+      ),
     );
   }
 
