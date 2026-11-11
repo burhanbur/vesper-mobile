@@ -139,6 +139,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   String currentUserId = '', userName = '', userEmail = '', userPhone = '';
+  String? userGender;
   final String baseCurrency = 'IDR';
   bool _authenticated = false, _offline = false, _hidden = false;
   bool loading = false;
@@ -443,6 +444,19 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       repository?.store.close();
       repository = FinanceRepository(auth.client, store, userId);
     }
+    final cached = repository?.row('user_profiles', userId);
+    if (cached != null) {
+      if (cached['full_name'] is String &&
+          (cached['full_name'] as String).isNotEmpty) {
+        userName = cached['full_name'] as String;
+      }
+      if (cached['phone_number'] is String) {
+        userPhone = cached['phone_number'] as String;
+      }
+      if (cached['gender'] is String) {
+        userGender = cached['gender'] as String;
+      }
+    }
     repository?.offline = _offline;
     _authenticated = true;
     _currentFlow = AppFlowStep.main;
@@ -463,6 +477,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     userName = '';
     userEmail = '';
     userPhone = '';
+    userGender = null;
     _activeHouseholdId = '';
     ++_reportGeneration;
     _reportKey = null;
@@ -553,6 +568,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         await loadResource(resource);
       }
       if (!active()) return;
+      await loadProfile();
       // A sync failure must not prevent reading unrelated server resources.
       // refreshList preserves locally queued mutations over server snapshots.
       try {
@@ -2303,6 +2319,136 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     });
     _changed();
     unawaited(refresh());
+  }
+
+  Future<void> loadProfile() async {
+    if (!_authenticated || currentUserId.isEmpty) return;
+    final repo = repository;
+    if (repo != null) {
+      final cached = repo.row('user_profiles', currentUserId);
+      if (cached != null) {
+        var changed = false;
+        if (cached['full_name'] is String &&
+            (cached['full_name'] as String).isNotEmpty &&
+            cached['full_name'] != userName) {
+          userName = cached['full_name'] as String;
+          changed = true;
+        }
+        if (cached['phone_number'] is String &&
+            cached['phone_number'] != userPhone) {
+          userPhone = cached['phone_number'] as String;
+          changed = true;
+        }
+        if (cached['gender'] is String && cached['gender'] != userGender) {
+          userGender = cached['gender'] as String;
+          changed = true;
+        }
+        if (changed) _notify();
+      }
+    }
+    if (_offline) return;
+    try {
+      final data = await auth.client.request('GET', '/me');
+      if (data is Map && !_disposed) {
+        final fullName = data['full_name'] as String?;
+        final phone = data['phone_number'] as String?;
+        final gender = data['gender'] as String?;
+        var changed = false;
+        if (fullName != null &&
+            fullName.isNotEmpty &&
+            fullName != userName) {
+          userName = fullName;
+          changed = true;
+        }
+        if (phone != null && phone != userPhone) {
+          userPhone = phone;
+          changed = true;
+        }
+        if (gender != null && gender != userGender) {
+          userGender = gender;
+          changed = true;
+        }
+        if (repo != null) {
+          repo.saveProfileLocally(
+            currentUserId,
+            Map<String, dynamic>.from(data),
+          );
+        }
+        if (changed) _notify();
+      }
+    } catch (_) {
+      // Non-blocking background fetch
+    }
+  }
+
+  Future<void> updateProfile({
+    required String fullName,
+    String? phoneNumber,
+    String? gender,
+  }) async {
+    final cleanName = fullName.trim();
+    if (cleanName.isEmpty) {
+      throw const ApiFailure('Nama lengkap tidak boleh kosong.');
+    }
+    if (cleanName.length > 120) {
+      throw const ApiFailure('Nama lengkap maksimal 120 karakter.');
+    }
+    final cleanPhone = phoneNumber?.trim();
+    if (cleanPhone != null && cleanPhone.isNotEmpty) {
+      if (!RegExp(r'^\+?[0-9 ()-]{3,32}$').hasMatch(cleanPhone)) {
+        throw const ApiFailure('Format nomor telepon tidak valid.');
+      }
+    }
+    if (gender != null && !['Laki-laki', 'Perempuan'].contains(gender)) {
+      throw const ApiFailure('Pilihan jenis kelamin tidak valid.');
+    }
+
+    final payload = <String, dynamic>{
+      'full_name': cleanName,
+      'phone_number':
+          cleanPhone == null || cleanPhone.isEmpty ? null : cleanPhone,
+      'gender': gender,
+    };
+
+    userName = cleanName;
+    userPhone = cleanPhone ?? '';
+    userGender = gender;
+    _notify();
+
+    // Keep session cached user name in sync
+    final session = auth.client.session;
+    if (session != null && session['user'] is Map) {
+      final user = Map<String, dynamic>.from(session['user'] as Map);
+      user['name'] = cleanName;
+      await auth.client.saveSession({...session, 'user': user});
+    }
+
+    final repo = repository;
+    if (!_offline) {
+      try {
+        final res = await auth.client.request('PATCH', '/me', body: payload);
+        if (repo != null && res is Map) {
+          repo.saveProfileLocally(
+            currentUserId,
+            Map<String, dynamic>.from(res),
+          );
+        }
+        _notify();
+        return;
+      } catch (error) {
+        if (error is ApiFailure &&
+            error.statusCode != null &&
+            error.statusCode! >= 400 &&
+            error.statusCode! < 500) {
+          rethrow;
+        }
+      }
+    }
+
+    if (repo != null) {
+      repo.mutate('user_profiles', 'UPDATE', payload, id: currentUserId);
+      _changed();
+    }
   }
 
   int get totalLiquidCash => accounts

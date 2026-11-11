@@ -37,6 +37,12 @@ class FinanceRepository {
     return value == null ? null : Map<String, dynamic>.from(value as Map);
   }
 
+  void saveProfileLocally(String userId, Map<String, dynamic> data) {
+    atomic(() {
+      _put('user_profiles', userId, data);
+    });
+  }
+
   TransactionPage transactionPage(TransactionQuery query) {
     if (store.isIndexed) return store.transactionPage(query);
     final search = query.search.trim().toLowerCase();

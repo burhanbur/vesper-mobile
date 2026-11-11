@@ -24,6 +24,7 @@ import '../../sync/widgets/sync_conflict_modal.dart';
 import '../data/devices_repository.dart';
 import 'devices_page.dart';
 import 'security_page.dart';
+import '../widgets/edit_profile_modal.dart';
 import '../widgets/time_zone_sheet.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -199,92 +200,100 @@ class SettingsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // User Profile Card (contoh-1.png & contoh-2.png)
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                child: InkWell(
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: AppColors.primary,
-                      child: Text(
-                        state.userName.isNotEmpty
-                            ? state.userName
-                                  .split(' ')
-                                  .where((e) => e.isNotEmpty)
-                                  .map((e) => e[0])
-                                  .take(2)
-                                  .join()
-                            : 'U',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                  onTap: () => EditProfileModal.show(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            state.userName,
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: AppColors.primary,
+                          child: Text(
+                            state.userName.isNotEmpty
+                                ? state.userName
+                                      .split(' ')
+                                      .where((e) => e.isNotEmpty)
+                                      .map((e) => e[0])
+                                      .take(2)
+                                      .join()
+                                : 'U',
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            state.userEmail,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentLight,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '${state.household.type.emoji} ${state.household.name}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.accentDark,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                state.userName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 2),
+                              Text(
+                                state.userEmail,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '${state.household.type.emoji} ${state.household.name}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accentDark,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            color: AppColors.textSecondary,
+                          ),
+                          tooltip: 'Ubah Profil',
+                          onPressed: () => EditProfileModal.show(context),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.edit_outlined,
-                        color: AppColors.textSecondary,
-                      ),
-                      onPressed: () {},
-                    ),
-                  ],
+                  ),
                 ),
               ),
 
@@ -735,6 +744,29 @@ class SettingsPage extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
+                    ListTile(
+                      leading: const Icon(
+                        Icons.person_outline_rounded,
+                        color: AppColors.primary,
+                      ),
+                      title: const Text(
+                        'Profil Pengguna',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Ubah nama, nomor telepon, dan data diri',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => EditProfileModal.show(context),
+                    ),
+                    const Divider(height: 1, indent: 56),
                     ListTile(
                       key: const ValueKey('settings_time_zone'),
                       leading: const Icon(
