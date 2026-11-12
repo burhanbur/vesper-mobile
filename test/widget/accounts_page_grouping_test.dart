@@ -377,15 +377,15 @@ void main() {
       expect(find.text('Jadikan Kantong (Child Pocket)?'), findsOneWidget);
       expect(find.text('Bukan Kantong (Akun Utama Terpisah)'), findsWidgets);
 
-      // Tap on another chip, e.g., 'E-wallet'
-      await tester.tap(find.text('E-wallet'));
+      // Tap on another chip, e.g., 'E-wallet' in the modal
+      await tester.tap(find.text('E-wallet').last);
       await tester.pumpAndSettle();
 
       // Parent selector must remain visible even after choosing a different cash/wallet chip
       expect(find.text('Jadikan Kantong (Child Pocket)?'), findsOneWidget);
 
-      // Tap on investment chip, e.g. 'Saham'
-      await tester.tap(find.text('Saham'));
+      // Tap on investment chip, e.g. 'Saham' in the modal
+      await tester.tap(find.text('Saham').last);
       await tester.pumpAndSettle();
 
       // Parent selector must also remain visible for investment accounts

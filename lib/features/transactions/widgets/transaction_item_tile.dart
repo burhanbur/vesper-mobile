@@ -13,6 +13,7 @@ class TransactionItemTile extends StatelessWidget {
   final VoidCallback? onTap;
   final bool showDate;
   final String? currentAccountId;
+  final bool isCompact;
 
   const TransactionItemTile({
     super.key,
@@ -20,6 +21,7 @@ class TransactionItemTile extends StatelessWidget {
     this.onTap,
     this.showDate = true,
     this.currentAccountId,
+    this.isCompact = false,
   });
 
   IconData _getCategoryIcon() {
@@ -556,28 +558,35 @@ class TransactionItemTile extends StatelessWidget {
       onTap: onTap ?? () => _showTransactionDetails(context),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 12 : 14,
+          vertical: isCompact ? 8 : 12,
+        ),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final stacked =
-                constraints.maxWidth < 340 ||
-                MediaQuery.textScalerOf(context).scale(14) > 20;
+                constraints.maxWidth < (isCompact ? 220 : 250) ||
+                MediaQuery.textScalerOf(context).scale(14) > 22;
             final children = <Widget>[
               // Category Icon with soft background & delicate border
               Container(
-                width: 44,
-                height: 44,
+                width: isCompact ? 38 : 44,
+                height: isCompact ? 38 : 44,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(isCompact ? 10 : 12),
                   border: Border.all(
                     color: color.withValues(alpha: 0.20),
                     width: 1,
                   ),
                 ),
-                child: Icon(_getCategoryIcon(), color: color, size: 22),
+                child: Icon(
+                  _getCategoryIcon(),
+                  color: color,
+                  size: isCompact ? 19 : 22,
+                ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: isCompact ? 10 : 12),
 
               // Title & Subtitle (Expanded to take full space)
               Expanded(
@@ -592,8 +601,8 @@ class TransactionItemTile extends StatelessWidget {
                             primaryTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: TextStyle(
+                              fontSize: isCompact ? 13.5 : 14,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textPrimary,
                               letterSpacing: -0.1,
@@ -614,7 +623,7 @@ class TransactionItemTile extends StatelessWidget {
                         (isShared &&
                             transaction.createdByName.isNotEmpty &&
                             transaction.createdByName != state.userName)) ...[
-                      const SizedBox(height: 3),
+                      SizedBox(height: isCompact ? 2 : 3),
                       Row(
                         children: [
                           if (subtitle.isNotEmpty)
@@ -623,8 +632,8 @@ class TransactionItemTile extends StatelessWidget {
                                 subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
+                                style: TextStyle(
+                                  fontSize: isCompact ? 11 : 11.5,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.textMuted,
                                 ),
@@ -660,7 +669,7 @@ class TransactionItemTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: isCompact ? 8 : 10),
 
               // Narrow layouts give the full amount its own row.
               Column(
@@ -678,7 +687,7 @@ class TransactionItemTile extends StatelessWidget {
                           ),
                     textAlign: TextAlign.end,
                     style: TextStyle(
-                      fontSize: 14.5,
+                      fontSize: isCompact ? 13.5 : 14.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -0.2,
                       color: transaction.type == TransactionType.income
@@ -688,7 +697,7 @@ class TransactionItemTile extends StatelessWidget {
                                 : AppColors.textPrimary),
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  SizedBox(height: isCompact ? 2 : 3),
                   _buildRightSubLabel(context, color),
                 ],
               ),

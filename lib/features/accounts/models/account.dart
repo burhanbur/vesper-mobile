@@ -96,6 +96,7 @@ class Account {
   final String accountNumber;
   final bool isShared;
   final String? householdId;
+  final String? groupName;
   final String institution;
   final String?
   parentAccountId; // For nested accounts (Bank Jago pockets, etc.)
@@ -136,6 +137,7 @@ class Account {
     this.accountTypeId,
     this.isShared = false,
     this.householdId,
+    this.groupName,
     this.institution = '',
     this.parentAccountId,
     this.isIncludeTotal = true,
@@ -206,6 +208,7 @@ class Account {
     String? accountNumber,
     bool? isShared,
     String? householdId,
+    String? groupName,
     String? institution,
     String? parentAccountId,
     bool? isIncludeTotal,
@@ -223,6 +226,7 @@ class Account {
       accountNumber: accountNumber ?? this.accountNumber,
       isShared: isShared ?? this.isShared,
       householdId: householdId ?? this.householdId,
+      groupName: groupName ?? this.groupName,
       institution: institution ?? this.institution,
       parentAccountId: parentAccountId ?? this.parentAccountId,
       isIncludeTotal: isIncludeTotal ?? this.isIncludeTotal,

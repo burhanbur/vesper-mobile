@@ -1340,46 +1340,32 @@ class _AccountsPageState extends State<AccountsPage> {
   }
 
   Widget _buildGroupBadge(Account account, AppState state) {
-    if (account.householdId != null) {
+    if (account.isShared || account.householdId != null || account.groupName != null) {
       final hh = state.households.cast<Household?>().firstWhere(
         (h) => h?.id == account.householdId,
         orElse: () => null,
       );
-      if (hh != null) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.accentLight,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            '${hh.type.emoji} ${hh.name}',
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: AppColors.accentDark,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        );
-      }
-    }
+      final badgeLabel = hh != null
+          ? '${hh.type.emoji} ${hh.name}'
+          : (account.groupName != null && account.groupName!.isNotEmpty
+              ? '👥 ${account.groupName}'
+              : '👥 Bersama');
 
-    if (account.isShared) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: AppColors.accentLight,
           borderRadius: BorderRadius.circular(6),
         ),
-        child: const Text(
-          '👥 Bersama',
-          style: TextStyle(
+        child: Text(
+          badgeLabel,
+          style: const TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w700,
             color: AppColors.accentDark,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       );
     }
@@ -1406,10 +1392,18 @@ class _AccountsPageState extends State<AccountsPage> {
     final state = AppStateScope.of(context);
     final isHidden = state.isBalanceHidden;
     final allAccounts = state.accounts;
+    final allAccountIds = allAccounts.map((a) => a.id).toSet();
 
     // Hitung total saldo pribadi vs total saldo grup
     final personalAccounts = allAccounts
-        .where((a) => !a.isShared && a.householdId == null)
+        .where(
+          (a) =>
+              !a.isShared &&
+              (a.ownerUserId.isEmpty ||
+                  state.currentUserId.isEmpty ||
+                  a.ownerUserId == state.currentUserId) &&
+              a.householdId == null,
+        )
         .toList();
     final totalPersonalBalance = personalAccounts
         .where(
@@ -1450,7 +1444,8 @@ class _AccountsPageState extends State<AccountsPage> {
       );
       filteredAccounts = allAccounts.where((a) {
         if (a.householdId != null) return a.householdId == _activeFilter;
-        return a.isShared && _activeFilter == 'hh-1';
+        return a.isShared &&
+            (_activeFilter == 'hh-1' || a.groupName == selectedGroup.name);
       }).toList();
       heroBalance = filteredAccounts
           .where(
@@ -1503,8 +1498,15 @@ class _AccountsPageState extends State<AccountsPage> {
     final investPercent = ((totalInvest / totalAssets) * 100).clamp(0.0, 100.0);
 
     // Top-level / Root accounts for display
+    final displayedAccountIds = filteredAccounts.map((a) => a.id).toSet();
     final rootAccounts = filteredAccounts
-        .where((a) => a.parentAccountId == null && a.isVisible)
+        .where(
+          (a) =>
+              (a.parentAccountId == null ||
+                  !allAccountIds.contains(a.parentAccountId) ||
+                  !displayedAccountIds.contains(a.parentAccountId)) &&
+              a.isVisible,
+        )
         .toList();
 
     final displayedRootAccounts = rootAccounts.where((a) {
@@ -1930,7 +1932,11 @@ class _AccountsPageState extends State<AccountsPage> {
                       id: 'all',
                       label: 'Semua Rekening',
                       count: allAccounts
-                          .where((a) => a.parentAccountId == null)
+                          .where(
+                            (a) =>
+                                a.parentAccountId == null ||
+                                !allAccountIds.contains(a.parentAccountId),
+                          )
                           .length,
                       icon: Icons.layers_outlined,
                     ),
@@ -1941,7 +1947,11 @@ class _AccountsPageState extends State<AccountsPage> {
                       id: 'personal',
                       label: 'Akun Pribadi',
                       count: personalAccounts
-                          .where((a) => a.parentAccountId == null)
+                          .where(
+                            (a) =>
+                                a.parentAccountId == null ||
+                                !allAccountIds.contains(a.parentAccountId),
+                          )
                           .length,
                       icon: Icons.person_outline_rounded,
                     ),
@@ -2238,15 +2248,60 @@ class _AccountsPageState extends State<AccountsPage> {
                                               ),
                                             ),
                                           const SizedBox(height: 2),
-                                          Text(
-                                            hasChildren
-                                                ? '${children.length} Kantong Terhubung'
-                                                : '${account.accountNumber} • Milik ${account.ownerName}',
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppColors.textMuted,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
+                                          Builder(
+                                            builder: (context) {
+                                              if (hasChildren) {
+                                                return Text(
+                                                  '${children.length} Kantong Terhubung',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.textMuted,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                );
+                                              }
+                                              final isMine =
+                                                  account.ownerUserId.isEmpty ||
+                                                  (state.currentUserId.isNotEmpty &&
+                                                      account.ownerUserId ==
+                                                          state.currentUserId);
+                                              final String subtitle;
+                                              if (account.isShared || !isMine) {
+                                                if (!isMine) {
+                                                  final owner =
+                                                      account.ownerName.isNotEmpty
+                                                          ? account.ownerName
+                                                          : 'Anggota Grup';
+                                                  final group =
+                                                      account.groupName ??
+                                                      'Grup';
+                                                  subtitle =
+                                                      'Milik $owner • $group';
+                                                } else {
+                                                  final group =
+                                                      account.groupName ??
+                                                      'Grup';
+                                                  subtitle =
+                                                      'Milik Anda • Dibagikan ke $group';
+                                                }
+                                              } else {
+                                                subtitle = account
+                                                        .accountNumber
+                                                        .isNotEmpty
+                                                    ? '${account.accountNumber} • Akun Pribadi'
+                                                    : 'Akun Pribadi';
+                                              }
+                                              return Text(
+                                                subtitle,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
@@ -2652,10 +2707,14 @@ class _AccountsPageState extends State<AccountsPage> {
 
   Widget _buildGroupPill(Household household, AppState state) {
     final isSelected = _activeFilter == household.id;
+    final allIds = state.accounts.map((a) => a.id).toSet();
     final groupAccounts = state.accounts.where((a) {
-      if (a.parentAccountId != null) return false;
+      final isRoot =
+          a.parentAccountId == null || !allIds.contains(a.parentAccountId);
+      if (!isRoot) return false;
       if (a.householdId != null) return a.householdId == household.id;
-      return a.isShared && household.id == 'hh-1';
+      return a.isShared &&
+          (household.id == 'hh-1' || a.groupName == household.name);
     }).length;
 
     return GestureDetector(

@@ -448,24 +448,25 @@ class DashboardPage extends StatelessWidget {
                         : ListView.separated(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 2),
                             itemCount: transactions.length,
                             separatorBuilder: (context, index) => Divider(
                               height: 1,
                               color: AppColors.divider.withValues(alpha: 0.8),
-                              indent: 72,
-                              endIndent: 16,
+                              indent: 62,
+                              endIndent: 14,
                             ),
                             itemBuilder: (context, index) {
                               return TransactionItemTile(
                                 transaction: transactions[index],
+                                isCompact: true,
                               );
                             },
                           ),
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
               ],
             ),
           ),

@@ -232,8 +232,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     bool mappings = false,
   }) {
     final group = repository?.row('groups', groupId);
-    if (groupId != activeHouseholdId ||
-        !['OWNER', 'MEMBER'].contains(group?['role'])) {
+    if (!['OWNER', 'MEMBER'].contains(group?['role'])) {
       return [];
     }
     return _rows(_groupListKey(groupId, mappings));
@@ -833,39 +832,111 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return AccountType.cash;
   }
 
-  List<Account> get accounts => _rows('accounts')
-      .map(
-        (r) => Account(
-          id: r['id'],
-          name: r['name'],
-          type: _accountType(r),
-          balance: rupiah(r['balance']),
-          exactBalance: '${r['balance']}',
-          accountTypeId: r['account_type_id'] as String?,
-          isCreditCard: r['is_credit_card'] == true,
-          creditLimit: r['credit_limit'] as String?,
-          accountNumber: '',
-          institution: r['is_credit_card'] == true
-              ? 'Kartu Kredit'
-              : accountTypes
-                        .where((t) => t['id'] == r['account_type_id'])
-                        .map((t) => t['name'] as String)
-                        .firstOrNull ??
-                    (r['account_type_id'] is String
-                        ? r['account_type_id'] as String
-                        : ''),
-          parentAccountId: r['parent_account_id'],
-          isIncludeTotal: _boolVal(r['is_include_total'], defaultValue: true),
-          isVisible: r['is_visible'] ?? true,
-          sequenceOrder: int.parse('${r['sequence_order'] ?? 0}'),
-          currency: r['currency'] ?? 'IDR',
-          ownerUserId: r['user_id'] ?? '',
-          ownerName: r['user_id'] == currentUserId ? userName : '',
-        ),
-      )
-      .toList();
-  List<Account> get rootAccounts =>
-      accounts.where((a) => a.parentAccountId == null && a.isVisible).toList();
+  List<Account> get accounts {
+    final memberLookup =
+        <String, ({String name, String groupId, String groupName})>{};
+    final sharedAccountMap =
+        <String, ({String groupId, String groupName})>{};
+
+    for (final h in households) {
+      for (final m in h.members) {
+        if (m.id.isNotEmpty && !memberLookup.containsKey(m.id)) {
+          memberLookup[m.id] = (name: m.name, groupId: h.id, groupName: h.name);
+        }
+      }
+      for (final r in _rows('group_accounts:${h.id}')) {
+        final accId = (r['account_id'] as String?) ?? (r['id'] as String?);
+        if (accId != null && accId.isNotEmpty) {
+          sharedAccountMap[accId] = (groupId: h.id, groupName: h.name);
+        }
+      }
+    }
+
+    return _rows('accounts')
+        .map(
+          (r) {
+            final ownerUserId = (r['user_id'] as String?) ?? '';
+            final isMine = ownerUserId.isEmpty ||
+                (currentUserId.isNotEmpty && ownerUserId == currentUserId);
+
+            final String? householdId;
+            final String? groupName;
+            final bool isShared;
+            final String ownerName;
+
+            if (!isMine) {
+              isShared = true;
+              final sharedInfo = sharedAccountMap[r['id']];
+              final memberInfo = memberLookup[ownerUserId];
+              householdId = sharedInfo?.groupId ??
+                  memberInfo?.groupId ??
+                  (activeHouseholdId.isNotEmpty ? activeHouseholdId : null);
+              groupName = sharedInfo?.groupName ??
+                  memberInfo?.groupName ??
+                  (householdId != null && activeHousehold.id == householdId
+                      ? activeHousehold.name
+                      : null);
+              ownerName = memberInfo?.name.isNotEmpty == true
+                  ? memberInfo!.name
+                  : 'Anggota Grup';
+            } else {
+              ownerName = userName;
+              final sharedInfo = sharedAccountMap[r['id']];
+              if (sharedInfo != null) {
+                isShared = true;
+                householdId = sharedInfo.groupId;
+                groupName = sharedInfo.groupName;
+              } else {
+                isShared = false;
+                householdId = null;
+                groupName = null;
+              }
+            }
+
+            return Account(
+              id: r['id'],
+              name: r['name'],
+              type: _accountType(r),
+              balance: rupiah(r['balance']),
+              exactBalance: '${r['balance']}',
+              accountTypeId: r['account_type_id'] as String?,
+              isCreditCard: r['is_credit_card'] == true,
+              creditLimit: r['credit_limit'] as String?,
+              accountNumber: '',
+              institution: r['is_credit_card'] == true
+                  ? 'Kartu Kredit'
+                  : accountTypes
+                            .where((t) => t['id'] == r['account_type_id'])
+                            .map((t) => t['name'] as String)
+                            .firstOrNull ??
+                        (r['account_type_id'] is String
+                            ? r['account_type_id'] as String
+                            : ''),
+              parentAccountId: r['parent_account_id'],
+              isIncludeTotal: _boolVal(r['is_include_total'], defaultValue: true),
+              isVisible: r['is_visible'] ?? true,
+              sequenceOrder: int.parse('${r['sequence_order'] ?? 0}'),
+              currency: r['currency'] ?? 'IDR',
+              ownerUserId: ownerUserId,
+              ownerName: ownerName,
+              isShared: isShared,
+              householdId: householdId,
+              groupName: groupName,
+            );
+          },
+        )
+        .toList();
+  }
+  List<Account> get rootAccounts {
+    final allIds = accounts.map((a) => a.id).toSet();
+    return accounts
+        .where(
+          (a) =>
+              (a.parentAccountId == null || !allIds.contains(a.parentAccountId)) &&
+              a.isVisible,
+        )
+        .toList();
+  }
   List<Account> getChildrenForAccount(String id) =>
       accounts.where((a) => a.parentAccountId == id && a.isVisible).toList();
   List<Account> get selectableAccounts {
