@@ -115,6 +115,9 @@ void main() {
         'acc-syailendra',
       });
 
+      // Group sharedBalance must include the investment account balance
+      expect(state.activeHousehold.sharedBalance, 112891152);
+
       await tester.pumpWidget(
         AppStateScope(
           state: state,

@@ -471,7 +471,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'Saldo kas bersama',
+                  'Saldo bersama (kas & investasi)',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,

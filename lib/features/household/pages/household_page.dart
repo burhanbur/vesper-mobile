@@ -691,7 +691,7 @@ class _HouseholdPageState extends State<HouseholdPage> {
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'Akumulasi kas & bank grup',
+                            'Akumulasi kas, bank & investasi grup',
                             style: TextStyle(
                               fontSize: 10,
                               color: AppColors.textMuted,

@@ -1597,37 +1597,78 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return true;
   }
 
-  List<Household> get households => _rows('groups')
-      .map(
-        (r) => Household(
-          id: (r['id'] as String?) ?? '',
-          name: (r['name'] as String?) ?? '',
-          type: GroupType.other,
-          inviteCode: (r['code'] as String?) ?? '',
-          sharedBalance: 0,
-          members: _rows('members:${r['id']}').map((m) {
-            final name = (m['name'] as String?) ?? '';
-            final initials = name.isNotEmpty
-                ? name
-                      .split(' ')
-                      .where((s) => s.isNotEmpty)
-                      .take(2)
-                      .map((s) => s[0])
-                      .join()
-                      .toUpperCase()
-                : '?';
-            return HouseholdMember(
-              id: (m['user_id'] as String?) ?? (m['id'] as String?) ?? '',
-              name: name,
-              roleName: m['role'] == 'OWNER' ? 'Owner' : 'Anggota',
-              role: m['role'] == 'OWNER' ? MemberRole.admin : MemberRole.member,
-              avatarInitials: initials.isEmpty ? '?' : initials,
-              email: (m['email'] as String?) ?? '',
+  List<Household> get households {
+    final accRows = _rows('accounts');
+    return _rows('groups')
+        .map(
+          (r) {
+            final groupId = (r['id'] as String?) ?? '';
+            final sharedAccIds = _rows('group_accounts:$groupId')
+                .map(
+                  (g) =>
+                      (g['account_id'] as String?) ?? (g['id'] as String?),
+                )
+                .whereType<String>()
+                .toSet();
+
+            final memberRows = _rows('members:$groupId');
+            final memberUserIds = memberRows
+                .map((m) => (m['user_id'] as String?) ?? (m['id'] as String?))
+                .whereType<String>()
+                .toSet();
+
+            var sharedBal = 0;
+            for (final acc in accRows) {
+              final accId = acc['id'] as String?;
+              final accHouseholdId = acc['household_id'] as String?;
+              final accUserId = acc['user_id'] as String?;
+              final isOtherMemberAcc = accUserId != null &&
+                  accUserId.isNotEmpty &&
+                  (currentUserId.isEmpty || accUserId != currentUserId) &&
+                  memberUserIds.contains(accUserId);
+
+              if (accId != null &&
+                  (sharedAccIds.contains(accId) ||
+                      accHouseholdId == groupId ||
+                      isOtherMemberAcc) &&
+                  _boolVal(acc['is_include_total'], defaultValue: true)) {
+                sharedBal += rupiah(acc['balance']);
+              }
+            }
+
+            return Household(
+              id: groupId,
+              name: (r['name'] as String?) ?? '',
+              type: GroupType.other,
+              inviteCode: (r['code'] as String?) ?? '',
+              sharedBalance: sharedBal,
+              members: _rows('members:$groupId').map((m) {
+                final name = (m['name'] as String?) ?? '';
+                final initials = name.isNotEmpty
+                    ? name
+                          .split(' ')
+                          .where((s) => s.isNotEmpty)
+                          .take(2)
+                          .map((s) => s[0])
+                          .join()
+                          .toUpperCase()
+                    : '?';
+                return HouseholdMember(
+                  id: (m['user_id'] as String?) ?? (m['id'] as String?) ?? '',
+                  name: name,
+                  roleName: m['role'] == 'OWNER' ? 'Owner' : 'Anggota',
+                  role: m['role'] == 'OWNER'
+                      ? MemberRole.admin
+                      : MemberRole.member,
+                  avatarInitials: initials.isEmpty ? '?' : initials,
+                  email: (m['email'] as String?) ?? '',
+                );
+              }).toList(),
             );
-          }).toList(),
-        ),
-      )
-      .toList();
+          },
+        )
+        .toList();
+  }
   String get activeHouseholdId => activeHousehold.id;
   Household get activeHousehold =>
       households.where((h) => h.id == _activeHouseholdId).firstOrNull ??

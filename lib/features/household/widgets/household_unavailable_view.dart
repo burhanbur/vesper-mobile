@@ -423,7 +423,15 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
     }).toList();
 
     final totalSharedBalance = sharedAccounts
+        .where((a) => a.isIncludeTotal)
+        .fold<int>(0, (sum, a) => sum + a.balance);
+
+    final totalSharedCash = sharedAccounts
         .where((a) => a.isIncludeTotal && a.isCashBankOrWallet)
+        .fold<int>(0, (sum, a) => sum + a.balance);
+
+    final totalSharedInvestment = sharedAccounts
+        .where((a) => a.isIncludeTotal && a.type == AccountType.investment)
         .fold<int>(0, (sum, a) => sum + a.balance);
 
     return Container(
@@ -510,9 +518,11 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'TOTAL SALDO BERSAMA',
-                      style: TextStyle(
+                    Text(
+                      totalSharedInvestment > 0
+                          ? 'TOTAL KEKAYAAN BERSAMA'
+                          : 'TOTAL SALDO BERSAMA',
+                      style: const TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700,
                         color: Colors.white70,
@@ -533,6 +543,17 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                         letterSpacing: -0.5,
                       ),
                     ),
+                    if (totalSharedInvestment > 0 && !state.isBalanceHidden) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Kas: ${CurrencyFormatter.formatRupiah(totalSharedCash)} • Investasi: ${CurrencyFormatter.formatRupiah(totalSharedInvestment)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
