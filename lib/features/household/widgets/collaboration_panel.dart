@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
-import '../../../core/utils/date_formatter.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../data/collaboration_repository.dart';
+import '../models/household.dart';
 
 /// No durable cross-member cache: revocation is checked on every online refresh.
 class CollaborationPanel extends StatefulWidget {
@@ -626,129 +628,208 @@ class _CollaborationPanelState extends State<CollaborationPanel>
               )
             else
               for (final row in _data!['contributions'] as List)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor: AppColors.accentLight,
-                            child: Text(
-                              ((row['user_id'] as String?) ?? '').isNotEmpty
-                                  ? ((row['user_id'] as String?) ?? '')[0]
-                                        .toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '${row['user_id']}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${row['currency']}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
+                Builder(
+                  builder: (context) {
+                    final state = AppStateScope.of(context);
+                    final contribUserId = (row['user_id'] as String?) ?? '';
+                    final isCurrentUser = contribUserId.isNotEmpty &&
+                        contribUserId == state.currentUserId;
+                    final member = state.activeHousehold.members
+                        .cast<HouseholdMember?>()
+                        .firstWhere(
+                          (m) => m?.id == contribUserId,
+                          orElse: () => null,
+                        );
+
+                    final String memberName;
+                    if (isCurrentUser) {
+                      memberName = state.userName.isNotEmpty
+                          ? '${state.userName} (Anda)'
+                          : 'Anda';
+                    } else if (member != null && member.name.isNotEmpty) {
+                      memberName = member.name;
+                    } else {
+                      memberName = 'Anggota Grup';
+                    }
+
+                    final String initials;
+                    if (isCurrentUser) {
+                      initials = state.userName.isNotEmpty
+                          ? state.userName[0].toUpperCase()
+                          : 'A';
+                    } else if (member != null &&
+                        member.avatarInitials.isNotEmpty) {
+                      initials = member.avatarInitials;
+                    } else {
+                      initials = memberName.isNotEmpty
+                          ? memberName[0].toUpperCase()
+                          : '?';
+                    }
+
+                    final currency = row['currency']?.toString() ?? 'IDR';
+                    final incomeText = CurrencyFormatter.formatCurrency(
+                      row['income'],
+                      currency: currency,
+                    );
+                    final expenseText = CurrencyFormatter.formatCurrency(
+                      row['expense'],
+                      currency: currency,
+                    );
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.borderSubtle),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.incomeLight,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.arrow_downward_rounded,
-                                    size: 13,
-                                    color: AppColors.income,
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: isCurrentUser
+                                    ? AppColors.primary
+                                    : AppColors.accentLight,
+                                child: Text(
+                                  initials,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isCurrentUser
+                                        ? Colors.white
+                                        : AppColors.primary,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      'Masuk: ${row['income']}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        memberName,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (member != null &&
+                                        member.roleName.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 1.5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: member.role ==
+                                                  MemberRole.admin
+                                              ? AppColors.accentLight
+                                              : AppColors.surfaceVariant,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          member.roleName,
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                            color: member.role ==
+                                                    MemberRole.admin
+                                                ? AppColors.accentDark
+                                                : AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.incomeLight,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.arrow_downward_rounded,
+                                        size: 13,
                                         color: AppColors.income,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          'Masuk: $incomeText',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.income,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.expenseLight,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 13,
-                                    color: AppColors.expense,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      'Keluar: ${row['expense']}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.expenseLight,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 13,
                                         color: AppColors.expense,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          'Keluar: $expenseText',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.expense,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
             _pagination(
               'Kontribusi',
@@ -817,73 +898,93 @@ class _CollaborationPanelState extends State<CollaborationPanel>
               )
             else
               for (final row in _data!['feed'] as List)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderSubtle),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: row['type'] == 'INCOME'
-                              ? AppColors.incomeLight
-                              : AppColors.expenseLight,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          row['type'] == 'INCOME'
-                              ? Icons.arrow_downward_rounded
-                              : Icons.arrow_upward_rounded,
-                          size: 16,
-                          color: row['type'] == 'INCOME'
-                              ? AppColors.income
-                              : AppColors.expense,
-                        ),
+                Builder(
+                  builder: (context) {
+                    final state = AppStateScope.of(context);
+                    final feedUserId = (row['user_id'] as String?) ?? '';
+                    final feedMember = state.activeHousehold.members
+                        .cast<HouseholdMember?>()
+                        .firstWhere(
+                          (m) => m?.id == feedUserId,
+                          orElse: () => null,
+                        );
+                    final feedMemberName = feedUserId == state.currentUserId
+                        ? 'Anda'
+                        : (feedMember?.name.isNotEmpty == true
+                            ? feedMember!.name
+                            : '');
+                    final currency = row['currency']?.toString() ?? 'IDR';
+                    final formattedAmount = CurrencyFormatter.formatCurrency(
+                      row['amount'],
+                      currency: currency,
+                    );
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.borderSubtle),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${row['category']}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: row['type'] == 'INCOME'
+                                  ? AppColors.incomeLight
+                                  : AppColors.expenseLight,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              DateFormatter.timestamp(
-                                row['transacted_at'],
-                                timeZone: AppStateScope.of(context).timeZone,
-                              ),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                              ),
+                            child: Icon(
+                              row['type'] == 'INCOME'
+                                  ? Icons.arrow_downward_rounded
+                                  : Icons.arrow_upward_rounded,
+                              size: 16,
+                              color: row['type'] == 'INCOME'
+                                  ? AppColors.income
+                                  : AppColors.expense,
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${row['category']}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${DateFormatter.timestamp(row['transacted_at'], timeZone: state.timeZone)}${feedMemberName.isNotEmpty ? ' • Oleh $feedMemberName' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${row['type'] == 'INCOME' ? '+' : '-'} $formattedAmount',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: row['type'] == 'INCOME'
+                                  ? AppColors.income
+                                  : AppColors.expense,
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${row['type'] == 'INCOME' ? '+' : '-'} ${row['currency']} ${row['amount']}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: row['type'] == 'INCOME'
-                              ? AppColors.income
-                              : AppColors.expense,
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
             _pagination(
               'Aktivitas',

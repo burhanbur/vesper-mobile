@@ -21,23 +21,29 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Kantong tujuan grup'), findsOneWidget);
       final list = find.byType(ListView);
+      final scrollable = find
+          .descendant(of: list, matching: find.byType(Scrollable))
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('Kantong tujuan grup'),
+        250,
+        scrollable: scrollable,
+      );
+      expect(find.text('Kantong tujuan grup'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('2026-10'),
         250,
-        scrollable: find
-            .descendant(of: list, matching: find.byType(Scrollable))
-            .first,
+        scrollable: scrollable,
       );
       expect(find.text('Rp 100000'), findsNothing);
-      expect(find.text('Rp 25000.25'), findsOneWidget);
+      expect(find.text('Rp 25.000,25'), findsOneWidget);
       expect(find.textContaining('Diambil:'), findsOneWidget);
       api.fail = true;
       await state.loadHouseholdCategoryReport();
       await tester.pumpAndSettle();
       expect(find.textContaining('Laporan gagal dimuat:'), findsOneWidget);
-      expect(find.text('Rp 25000.25'), findsOneWidget);
+      expect(find.text('Rp 25.000,25'), findsOneWidget);
       state.toggleOfflineMode();
       await tester.pumpAndSettle();
       expect(
@@ -47,7 +53,7 @@ void main() {
       await tester.tap(find.byTooltip('Bulan sebelumnya'));
       await tester.pumpAndSettle();
       expect(find.text('2026-09'), findsOneWidget);
-      expect(find.text('Rp 25000.25'), findsNothing);
+      expect(find.text('Rp 25.000,25'), findsNothing);
       expect(find.textContaining('Agregat belum tersedia'), findsOneWidget);
       expect(find.text('Rp 0'), findsNothing);
       expect(api.requests.length, 2);
