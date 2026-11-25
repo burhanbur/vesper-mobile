@@ -32,7 +32,7 @@ void main() {
       );
       expect(find.text('Kantong tujuan grup'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('2026-10'),
+        find.text('Oktober 2026'),
         250,
         scrollable: scrollable,
       );
@@ -52,7 +52,7 @@ void main() {
       );
       await tester.tap(find.byTooltip('Bulan sebelumnya'));
       await tester.pumpAndSettle();
-      expect(find.text('2026-09'), findsOneWidget);
+      expect(find.text('September 2026'), findsOneWidget);
       expect(find.text('Rp 25.000,25'), findsNothing);
       expect(find.textContaining('Agregat belum tersedia'), findsOneWidget);
       expect(find.text('Rp 0'), findsNothing);

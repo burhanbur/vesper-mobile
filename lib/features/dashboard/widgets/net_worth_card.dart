@@ -168,17 +168,17 @@ class NetWorthCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (view == DashboardBalanceView.netWorth)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Data dihitung dari saldo akun tercatat. Pertumbuhan dan grafik historis kekayaan belum tersedia.',
-                          style: TextStyle(
-                            color: AppColors.sageMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
+                    // if (view == DashboardBalanceView.netWorth)
+                    //   const Padding(
+                    //     padding: EdgeInsets.only(top: 8),
+                    //     child: Text(
+                    //       'Data dihitung dari saldo akun tercatat. Pertumbuhan dan grafik historis kekayaan belum tersedia.',
+                    //       style: TextStyle(
+                    //         color: AppColors.sageMuted,
+                    //         fontSize: 11,
+                    //       ),
+                    //     ),
+                    //   ),
                     const SizedBox(height: 18),
 
                     // Divider inside card

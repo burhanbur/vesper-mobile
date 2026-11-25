@@ -1016,7 +1016,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                       Text(
                         r.firstShortfall == null
                             ? 'Tidak ada kekurangan gabungan pada komitmen yang dimodelkan.'
-                            : '${r.firstShortfall!.date} • ${money(r.firstShortfall!.low)}',
+                            : '${DateFormatter.calendarDate(r.firstShortfall!.date)} • ${money(r.firstShortfall!.low)}',
                         style: TextStyle(
                           fontSize: 11.5,
                           color: r.firstShortfall == null
@@ -1145,7 +1145,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Periode ${r.start} sampai ${r.end}',
+                      'Periode ${DateFormatter.calendarDate(r.start)} – ${DateFormatter.calendarDate(r.end)}',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: AppColors.textSecondary,
@@ -1564,7 +1564,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                           return const SizedBox.shrink();
                         }
                         final date = r.days[idx].date;
-                        final label = date.length >= 10 ? date.substring(5) : date;
+                        final label = DateFormatter.calendarDayMonth(date);
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
@@ -1591,7 +1591,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                         final idx = spot.x.toInt().clamp(0, r.days.length - 1);
                         final day = r.days[idx];
                         return LineTooltipItem(
-                          '${day.date}\n${money(day.closing)}',
+                          '${DateFormatter.calendarDate(day.date)}\n${money(day.closing)}',
                           const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -1903,7 +1903,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Potensi kekurangan ${a.firstShortfall!.date}: ${money(a.firstShortfall!.low)}',
+                            'Potensi kekurangan ${DateFormatter.calendarDate(a.firstShortfall!.date)}: ${money(a.firstShortfall!.low)}',
                             style: const TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
@@ -1981,7 +1981,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${r.days.length} hari proyeksi kas gabungan (${r.start} s/d ${r.end})',
+                      '${r.days.length} hari proyeksi kas gabungan (${DateFormatter.calendarDate(r.start)} – ${DateFormatter.calendarDate(r.end)})',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: AppColors.textSecondary,
@@ -2040,7 +2040,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            d.date,
+                            DateFormatter.calendarDate(d.date),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -2415,12 +2415,12 @@ class _CashFlowPageState extends State<CashFlowPage>
                   children: [
                     _buildParamChip(
                       Icons.event_rounded,
-                      'Jatuh tempo: ${e.dueDate}',
+                      'Jatuh tempo: ${DateFormatter.calendarDate(e.dueDate)}',
                     ),
                     if (e.date != e.dueDate)
                       _buildParamChip(
                         Icons.schedule_rounded,
-                        'Rencana: ${e.date}',
+                        'Rencana: ${DateFormatter.calendarDate(e.date)}',
                       ),
                     if (e.assumption)
                       _buildParamChip(

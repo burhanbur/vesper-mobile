@@ -73,6 +73,59 @@ void main() {
   );
 
   testWidgets(
+    'devices page renders rich device model, OS badge, and last login timestamps',
+    (tester) async {
+      final client = TestClient();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DevicesPage(
+            repository: DevicesRepository(client: client),
+            currentDeviceId: 'dev-s10',
+          ),
+        ),
+      );
+      client.response.complete([
+        {
+          'id': 'dev-web',
+          'name': 'Chrome • Windows',
+          'platform': 'Web',
+          'app_version': '1.0.0',
+          'last_seen_at': '2026-11-20T08:30:00.000Z',
+          'last_sync_at': '2026-11-20T08:31:00.000Z',
+          'created_at': '2026-11-01T01:00:00.000Z',
+        },
+        {
+          'id': 'dev-s10',
+          'name': 'Samsung Galaxy S10 • Android 12',
+          'platform': 'Android',
+          'app_version': '1.2.0',
+          'last_seen_at': '2026-11-25T14:00:00.000Z',
+          'last_sync_at': '2026-11-25T14:05:00.000Z',
+          'created_at': '2026-10-15T05:00:00.000Z',
+        },
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 Perangkat Terdaftar'), findsOneWidget);
+      expect(find.text('PERANGKAT SAAT INI'), findsOneWidget);
+      expect(find.text('Samsung Galaxy S10'), findsOneWidget);
+      expect(find.text('Android 12'), findsOneWidget);
+      expect(find.text('Vesper v1.2.0'), findsOneWidget);
+      expect(find.text('Perangkat ini'), findsOneWidget);
+      expect(find.text('Terakhir login / aktif'), findsWidgets);
+      expect(find.text('Sinkronisasi terakhir'), findsWidgets);
+      expect(find.text('Pertama terdaftar'), findsWidgets);
+      expect(find.text('Chrome'), findsOneWidget);
+      expect(find.text('Web • Windows'), findsOneWidget);
+
+      // Current device is pinned above other devices.
+      final currentTop = tester.getTopLeft(find.text('Samsung Galaxy S10')).dy;
+      final otherTop = tester.getTopLeft(find.text('Chrome')).dy;
+      expect(currentTop, lessThan(otherTop));
+    },
+  );
+
+  testWidgets(
     'security changes session persistence without ending active session',
     (tester) async {
       final client = TestClient()

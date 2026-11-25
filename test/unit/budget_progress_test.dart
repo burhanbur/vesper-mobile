@@ -166,5 +166,83 @@ void main() {
         expect(b.periodRange!.end, DateTime.utc(2026, 4, 1));
       },
     );
+
+    test(
+      'annualBudgetsForYear aggregates yearly expenses in a single pass accurately',
+      () {
+        final state = cachedFinanceState();
+        addTearDown(state.dispose);
+        final repo = state.repository!;
+
+        repo.atomic(() {
+          repo.entities['categories'] = {
+            'cat-food': {'id': 'cat-food', 'name': 'Makan', 'type': 'EXPENSE'},
+            'cat-fun': {'id': 'cat-fun', 'name': 'Hiburan', 'type': 'EXPENSE'},
+          };
+          repo.entities['budgets'] = {
+            'b-food': {
+              'id': 'b-food',
+              'category_id': 'cat-food',
+              'anchor_date': '2026-01-01',
+              'period_type': 'MONTHLY',
+              'current_amount': '1000000.00',
+            },
+            'b-fun': {
+              'id': 'b-fun',
+              'category_id': 'cat-fun',
+              'anchor_date': '2026-01-01',
+              'period_type': 'MONTHLY',
+              'current_amount': '500000.00',
+            },
+          };
+          final txMap = <String, dynamic>{};
+          for (var i = 0; i < 200; i++) {
+            txMap['tx-food-$i'] = {
+              'id': 'tx-food-$i',
+              'type': 'EXPENSE',
+              'amount': '-10000.00',
+              'category_id': 'cat-food',
+              'transacted_at': '2026-05-10T10:00:00.000Z',
+              'account_id': 'acc-1',
+            };
+          }
+          txMap['tx-fun-1'] = {
+            'id': 'tx-fun-1',
+            'type': 'EXPENSE',
+            'amount': '-350000.00',
+            'category_id': 'cat-fun',
+            'transacted_at': '2026-06-01T10:00:00.000Z',
+            'account_id': 'acc-1',
+          };
+          // Different year & income must be ignored
+          txMap['tx-old'] = {
+            'id': 'tx-old',
+            'type': 'EXPENSE',
+            'amount': '-999000.00',
+            'category_id': 'cat-food',
+            'transacted_at': '2025-12-31T23:59:00.000Z',
+            'account_id': 'acc-1',
+          };
+          txMap['tx-income'] = {
+            'id': 'tx-income',
+            'type': 'INCOME',
+            'amount': '500000.00',
+            'category_id': 'cat-food',
+            'transacted_at': '2026-05-10T10:00:00.000Z',
+            'account_id': 'acc-1',
+          };
+          repo.entities['transactions'] = txMap;
+        });
+
+        final items = state.annualBudgetsForYear(2026);
+        expect(items, hasLength(2));
+        final food = items.firstWhere((b) => b.categoryId == 'cat-food');
+        final fun = items.firstWhere((b) => b.categoryId == 'cat-fun');
+        expect(food.allocatedAmount, 12000000);
+        expect(food.spentAmount, 2000000);
+        expect(fun.allocatedAmount, 6000000);
+        expect(fun.spentAmount, 350000);
+      },
+    );
   });
 }

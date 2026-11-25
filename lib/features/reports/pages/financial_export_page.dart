@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../../app/app_state.dart';
 import '../../../core/utils/app_time_zone.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../app/theme/app_colors.dart';
 import '../data/export_file.dart';
 import '../data/financial_export_controller.dart';
@@ -470,7 +471,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
       'IDR',
       ...repo.accounts.map((a) => '${a['currency']}'),
     }.toList()..sort();
-    final accounts = repo.accounts
+    final accounts = repo.leafAccounts
         .where((a) => a['currency'] == currency)
         .toList();
     final selectedAccount = accounts.any((a) => a['id'] == accountId)
@@ -596,7 +597,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                           color: AppColors.primary,
                         ),
                         label: Text(
-                          'Dari ${date(start)}',
+                          'Dari ${DateFormatter.formatShort(start)}',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -619,7 +620,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                           color: AppColors.primary,
                         ),
                         label: Text(
-                          'Sampai ${date(end)}',
+                          'Sampai ${DateFormatter.formatShort(end)}',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),

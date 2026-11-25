@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:cryptography/dart.dart';
 
+import '../../../core/device/device_info_service.dart';
 import '../../../core/network/api_client.dart';
 import '../../../database/local_store.dart';
 import '../../../database/transaction_query.dart';
@@ -735,7 +736,13 @@ class FinanceRepository {
         (type == 'investment_transactions' && item['entity_id'] == id);
   });
 
-  /// Only actor-owned cached accounts are safe for offline authorization.
+  /// Returns true when [id] is a parent container account with at least one
+  /// active (non-deleted) child account.
+  bool hasChildAccounts(String id) => rows('accounts').any(
+    (a) => a['parent_account_id'] == id && a['deleted_at'] == null,
+  );
+
+  /// Only actor-owned cached leaf accounts are safe for offline authorization.
   bool canTradeAccount(String id, String category) {
     final account = row('accounts', id);
     final type = row('account_types', '${account?['account_type_id']}');
@@ -749,7 +756,8 @@ class FinanceRepository {
         type['deleted_at'] == null &&
         type['category'] == category &&
         !isCreditCard(id) &&
-        !isMappedObligationAccount(id);
+        !isMappedObligationAccount(id) &&
+        !hasChildAccounts(id);
   }
 
   InvestmentTradeCommand previewInvestmentTrade({
@@ -1994,6 +2002,36 @@ class FinanceRepository {
     return client.request(method, path, body: body);
   }
 
+  /// Idempotent device registration with real device model & OS metadata.
+  Future<String> registerCurrentDevice() async {
+    var deviceId = state['device_id'] as String?;
+    if (deviceId == null) {
+      deviceId = const Uuid().v4();
+      atomic(() {
+        state['device_id'] = deviceId;
+      });
+    }
+    final deviceName = await DeviceInfoService.resolveDeviceName();
+    await client.request(
+      'POST',
+      '/devices',
+      body: {
+        'id': deviceId,
+        'name': deviceName,
+        'platform': kIsWeb
+            ? 'Web'
+            : defaultTargetPlatform == TargetPlatform.iOS
+            ? 'iOS'
+            : 'Android',
+        'app_version': const String.fromEnvironment(
+          'FLUTTER_BUILD_NAME',
+          defaultValue: '1.0.0',
+        ),
+      },
+    );
+    return deviceId;
+  }
+
   Future<void> sync({void Function()? onProgress}) {
     if (_syncing != null) return _syncing!;
     final future = _runSync(onProgress: onProgress);
@@ -2063,31 +2101,7 @@ class FinanceRepository {
         'cursor': state['cursor'],
       };
     });
-    var deviceId = state['device_id'] as String?;
-    if (deviceId == null) {
-      deviceId = const Uuid().v4();
-      atomic(() {
-        state['device_id'] = deviceId;
-      });
-    }
-    // Idempotent registration, including recovery after a lost response.
-    await client.request(
-      'POST',
-      '/devices',
-      body: {
-        'id': deviceId,
-        'name': kIsWeb ? 'Vesper Web' : 'Vesper mobile',
-        'platform': kIsWeb
-            ? 'Web'
-            : defaultTargetPlatform == TargetPlatform.iOS
-            ? 'iOS'
-            : 'Android',
-        'app_version': const String.fromEnvironment(
-          'FLUTTER_BUILD_NAME',
-          defaultValue: '1.0.0',
-        ),
-      },
-    );
+    final deviceId = await registerCurrentDevice();
     await _pollInvestmentRecoveries(deviceId);
     // Catalog failure must not prevent ledger pulls or unrelated commands.
     try {

@@ -927,7 +927,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                 ),
                 Expanded(
                   child: Text(
-                    state.householdReportPeriod,
+                    DateFormatter.monthPeriod(state.householdReportPeriod),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,

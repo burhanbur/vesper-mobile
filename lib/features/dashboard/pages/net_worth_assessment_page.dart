@@ -252,7 +252,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                           label: Text(
                             _date == null
                                 ? 'Tanggal acuan: terbaru'
-                                : 'Tanggal acuan: ${_date!.toIso8601String().substring(0, 10)}',
+                                : 'Tanggal acuan: ${DateFormatter.formatShort(_date!)}',
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 12.5,
@@ -1160,7 +1160,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Tanggal penilaian: ${data.snapshotDate}',
+                'Tanggal penilaian: ${DateFormatter.calendarDate(data.snapshotDate)}',
                 style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,

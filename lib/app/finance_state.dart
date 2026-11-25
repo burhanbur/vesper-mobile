@@ -1160,96 +1160,100 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int get localDataRevision => repository?.store.revision ?? 0;
   String get localDataScope => repository?.userId ?? '';
 
-  List<TransactionItem> _transactionItems(List<Map<String, dynamic>> records) =>
-      records.map((r) {
-        final pending = _repo.outbox
-            .where(
-              (e) =>
-                  e['entity_id'] == r['id'] ||
-                  (r['transfer_id'] != null &&
-                      e['entity_type'] == 'transfers' &&
-                      e['entity_id'] == r['transfer_id']),
-            )
-            .firstOrNull;
-        final amount = rupiah(r['amount']);
-        String? toAccountId;
-        if (r['type'] == 'TRANSFER' || r['transfer_id'] != null) {
-          final transferId = r['transfer_id'] as String?;
-          if (transferId != null) {
-            final tRow = _repo.row('transfers', transferId);
-            final pendingTransfer = _repo.outbox
+  List<TransactionItem> _transactionItems(List<Map<String, dynamic>> records) {
+    final categoryNames = <String, String>{
+      for (final c in _rows('categories'))
+        if (c['id'] is String) c['id'] as String: (c['name'] as String?) ?? '',
+    };
+    final pendingByEntityId = <String, Map>{};
+    final pendingTransfers = <String, Map>{};
+    for (final entry in _repo.outbox) {
+      if (entry is! Map) continue;
+      final entityId = entry['entity_id']?.toString();
+      if (entityId == null) continue;
+      pendingByEntityId.putIfAbsent(entityId, () => entry);
+      if (entry['entity_type'] == 'transfers') {
+        pendingTransfers.putIfAbsent(entityId, () => entry);
+      }
+    }
+    List<Map<String, dynamic>>? allTxRows;
+    return records.map((r) {
+      final transferId = r['transfer_id'] as String?;
+      final pending =
+          pendingByEntityId['${r['id']}'] ??
+          (transferId != null ? pendingTransfers[transferId] : null);
+      final amount = rupiah(r['amount']);
+      String? toAccountId;
+      if (r['type'] == 'TRANSFER' || transferId != null) {
+        if (transferId != null) {
+          final tRow = _repo.row('transfers', transferId);
+          final pendingTransfer = pendingTransfers[transferId];
+          final payload = pendingTransfer?['payload'] as Map?;
+          final fromAcc =
+              tRow?['from_account_id'] ?? payload?['from_account_id'];
+          final toAcc = tRow?['to_account_id'] ?? payload?['to_account_id'];
+          if (fromAcc != null && toAcc != null) {
+            toAccountId = r['account_id'] == fromAcc ? toAcc : fromAcc;
+          } else {
+            var pair = records
                 .where(
-                  (e) =>
-                      e['entity_type'] == 'transfers' &&
-                      e['entity_id'] == transferId,
+                  (other) =>
+                      other['id'] != r['id'] &&
+                      other['transfer_id'] == transferId,
                 )
                 .firstOrNull;
-            final payload = pendingTransfer?['payload'] as Map?;
-            final fromAcc =
-                tRow?['from_account_id'] ?? payload?['from_account_id'];
-            final toAcc =
-                tRow?['to_account_id'] ?? payload?['to_account_id'];
-            if (fromAcc != null && toAcc != null) {
-              toAccountId = r['account_id'] == fromAcc ? toAcc : fromAcc;
-            } else {
-              final pair = records
+            if (pair == null) {
+              allTxRows ??= _repo.rows('transactions');
+              pair = allTxRows!
                   .where(
                     (other) =>
                         other['id'] != r['id'] &&
                         other['transfer_id'] == transferId,
                   )
-                  .firstOrNull ??
-                  _repo
-                      .rows('transactions')
-                      .where(
-                        (other) =>
-                            other['id'] != r['id'] &&
-                            other['transfer_id'] == transferId,
-                      )
-                      .firstOrNull;
-              if (pair != null) {
-                toAccountId = pair['account_id'] as String?;
-              }
+                  .firstOrNull;
+            }
+            if (pair != null) {
+              toAccountId = pair['account_id'] as String?;
             }
           }
         }
-        return TransactionItem(
-          id: r['id'],
-          type: switch (r['type']) {
-            'INCOME' => TransactionType.income,
-            'TRANSFER' => TransactionType.transfer,
-            'INVESTMENT_BUY' => TransactionType.investmentBuy,
-            'INVESTMENT_SELL' => TransactionType.investmentSell,
-            _ => TransactionType.expense,
-          },
-          amount: amount.abs(),
-          ledgerAmount: amount,
-          accountId: r['account_id'],
-          toAccountId: toAccountId,
-          categoryId: r['category_id'] as String?,
-          categoryName:
-              categories
-                  .where((c) => c.id == r['category_id'])
-                  .map((c) => c.name)
-                  .firstOrNull ??
-              (r['type'] == 'TRANSFER' ? 'Transfer Antar Akun' : ''),
-          note: r['description'],
-          date: DateTime.parse(r['transacted_at']),
-          householdId: '',
-          transferId: r['transfer_id'],
-          version: int.tryParse('${r['version']}') ?? 1,
-          createdByUserId: r['created_by'] ?? '',
-          createdByName: r['created_by'] == currentUserId ? userName : '',
-          syncStatus: pending == null
-              ? SyncStatus.synced
-              : pending['status'] == 'pending'
-              ? SyncStatus.pending
-              : SyncStatus.failed,
-        );
-      }).toList()..sort((a, b) {
-        final dateOrder = b.date.compareTo(a.date);
-        return dateOrder != 0 ? dateOrder : a.id.compareTo(b.id);
-      });
+      }
+      final catId = r['category_id'] as String?;
+      return TransactionItem(
+        id: r['id'],
+        type: switch (r['type']) {
+          'INCOME' => TransactionType.income,
+          'TRANSFER' => TransactionType.transfer,
+          'INVESTMENT_BUY' => TransactionType.investmentBuy,
+          'INVESTMENT_SELL' => TransactionType.investmentSell,
+          _ => TransactionType.expense,
+        },
+        amount: amount.abs(),
+        ledgerAmount: amount,
+        accountId: r['account_id'],
+        toAccountId: toAccountId,
+        categoryId: catId,
+        categoryName:
+            (catId != null ? categoryNames[catId] : null) ??
+            (r['type'] == 'TRANSFER' ? 'Transfer Antar Akun' : ''),
+        note: r['description'],
+        date: DateTime.parse(r['transacted_at']),
+        householdId: '',
+        transferId: transferId,
+        version: int.tryParse('${r['version']}') ?? 1,
+        createdByUserId: r['created_by'] ?? '',
+        createdByName: r['created_by'] == currentUserId ? userName : '',
+        syncStatus: pending == null
+            ? SyncStatus.synced
+            : pending['status'] == 'pending'
+            ? SyncStatus.pending
+            : SyncStatus.failed,
+      );
+    }).toList()..sort((a, b) {
+      final dateOrder = b.date.compareTo(a.date);
+      return dateOrder != 0 ? dateOrder : a.id.compareTo(b.id);
+    });
+  }
 
   /// A parent account does not include its pockets' independent ledgers.
   List<TransactionItem> transactionsForAccount(String id) =>
@@ -2042,6 +2046,34 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
       return true;
     }).toList();
+    if (budgetRows.isEmpty) return const [];
+
+    // Precompute category names once instead of per-budget.
+    final categoryNames = <String, String>{
+      for (final c in _rows('categories'))
+        if (c['id'] is String) c['id'] as String: (c['name'] as String?) ?? '',
+    };
+
+    // Lazy single-pass raw expense index — only populated if an uncached budget
+    // needs a local estimate (avoids rebuilding full TransactionItem list).
+    Map<String, List<({DateTime date, int amount})>>? expenseByCategory;
+    Map<String, List<({DateTime date, int amount})>> loadExpenses() {
+      if (expenseByCategory != null) return expenseByCategory!;
+      final map = <String, List<({DateTime date, int amount})>>{};
+      for (final tx in _rows('transactions')) {
+        if (tx['deleted_at'] != null || tx['type'] != 'EXPENSE') continue;
+        final catId = tx['category_id'] as String?;
+        final rawDate = tx['transacted_at'] as String?;
+        if (catId == null || rawDate == null) continue;
+        final date = DateTime.tryParse(rawDate);
+        if (date == null) continue;
+        map
+            .putIfAbsent(catId, () => [])
+            .add((date: date, amount: rupiah(tx['amount']).abs()));
+      }
+      expenseByCategory = map;
+      return map;
+    }
 
     return budgetRows
         .map((r) {
@@ -2067,12 +2099,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             // period might be for a different periodType
           }
 
-          final categoryName =
-              categories
-                  .where((c) => c.id == r['category_id'])
-                  .map((c) => c.name)
-                  .firstOrNull ??
-              '';
+          final catId = r['category_id'] as String;
+          final categoryName = categoryNames[catId] ?? '';
 
           if (cachedProgress != null &&
               (periodProgress != null ||
@@ -2081,7 +2109,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
                   cachedProgress['period'] == period)) {
             return BudgetItem(
               id: r['id'],
-              categoryId: r['category_id'],
+              categoryId: catId,
               categoryName: categoryName,
               icon: r['icon'] ?? 'category',
               allocatedAmount: parseBudgetInteger(
@@ -2101,14 +2129,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             );
           }
 
-          // Offline or un-cached: calculate local estimate from transactions
+          // Offline or un-cached: calculate local estimate from raw expenses in O(1) category lookup.
           int localSpent = 0;
           if (range != null) {
-            for (final tx in transactions) {
-              if (tx.type == TransactionType.expense &&
-                  tx.categoryId == r['category_id'] &&
-                  range.contains(tx.date)) {
-                localSpent += tx.amount;
+            final entries = loadExpenses()[catId];
+            if (entries != null) {
+              for (final entry in entries) {
+                if (range.contains(entry.date)) {
+                  localSpent += entry.amount;
+                }
               }
             }
           }
@@ -2122,7 +2151,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               : parseBudgetInteger(r['current_amount']);
           return BudgetItem(
             id: r['id'],
-            categoryId: r['category_id'],
+            categoryId: catId,
             categoryName: categoryName,
             icon: r['icon'] ?? 'category',
             allocatedAmount: currentAmountInt,
@@ -2141,27 +2170,84 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         .toList();
   }
 
+  /// Annual budgets for [year], falling back to 12x monthly budgets with a
+  /// single-pass raw expense sum (avoids O(B * T * C) rebuild lag).
+  List<BudgetItem> annualBudgetsForYear(int year) {
+    final annualPeriodKey = '$year';
+    final explicitAnnual = budgetsForPeriod(
+      period: annualPeriodKey,
+      periodType: 'ANNUAL',
+    );
+    if (explicitAnnual.isNotEmpty) return explicitAnnual;
+
+    final monthly = budgets;
+    if (monthly.isEmpty) return const [];
+
+    final yearSpentByCategory = <String, int>{};
+    for (final tx in _rows('transactions')) {
+      if (tx['deleted_at'] != null || tx['type'] != 'EXPENSE') continue;
+      final catId = tx['category_id'] as String?;
+      final rawDate = tx['transacted_at'] as String?;
+      if (catId == null || rawDate == null) continue;
+      final parsed = DateTime.tryParse(rawDate);
+      if (parsed == null || parsed.toUtc().year != year) continue;
+      yearSpentByCategory[catId] =
+          (yearSpentByCategory[catId] ?? 0) + rupiah(tx['amount']).abs();
+    }
+
+    return monthly.map((b) {
+      final actualYearSpent = yearSpentByCategory[b.categoryId] ?? 0;
+      final annualAllocated = b.allocatedAmount * 12;
+      return b.copyWith(
+        period: annualPeriodKey,
+        allocatedAmount: annualAllocated,
+        spentAmount: actualYearSpent,
+        periodType: 'ANNUAL',
+        rawAllowance: '$annualAllocated.00',
+        rawSpent: '$actualYearSpent.00',
+        periodDays: 365,
+      );
+    }).toList();
+  }
+
   Future<void> loadBudgetProgressForPeriod(
     String period, {
     String? periodType,
   }) async {
     final repo = repository;
-    if (repo == null) return;
-    for (final budget in repo.rows('budgets')) {
-      if (periodType != null && budget['period_type'] != periodType) continue;
-      try {
-        await repo.cacheValue(
-          'progress:${budget['id']}:$period',
-          () => repo.client.request(
+    if (repo == null || _offline || repo.offline) return;
+    final targets = repo
+        .rows('budgets')
+        .where(
+          (b) =>
+              b['deleted_at'] == null &&
+              (periodType == null || b['period_type'] == periodType),
+        )
+        .toList();
+    if (targets.isEmpty) return;
+
+    final updates = <String, dynamic>{};
+    await Future.wait(
+      targets.map((budget) async {
+        try {
+          final value = await repo.client.request(
             'GET',
             '/budgets/${budget['id']}/progress',
             query: {'period': period},
-          ),
-        );
-      } catch (_) {
-        // Fall back gracefully to local transactions
-      }
-    }
+          );
+          updates['progress:${budget['id']}:$period'] = value;
+        } catch (_) {
+          // Fall back gracefully to local transactions.
+        }
+      }),
+    );
+
+    if (updates.isEmpty || _disposed || !identical(repository, repo)) return;
+    repo.atomic(() {
+      updates.forEach((key, value) {
+        repo.state[key] = value;
+      });
+    });
     notifyListeners();
   }
 

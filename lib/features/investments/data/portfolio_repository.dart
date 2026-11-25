@@ -67,8 +67,19 @@ class PortfolioRead {
 }
 
 class PortfolioAccount {
-  final String id, name;
-  const PortfolioAccount(this.id, this.name);
+  final String id;
+  final String name;
+  final String? parentName;
+  final String? balance;
+  final String currency;
+
+  const PortfolioAccount(
+    this.id,
+    this.name, {
+    this.parentName,
+    this.balance,
+    this.currency = 'IDR',
+  });
 }
 
 class PortfolioRepository {
@@ -76,21 +87,41 @@ class PortfolioRepository {
   PortfolioRepository(this.source);
 
   List<PortfolioAccount> get accounts {
+    final allRows = source.rows('accounts');
+    final parentIds = allRows
+        .where((r) => r['deleted_at'] == null)
+        .map((r) => r['parent_account_id']?.toString())
+        .where((id) => id != null && id.isNotEmpty)
+        .toSet();
+    final namesById = {
+      for (final r in allRows)
+        if (r['id'] is String && r['name'] is String)
+          r['id'] as String: r['name'] as String,
+    };
     final types = source
         .rows('account_types')
         .where((r) => r['category'] == 'INVESTMENT' && r['deleted_at'] == null)
         .map((r) => r['id'])
         .toSet();
-    return source
-        .rows('accounts')
+    return allRows
         .where(
           (r) =>
               r['user_id'] == source.userId &&
               r['deleted_at'] == null &&
               r['is_visible'] != false &&
-              types.contains(r['account_type_id']),
+              types.contains(r['account_type_id']) &&
+              !parentIds.contains(r['id']?.toString()),
         )
-        .map((r) => PortfolioAccount(r['id'] as String, r['name'] as String))
+        .map((r) {
+          final parentId = r['parent_account_id']?.toString();
+          return PortfolioAccount(
+            r['id'] as String,
+            r['name'] as String,
+            parentName: parentId != null ? namesById[parentId] : null,
+            balance: r['balance']?.toString(),
+            currency: r['currency']?.toString() ?? 'IDR',
+          );
+        })
         .toList();
   }
 

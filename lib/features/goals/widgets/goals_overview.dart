@@ -18,132 +18,246 @@ class GoalsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final total = progresses.length;
     final achieved = progresses.where((progress) => progress.achieved).length;
+    final remaining = total - achieved;
     final isEmpty = total == 0;
+    final ratio = total > 0 ? achieved / total : 0.0;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      color: AppColors.cardBg,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: const BorderSide(color: AppColors.borderSubtle),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0F3E33),
+            Color(0xFF1B5E4B),
+            Color(0xFF0D9488),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.24),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Impian & target',
-              style: textTheme.titleLarge?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.flag_rounded,
+                size: 14,
+                color: AppColors.accentLight,
               ),
-            ),
-            const SizedBox(height: 20),
-            if (isEmpty) ...[
-              const _GoalIcon(),
-              const SizedBox(height: 16),
-              Text(
-                'Mulai dari satu impian',
-                style: textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'IMPIAN & TARGET FINANSIAL',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white70,
+                    letterSpacing: 0.6,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Belum ada goal. Buat target pertama kamu.',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ] else ...[
-              Wrap(
-                spacing: 20,
-                runSpacing: 16,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (hidden)
-                    const _GoalIcon(neutral: true)
-                  else
-                    Semantics(
-                      label: 'Target tercapai: $achieved dari $total',
-                      child: ExcludeSemantics(
-                        child: SizedBox.square(
-                          dimension: 88,
-                          child: CircularProgressIndicator(
-                            value: achieved / total,
-                            strokeWidth: 10,
-                            strokeCap: StrokeCap.round,
-                            backgroundColor: AppColors.surfaceVariant,
-                            color: AppColors.accentDark,
-                          ),
-                        ),
-                      ),
+              if (!isEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$total Goal',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
-                  Column(
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (isEmpty) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _GoalIcon(),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Target tercapai',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                      const Text(
+                        'Mulai dari satu impian',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.2,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        hidden ? '••• / $total' : '$achieved / $total',
-                        semanticsLabel: hidden
-                            ? 'Progres disembunyikan. Total $total goal'
-                            : null,
-                        style: textTheme.headlineSmall?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
+                        'Belum ada goal. Buat target pertama kamu untuk memantau progres tabungan secara terukur.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: Colors.white.withValues(alpha: 0.82),
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            ),
+          ] else ...[
+            Wrap(
+              spacing: 18,
+              runSpacing: 14,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (hidden)
+                  const _GoalIcon(neutral: true)
+                else
+                  Semantics(
+                    label: 'Target tercapai: $achieved dari $total',
+                    child: ExcludeSemantics(
+                      child: SizedBox.square(
+                        dimension: 78,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned.fill(
+                              child: CircularProgressIndicator(
+                                value: ratio,
+                                strokeWidth: 8,
+                                strokeCap: StrokeCap.round,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.18,
+                                ),
+                                color: const Color(0xFF34D399),
+                              ),
+                            ),
+                            Icon(
+                              achieved == total
+                                  ? Icons.emoji_events_rounded
+                                  : Icons.track_changes_rounded,
+                              size: 28,
+                              color: achieved == total
+                                  ? const Color(0xFFFDE68A)
+                                  : Colors.white,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Target tercapai',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.78),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hidden ? '••• / $total' : '$achieved / $total',
+                      semanticsLabel: hidden
+                          ? 'Progres disembunyikan. Total $total goal'
+                          : null,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.14),
+                ),
               ),
-              const SizedBox(height: 20),
-              Wrap(
+              child: Wrap(
                 spacing: 20,
-                runSpacing: 12,
+                runSpacing: 8,
                 children: [
                   _GoalCount(
                     label: 'Belum tercapai',
-                    count: hidden ? '•••' : '${total - achieved}',
-                    color: hidden ? AppColors.textMuted : AppColors.sageMuted,
+                    count: hidden ? '•••' : '$remaining',
+                    color: hidden
+                        ? Colors.white54
+                        : const Color(0xFFFBBF24),
                   ),
                   _GoalCount(
                     label: 'Tercapai',
                     count: hidden ? '•••' : '$achieved',
-                    color: hidden ? AppColors.textMuted : AppColors.accentDark,
+                    color: hidden
+                        ? Colors.white54
+                        : const Color(0xFF34D399),
                   ),
                 ],
               ),
-            ],
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onCreate,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.textOnPrimary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-              ),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(isEmpty ? 'Buat goal pertama' : 'Buat goal baru'),
             ),
           ],
-        ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onCreate,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 13,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
+              icon: const Icon(Icons.add_rounded, size: 19),
+              label: Text(
+                isEmpty ? 'Buat goal pertama' : 'Buat goal baru',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -157,15 +271,16 @@ class _GoalIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: neutral ? AppColors.surfaceVariant : AppColors.accentLight,
+        color: Colors.white.withValues(alpha: neutral ? 0.14 : 0.18),
         shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
       ),
       child: Icon(
         Icons.track_changes_rounded,
-        size: 36,
-        color: neutral ? AppColors.textMuted : AppColors.accentDark,
+        size: 30,
+        color: neutral ? Colors.white70 : Colors.white,
       ),
     );
   }
@@ -191,12 +306,24 @@ class _GoalCount extends StatelessWidget {
             text: '● ',
             style: TextStyle(color: color),
           ),
-          TextSpan(text: '$label: $count'),
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          TextSpan(
+            text: count,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
       semanticsLabel: '$label: ${count == '•••' ? 'disembunyikan' : count}',
-      style: Theme.of(context).textTheme.bodyMedium
-          ?.copyWith(color: AppColors.textSecondary),
+      style: const TextStyle(fontSize: 12.5),
     );
   }
 }

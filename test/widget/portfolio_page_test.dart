@@ -101,14 +101,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Jumlah: 123456789012.12345678'), findsOneWidget);
-      expect(
-        find.text('Harga modal rata-rata: IDR 999999999999.12345678'),
-        findsOneWidget,
-      );
+      expect(find.text('Jumlah unit'), findsOneWidget);
+      expect(find.text('123.456.789.012,12345678'), findsOneWidget);
+      expect(find.text('Harga modal rata-rata'), findsOneWidget);
+      expect(find.text('Rp 999.999.999.999,12345678'), findsOneWidget);
       expect(find.text('Data server • Bukan real-time'), findsOneWidget);
       expect(find.textContaining('Cache diambil:'), findsNothing);
-      await tester.ensureVisible(find.text('Tentang data portofolio'));
+      await tester.scrollUntilVisible(
+        find.text('Tentang data portofolio'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('Tentang data portofolio'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Cache diambil:'), findsOneWidget);
@@ -128,8 +131,64 @@ void main() {
       );
       state.toggleHideBalance();
       await tester.pumpAndSettle();
-      expect(find.text('Belum ada akun investasi milik Anda.'), findsOneWidget);
-      expect(find.textContaining('123456789012'), findsNothing);
+      expect(
+        find.textContaining('Belum ada akun investasi milik Anda.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('123.456.789.012'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      state.dispose();
+    },
+  );
+
+  testWidgets(
+    'portfolio dropdown hides parent investment accounts that have children',
+    (tester) async {
+      final api = ReadClient()..response = [];
+      final state = cachedFinanceState(client: api)..currentUserId = 'user';
+      state.repository!.atomic(() {
+        state.repository!.entities['account_types'] = {
+          'investment': {'id': 'investment', 'category': 'INVESTMENT'},
+        };
+        state.repository!.entities['accounts'] = {
+          'parent-bibit': {
+            'id': 'parent-bibit',
+            'name': 'Bibit',
+            'user_id': 'user',
+            'account_type_id': 'investment',
+          },
+          'child-sfi': {
+            'id': 'child-sfi',
+            'name': 'Syailendra Fixed Income',
+            'parent_account_id': 'parent-bibit',
+            'user_id': 'user',
+            'account_type_id': 'investment',
+          },
+          'leaf-standalone': {
+            'id': 'leaf-standalone',
+            'name': 'Stockbit Saham',
+            'user_id': 'user',
+            'account_type_id': 'investment',
+          },
+        };
+      });
+
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: PortfolioPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Parent account must not be auto-selected or appear as a selectable item.
+      expect(api.requests.first, isNot(contains('parent-bibit')));
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      expect(find.text('Bibit'), findsNothing);
+      expect(find.text('Bibit › Syailendra Fixed Income'), findsWidgets);
+      expect(find.text('Stockbit Saham'), findsWidgets);
+
       await tester.pumpWidget(const SizedBox());
       state.dispose();
     },

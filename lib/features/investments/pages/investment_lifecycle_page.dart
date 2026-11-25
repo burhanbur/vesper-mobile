@@ -12,7 +12,9 @@ import '../models/investment.dart';
 import '../widgets/offline_investment_trade_form.dart';
 
 class InvestmentLifecyclePage extends StatefulWidget {
-  const InvestmentLifecyclePage({super.key});
+  final int initialTab;
+
+  const InvestmentLifecyclePage({super.key, this.initialTab = 0});
   @override
   State<InvestmentLifecyclePage> createState() =>
       _InvestmentLifecyclePageState();
@@ -21,7 +23,7 @@ class InvestmentLifecyclePage extends StatefulWidget {
 class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  int _selectedTab = 0;
+  late int _selectedTab;
   InvestmentLifecycleController? controller;
   String search = '';
   String? accountId;
@@ -29,7 +31,12 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _selectedTab = widget.initialTab.clamp(0, 3);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: _selectedTab,
+    );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging &&
           _selectedTab != _tabController.index) {

@@ -58,6 +58,28 @@ class DateFormatter {
     return formatShort(parsed);
   }
 
+  /// Compact day + short month from an ISO calendar date: "2026-11-26" -> "26 Nov".
+  static String calendarDayMonth(Object? value) {
+    final text = value?.toString() ?? '';
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) return text;
+    final parsed = DateTime.tryParse('${text}T00:00:00Z');
+    if (parsed == null || parsed.toIso8601String().substring(0, 10) != text) {
+      return text;
+    }
+    return '${parsed.day} ${_shortMonthsIndo[parsed.month - 1]}';
+  }
+
+  /// Formats a "YYYY-MM" period string into Indonesian Month Year: "2026-11" -> "November 2026".
+  static String monthPeriod(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    final match = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(text);
+    if (match == null) return text;
+    final year = int.tryParse(match.group(1)!);
+    final month = int.tryParse(match.group(2)!);
+    if (year == null || month == null || month < 1 || month > 12) return text;
+    return '${_monthsIndo[month - 1]} $year';
+  }
+
   static String fixedZone(int offset) => switch (offset) {
     420 => 'WIB',
     480 => 'WITA',

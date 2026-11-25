@@ -21,6 +21,15 @@ class _BillsPageState extends State<BillsPage> {
   BillsController? controller;
   bool older = false;
   String view = 'OPEN', message = '';
+  int _selectedTab = 0; // 0: Tagihan, 1: Seri Jadwal
+
+  static String _frequencyLabel(Object? raw) => switch (raw?.toString()) {
+    'ONCE' => 'Sekali bayar',
+    'WEEKLY' => 'Mingguan',
+    'MONTHLY' => 'Bulanan',
+    'YEARLY' => 'Tahunan',
+    _ => '${raw ?? '-'}',
+  };
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -388,7 +397,10 @@ class _BillsPageState extends State<BillsPage> {
                                         'MONTHLY',
                                         'YEARLY',
                                       ])
-                                        DropdownMenuItem(value: f, child: Text(f)),
+                                        DropdownMenuItem(
+                                          value: f,
+                                          child: Text(_frequencyLabel(f)),
+                                        ),
                                     ],
                                     onChanged: (v) => update(() => frequency = v!),
                                   ),
@@ -412,7 +424,7 @@ class _BillsPageState extends State<BillsPage> {
                                       }
                                     },
                                     decoration: InputDecoration(
-                                      labelText: 'Tanggal awal (YYYY-MM-DD)',
+                                      labelText: 'Tanggal mulai',
                                       helperText: anchor.text.isNotEmpty
                                           ? DateFormatter.calendarDate(anchor.text)
                                           : null,
@@ -460,7 +472,7 @@ class _BillsPageState extends State<BillsPage> {
                                       }
                                     },
                                     decoration: InputDecoration(
-                                      labelText: 'Tanggal akhir opsional (YYYY-MM-DD)',
+                                      labelText: 'Tanggal berakhir (opsional)',
                                       hintText: 'Pilih tanggal selesai',
                                       helperText: end.text.isNotEmpty
                                           ? DateFormatter.calendarDate(end.text)
@@ -891,7 +903,7 @@ class _BillsPageState extends State<BillsPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  '${item.bill['title']} • ${item.date} • ${item.amount} IDR',
+                                  '${item.bill['title']} • ${DateFormatter.calendarDate(item.date)} • ${item.amount} IDR',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
@@ -1205,12 +1217,61 @@ class _BillsPageState extends State<BillsPage> {
           .toList();
     }
 
+    final activeSchedulesCount = repo.schedules
+        .where((s) => s['active'] == true)
+        .length;
+    var heroTotalMinor = BigInt.zero;
+    var overdueCount = 0;
+    for (final item in entries) {
+      if (view == 'HISTORY' ||
+          (item.status != 'PAID' && item.status != 'SKIPPED')) {
+        heroTotalMinor += obligationMinor(item.amount);
+        if (view != 'HISTORY' && item.overdue) overdueCount++;
+      }
+    }
+
+    Widget banner({
+      required IconData icon,
+      required String text,
+      required Color color,
+      required Color bg,
+    }) {
+      return Container(
+        margin: const EdgeInsets.only(top: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
         scrolledUnderElevation: 0,
+        foregroundColor: AppColors.textPrimary,
         title: const Text(
           'Tagihan & Jadwal',
           style: TextStyle(
@@ -1235,214 +1296,280 @@ class _BillsPageState extends State<BillsPage> {
                   },
             icon: const Icon(Icons.sync_rounded),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        children: [
-          // 1. Hero Summary Card
-          Builder(
-            builder: (context) {
-              BigInt upcomingTotalMinor = BigInt.zero;
-              int overdueCount = 0;
-              for (final item in entries) {
-                if (item.status != 'PAID' && item.status != 'SKIPPED') {
-                  upcomingTotalMinor += obligationMinor(item.amount);
-                  if (item.overdue) overdueCount++;
-                }
-              }
-
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      AppColors.primaryGradientStart,
-                      AppColors.primaryGradientEnd,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.18),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          await state.refresh();
+          if (mounted) setState(() {});
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            // 1. Clean Hero Summary Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF0F3E33),
+                    Color(0xFF1B5E4B),
+                    Color(0xFF0D9488),
                   ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_month_rounded,
-                              size: 16,
-                              color: Colors.white70,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              view == 'HISTORY'
-                                  ? 'Riwayat Pembayaran'
-                                  : 'Jadwal & Tagihan',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (overdueCount > 0 && view != 'HISTORY')
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0xFFEF4444).withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 12,
-                                  color: Color(0xFFFCA5A5),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$overdueCount Lewat Tempo',
-                                  style: const TextStyle(
-                                    color: Color(0xFFFCA5A5),
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.24),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.event_repeat_rounded,
+                        size: 15,
+                        color: AppColors.accentLight,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          view == 'HISTORY'
+                              ? 'RIWAYAT TAGIHAN'
+                              : 'TAGIHAN TERJADWAL',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      view == 'HISTORY'
-                          ? 'Total Riwayat'
-                          : 'Total Tagihan Terjadwal',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      state.isBalanceHidden
-                          ? '••••••'
-                          : (upcomingTotalMinor == BigInt.zero
-                              ? 'Rp 0'
-                              : CurrencyFormatter.formatMinorRupiah(
-                                  upcomingTotalMinor,
-                                )),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
+                      if (overdueCount > 0 && view != 'HISTORY')
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
-                            vertical: 4,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${repo.schedules.where((s) => s['active'] == true).length} Jadwal Aktif',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                            color: const Color(0xFFEF4444)
+                                .withValues(alpha: 0.26),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(0xFFFCA5A5)
+                                  .withValues(alpha: 0.4),
                             ),
                           ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                size: 12,
+                                color: Color(0xFFFCA5A5),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$overdueCount Lewat Tempo',
+                                style: const TextStyle(
+                                  color: Color(0xFFFCA5A5),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${entries.length} Kejadian',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      state.isBalanceHidden
+                          ? '••••••'
+                          : (heroTotalMinor == BigInt.zero
+                                ? 'Rp 0'
+                                : CurrencyFormatter.formatMinorRupiah(
+                                    heroTotalMinor,
+                                  )),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _BillHeroStat(
+                            dotColor: const Color(0xFF34D399),
+                            label: 'Jadwal Aktif',
+                            value: '$activeSchedulesCount Jadwal',
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 26,
+                          color: Colors.white.withValues(alpha: 0.18),
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        Expanded(
+                          child: _BillHeroStat(
+                            dotColor: overdueCount > 0
+                                ? const Color(0xFFF87171)
+                                : const Color(0xFFA78BFA),
+                            label: view == 'HISTORY'
+                                ? 'Tercatat'
+                                : 'Kejadian Aktif',
+                            value: '${entries.length} Tagihan',
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          // Header Info Banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.event_repeat_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Pengingat dalam aplikasi, bukan pembayaran otomatis. Transaksi dicatat hanya setelah konfirmasi. Waktu jatuh tempo mengikuti zona tetap tiap jadwal; lewat tanggal berarti tertunggak.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                      height: 1.4,
+
+            // 2. Segmented Tab Bar: Tagihan vs Seri Jadwal
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _selectedTab = 0),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _selectedTab == 0
+                              ? AppColors.primary
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Tagihan (${entries.length})',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _selectedTab == 0
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _selectedTab = 1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _selectedTab == 1
+                              ? AppColors.primary
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Seri Jadwal (${repo.schedules.length})',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _selectedTab == 1
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          if (!repo.complete)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Container(
+            // Status / Feedback Banners
+            if (!repo.complete)
+              banner(
+                icon: Icons.cloud_sync_rounded,
+                text:
+                    'Sinkronkan riwayat awal sebelum mencatat kejadian. Jadwal baru tetap dapat disimpan offline.',
+                color: AppColors.warning,
+                bg: AppColors.warningLight,
+              ),
+            if (message.isNotEmpty)
+              banner(
+                icon: Icons.check_circle_rounded,
+                text: message,
+                color: AppColors.income,
+                bg: AppColors.incomeLight,
+              ),
+            if (active.error != null)
+              banner(
+                icon: Icons.error_outline_rounded,
+                text: active.error!,
+                color: AppColors.expense,
+                bg: AppColors.expenseLight,
+              ),
+            if (state.dataError != null)
+              banner(
+                icon: Icons.cloud_off_rounded,
+                text: state.dataError!,
+                color: AppColors.expense,
+                bg: AppColors.expenseLight,
+              ),
+            if (loadError != null)
+              banner(
+                icon: Icons.error_outline_rounded,
+                text: loadError,
+                color: AppColors.expense,
+                bg: AppColors.expenseLight,
+              ),
+
+            if (repo.queue.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 10),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.warningLight,
@@ -1451,426 +1578,394 @@ class _BillsPageState extends State<BillsPage> {
                     color: AppColors.warning.withValues(alpha: 0.3),
                   ),
                 ),
-                child: const Text(
-                  'Sinkronkan riwayat awal sebelum mencatat kejadian. Jadwal baru dapat disimpan offline.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.warning,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          if (message.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: AppColors.income,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          if (active.error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                active.error!,
-                style: const TextStyle(color: AppColors.expense),
-              ),
-            ),
-          if (state.dataError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                state.dataError!,
-                style: const TextStyle(color: AppColors.expense),
-              ),
-            ),
-
-          const SizedBox(height: 14),
-          // Filter & View Controller
-          Material(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.border),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: view,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Tampilan jadwal',
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'OPEN',
-                        child: Text('Mendatang & lewat tempo'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'HISTORY',
-                        child: Text('Riwayat pembayaran / dilewati'),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => view = v!),
-                  ),
-                  if (view == 'OPEN') ...[
-                    const SizedBox(height: 6),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Sertakan tunggakan lama sejak awal',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'Default: 12 bulan terakhir dan 60 hari mendatang. Jadwal sekali bayar selalu ditampilkan sampai selesai.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                      value: older,
-                      onChanged: (v) => setState(() => older = v),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          if (loadError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                loadError,
-                style: const TextStyle(color: AppColors.expense),
-              ),
-            ),
-
-          for (final item in repo.queue)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${item['entity_type']}: ${item['status']} — ${item['error'] ?? 'menunggu sinkronisasi'}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  if (item['entity_type'] == 'bill_schedules' &&
-                      ['rejected', 'conflict'].contains(item['status']))
-                    Wrap(
-                      children: [
-                        for (final discard in [false, true])
-                          TextButton(
-                            onPressed: () {
-                              active.save(
-                                () => repo.recoverSchedule(
-                                  item['id'] as String,
-                                  discard: discard,
-                                ),
-                              );
-                              setState(() {});
-                            },
-                            child: Text(
-                              discard
-                                  ? 'Gunakan keadaan server'
-                                  : 'Coba ulang jadwal',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final item in repo.queue)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${item['entity_type']}: ${item['status']} — ${item['error'] ?? 'menunggu sinkronisasi'}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.warning,
                             ),
                           ),
-                      ],
-                    ),
-                  if (item['entity_type'] == 'bill_commands' &&
-                      [
-                        'pending',
-                        'conflict',
-                        'rejected',
-                      ].contains(item['status']))
-                    Wrap(
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            active.save(
-                              () => repo.source.retryBillCommand(
-                                item['id'] as String,
-                              ),
-                            );
-                            setState(() {});
-                          },
-                          child: const Text('Coba ulang'),
-                        ),
-                        if (item['server_data'] is Map)
-                          TextButton(
-                            onPressed: () {
-                              active.save(
-                                () => repo.source.retryBillCommand(
-                                  item['id'] as String,
-                                  useServer: true,
+                          if (item['entity_type'] == 'bill_schedules' &&
+                              ['rejected', 'conflict'].contains(item['status']))
+                            Wrap(
+                              spacing: 6,
+                              children: [
+                                for (final discard in [false, true])
+                                  TextButton(
+                                    onPressed: () {
+                                      active.save(
+                                        () => repo.recoverSchedule(
+                                          item['id'] as String,
+                                          discard: discard,
+                                        ),
+                                      );
+                                      setState(() {});
+                                    },
+                                    child: Text(
+                                      discard
+                                          ? 'Gunakan keadaan server'
+                                          : 'Coba ulang jadwal',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          if (item['entity_type'] == 'bill_commands' &&
+                              [
+                                'pending',
+                                'conflict',
+                                'rejected',
+                              ].contains(item['status']))
+                            Wrap(
+                              spacing: 6,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    active.save(
+                                      () => repo.source.retryBillCommand(
+                                        item['id'] as String,
+                                      ),
+                                    );
+                                    setState(() {});
+                                  },
+                                  child: const Text('Coba ulang'),
                                 ),
-                              );
-                              setState(() {});
-                            },
-                            child: const Text('Gunakan keadaan server'),
-                          ),
-                        TextButton(
-                          onPressed: () => cancelCommand(item),
-                          child: const Text('Ajukan pembatalan'),
+                                if (item['server_data'] is Map)
+                                  TextButton(
+                                    onPressed: () {
+                                      active.save(
+                                        () => repo.source.retryBillCommand(
+                                          item['id'] as String,
+                                          useServer: true,
+                                        ),
+                                      );
+                                      setState(() {});
+                                    },
+                                    child: const Text('Gunakan keadaan server'),
+                                  ),
+                                TextButton(
+                                  onPressed: () => cancelCommand(item),
+                                  child: const Text('Ajukan pembatalan'),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 14),
+
+            // 3. Tab 0: Tagihan & Riwayat
+            if (_selectedTab == 0) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: view,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Tampilan jadwal',
+                        isDense: true,
+                        prefixIcon: const Icon(
+                          Icons.filter_list_rounded,
+                          size: 19,
+                          color: AppColors.primary,
+                        ),
+                        labelStyle: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.border),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'OPEN',
+                          child: Text('Mendatang & lewat tempo'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'HISTORY',
+                          child: Text('Riwayat pembayaran / dilewati'),
                         ),
                       ],
+                      onChanged: (v) => setState(() => view = v!),
                     ),
-                ],
-              ),
-            ),
-
-          if (entries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  'Tidak ada kejadian pada tampilan ini.',
-                  style: TextStyle(color: AppColors.textSecondary),
+                    if (view == 'OPEN') ...[
+                      const SizedBox(height: 8),
+                      FilterChip(
+                        selected: older,
+                        onSelected: (v) => setState(() => older = v),
+                        selectedColor: AppColors.accentLight,
+                        backgroundColor: AppColors.background,
+                        checkmarkColor: AppColors.primary,
+                        side: BorderSide(
+                          color: older ? AppColors.primary : AppColors.border,
+                        ),
+                        label: Text(
+                          'Sertakan tunggakan lama',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: older
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: older
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 12),
 
-          const SizedBox(height: 12),
-          for (final o in entries)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: o.overdue && o.status == 'PENDING'
-                      ? AppColors.expense.withValues(alpha: 0.3)
-                      : AppColors.border,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.015),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+              if (entries.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 32,
+                    horizontal: 20,
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: o.status == 'PAID'
-                              ? AppColors.accentLight
-                              : (o.overdue && o.status == 'PENDING'
-                                  ? AppColors.expenseLight
-                                  : AppColors.primary.withValues(alpha: 0.08)),
-                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.accentLight.withValues(alpha: 0.7),
+                          shape: BoxShape.circle,
                         ),
-                        child: Icon(
-                          o.status == 'PAID'
-                              ? Icons.check_circle_rounded
-                              : (o.overdue && o.status == 'PENDING'
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.receipt_long_rounded),
-                          color: o.status == 'PAID'
-                              ? AppColors.income
-                              : (o.overdue && o.status == 'PENDING'
-                                  ? AppColors.expense
-                                  : AppColors.primary),
-                          size: 20,
+                        child: const Icon(
+                          Icons.event_available_rounded,
+                          size: 32,
+                          color: AppColors.primary,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${o.bill['title']}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${DateFormatter.calendarDate(o.date)} • ${DateFormatter.fixedZone(o.bill['utc_offset_minutes'] as int)}${o.overdue && o.status == 'PENDING' ? ' • Lewat tempo' : ''}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 12),
+                      Text(
+                        view == 'HISTORY'
+                            ? 'Belum ada riwayat pembayaran.'
+                            : 'Tidak ada tagihan aktif saat ini.',
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: o.status == 'PAID'
-                              ? AppColors.accentLight
-                              : (o.overdue && o.status == 'PENDING'
-                                  ? AppColors.expenseLight
-                                  : Colors.grey.shade100),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          o.status,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: o.status == 'PAID'
-                                ? AppColors.income
-                                : (o.overdue && o.status == 'PENDING'
-                                    ? AppColors.expense
-                                    : AppColors.textSecondary),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        tooltip: 'Kelola jadwal',
-                        icon: const Icon(
-                          Icons.more_vert_rounded,
-                          size: 20,
+                      const SizedBox(height: 4),
+                      Text(
+                        view == 'HISTORY'
+                            ? 'Tagihan yang sudah dibayar atau dilewati akan muncul di sini.'
+                            : 'Tambahkan jadwal tagihan rutin agar tidak terlewat.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
                           color: AppColors.textSecondary,
                         ),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 28,
-                          minHeight: 28,
+                      ),
+                      if (view != 'HISTORY') ...[
+                        const SizedBox(height: 14),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () => schedule(),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Buat jadwal'),
                         ),
-                        onPressed: () => schedule(bill: o.bill),
+                      ],
+                    ],
+                  ),
+                ),
+
+              for (final o in entries)
+                _buildOccurrenceCard(
+                  context: context,
+                  state: state,
+                  o: o,
+                ),
+            ],
+
+            // 4. Tab 1: Seri Jadwal
+            if (_selectedTab == 1) ...[
+              if (repo.schedules.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 32,
+                    horizontal: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.event_repeat_rounded,
+                        size: 34,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Belum ada seri jadwal tagihan.',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => schedule(),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Buat jadwal'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          state.isBalanceHidden
-                              ? '••••••'
-                              : CurrencyFormatter.formatCurrency(o.amount),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          o.bill['amount_type'] == 'FIXED'
-                              ? 'Nominal tetap'
-                              : 'Perkiraan',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+
+              for (final bill in repo.schedules)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  if (o.record?['note'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        '${o.record!['note']}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: bill['active'] == true
+                                  ? AppColors.accentLight
+                                  : AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              bill['frequency'] == 'ONCE'
+                                  ? Icons.event_rounded
+                                  : Icons.repeat_rounded,
+                              color: bill['active'] == true
+                                  ? AppColors.primary
+                                  : AppColors.textMuted,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${bill['title']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    _BillTag(
+                                      label: _frequencyLabel(bill['frequency']),
+                                      bg: AppColors.surfaceVariant,
+                                      fg: AppColors.textSecondary,
+                                    ),
+                                    _BillTag(
+                                      label: bill['active'] == true
+                                          ? 'Aktif'
+                                          : 'Diarsipkan',
+                                      bg: bill['active'] == true
+                                          ? AppColors.incomeLight
+                                          : AppColors.surfaceVariant,
+                                      fg: bill['active'] == true
+                                          ? AppColors.income
+                                          : AppColors.textMuted,
+                                    ),
+                                    if (bill['reminder_enabled'] == true)
+                                      _BillTag(
+                                        label: 'H-${bill['reminder_days']}',
+                                        bg: AppColors.infoLight,
+                                        fg: AppColors.info,
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            state.isBalanceHidden
+                                ? '••••••'
+                                : CurrencyFormatter.formatCurrency(
+                                    bill['amount'],
+                                  ),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  if (!['PAID', 'SKIPPED'].contains(o.status) &&
-                      o.bill['active'] == true) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        if (o.bill['obligation_id'] == null &&
-                            o.status != 'NEEDS_REVIEW')
-                          FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.accentLight,
-                              foregroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                            ),
-                            onPressed: () => action(o, 'PAY'),
-                            child: const Text('Catat pembayaran'),
-                          ),
-                        OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                          ),
-                          onPressed: () => action(
-                            o,
-                            o.bill['obligation_id'] == null
-                                ? 'LINK_TRANSACTION'
-                                : 'LINK_OBLIGATION',
-                          ),
-                          child: Text(
-                            o.bill['obligation_id'] == null
-                                ? 'Tautkan transaksi'
-                                : 'Tautkan pembayaran pinjaman',
-                          ),
-                        ),
-                        if (o.bill['obligation_id'] != null)
-                          OutlinedButton(
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.primary,
                               side: const BorderSide(color: AppColors.border),
@@ -1882,124 +1977,289 @@ class _BillsPageState extends State<BillsPage> {
                                 vertical: 6,
                               ),
                             ),
-                            onPressed: () => Navigator.of(context).push<void>(
-                              MaterialPageRoute(
-                                builder: (_) => const ObligationsPage(),
-                              ),
+                            onPressed: () => schedule(bill: bill),
+                            icon: const Icon(Icons.edit_rounded, size: 15),
+                            label: const Text(
+                              'Ubah / arsip',
+                              style: TextStyle(fontSize: 12),
                             ),
-                            child: const Text('Buka Utang & Piutang'),
                           ),
-                        if (o.status == 'PENDING')
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.textMuted,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            tooltip: 'Hapus jadwal',
+                            icon: const Icon(
+                              Icons.delete_rounded,
+                              color: AppColors.expense,
+                              size: 20,
                             ),
-                            onPressed: () => action(o, 'SKIP'),
-                            child: const Text('Lewati'),
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => confirmAndDeleteSchedule(bill),
                           ),
-                      ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+
+            // 5. Collapsible Guide at the bottom (no clutter at the top!)
+            const SizedBox(height: 16),
+            Material(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: const ExpansionTile(
+                tilePadding: EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                childrenPadding: EdgeInsets.fromLTRB(14, 0, 14, 14),
+                shape: Border(),
+                collapsedShape: Border(),
+                leading: Icon(
+                  Icons.info_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                title: Text(
+                  'Cara kerja tagihan & jadwal',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                children: [
+                  Text(
+                    'Pengingat dalam aplikasi, bukan pembayaran otomatis. Transaksi baru dicatat setelah Anda konfirmasi. Waktu jatuh tempo mengikuti zona tetap tiap jadwal; lewat tanggal berarti tertunggak.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.45,
                     ),
-                  ],
-                  if (['SKIPPED', 'NEEDS_REVIEW'].contains(o.status)) ...[
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => action(o, 'REOPEN'),
-                      child: const Text('Buka kembali kejadian'),
-                    ),
-                  ],
+                  ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(height: 16),
+  Widget _buildOccurrenceCard({
+    required BuildContext context,
+    required AppState state,
+    required BillDueItem o,
+  }) {
+    final isPaid = o.status == 'PAID';
+    final isOverduePending = o.overdue && o.status == 'PENDING';
+    final accentColor = isPaid
+        ? AppColors.income
+        : isOverduePending
+        ? AppColors.expense
+        : AppColors.primary;
+    final accentBg = isPaid
+        ? AppColors.incomeLight
+        : isOverduePending
+        ? AppColors.expenseLight
+        : AppColors.accentLight;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isOverduePending
+              ? AppColors.expense.withValues(alpha: 0.35)
+              : AppColors.border,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  color: AppColors.accentLight,
-                  borderRadius: BorderRadius.circular(8),
+                  color: accentBg,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.schedule_rounded,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Seri jadwal',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                child: Icon(
+                  isPaid
+                      ? Icons.check_circle_rounded
+                      : isOverduePending
+                      ? Icons.warning_amber_rounded
+                      : Icons.receipt_long_rounded,
+                  color: accentColor,
+                  size: 21,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          for (final bill in repo.schedules)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.015),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: bill['active'] == true
-                          ? AppColors.accentLight
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${o.bill['title']}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.5,
+                        color: AppColors.textPrimary,
+                        height: 1.2,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.repeat_rounded,
-                      color: bill['active'] == true
-                          ? AppColors.primary
-                          : AppColors.textMuted,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          '${bill['title']}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${bill['frequency']} • ${bill['active'] == true ? 'aktif' : 'diarsipkan'} • pengingat ${bill['reminder_enabled'] == true ? '${bill['reminder_days']} hari sebelum' : 'mati'}',
+                          '${DateFormatter.calendarDate(o.date)} • ${DateFormatter.fixedZone(o.bill['utc_offset_minutes'] as int)}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
                           ),
                         ),
+                        _BillTag(
+                          label: isOverduePending ? 'Lewat tempo' : o.status,
+                          bg: isPaid
+                              ? AppColors.incomeLight
+                              : isOverduePending
+                              ? AppColors.expenseLight
+                              : AppColors.surfaceVariant,
+                          fg: isPaid
+                              ? AppColors.income
+                              : isOverduePending
+                              ? AppColors.expense
+                              : AppColors.textSecondary,
+                        ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    state.isBalanceHidden
+                        ? '••••••'
+                        : CurrencyFormatter.formatCurrency(o.amount),
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: isOverduePending
+                          ? AppColors.expense
+                          : AppColors.textPrimary,
+                    ),
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    o.bill['amount_type'] == 'FIXED' ? 'Tetap' : 'Perkiraan',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                tooltip: 'Kelola jadwal',
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onPressed: () => schedule(bill: o.bill),
+              ),
+            ],
+          ),
+          if (o.record?['note'] != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '${o.record!['note']}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
+              ),
+            ),
+          if (!['PAID', 'SKIPPED'].contains(o.status) &&
+              o.bill['active'] == true) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (o.bill['obligation_id'] == null &&
+                    o.status != 'NEEDS_REVIEW')
+                  FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accentLight,
+                      foregroundColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                    ),
+                    onPressed: () => action(o, 'PAY'),
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text(
+                      'Catat pembayaran',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.border),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                  ),
+                  onPressed: () => action(
+                    o,
+                    o.bill['obligation_id'] == null
+                        ? 'LINK_TRANSACTION'
+                        : 'LINK_OBLIGATION',
+                  ),
+                  child: Text(
+                    o.bill['obligation_id'] == null
+                        ? 'Tautkan transaksi'
+                        : 'Tautkan pembayaran pinjaman',
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+                if (o.bill['obligation_id'] != null)
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
@@ -2009,27 +2269,126 @@ class _BillsPageState extends State<BillsPage> {
                       ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 6,
+                        vertical: 7,
                       ),
                     ),
-                    onPressed: () => schedule(bill: bill),
-                    child: const Text('Ubah / arsip'),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'Hapus jadwal',
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.expense,
-                      size: 20,
+                    onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => const ObligationsPage(),
+                      ),
                     ),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => confirmAndDeleteSchedule(bill),
+                    child: const Text(
+                      'Buka Utang & Piutang',
+                      style: TextStyle(fontSize: 12.5),
+                    ),
                   ),
-                ],
+                if (o.status == 'PENDING')
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textMuted,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 7,
+                      ),
+                    ),
+                    onPressed: () => action(o, 'SKIP'),
+                    child: const Text('Lewati', style: TextStyle(fontSize: 12.5)),
+                  ),
+              ],
+            ),
+          ],
+          if (['SKIPPED', 'NEEDS_REVIEW'].contains(o.status)) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => action(o, 'REOPEN'),
+              icon: const Icon(Icons.replay_rounded, size: 15),
+              label: const Text('Buka kembali kejadian'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BillHeroStat extends StatelessWidget {
+  final Color dotColor;
+  final String label;
+  final String value;
+
+  const _BillHeroStat({
+    required this.dotColor,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
               ),
             ),
-        ],
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BillTag extends StatelessWidget {
+  final String label;
+  final Color bg;
+  final Color fg;
+
+  const _BillTag({required this.label, required this.bg, required this.fg});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }

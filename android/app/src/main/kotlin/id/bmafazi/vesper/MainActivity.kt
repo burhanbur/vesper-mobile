@@ -1,12 +1,13 @@
 package id.bmafazi.vesper
 
-import android.os.Bundle
-import android.view.WindowManager
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.embedding.android.FlutterFragmentActivity
 
 class MainActivity : FlutterFragmentActivity() {
     private var pendingExport: MethodChannel.Result? = null
@@ -43,6 +44,57 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "vesper/device_info")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "getDeviceInfo") {
+                    result.notImplemented()
+                } else {
+                    val deviceName = readSetting {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+                            Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)
+                        } else {
+                            null
+                        }
+                    } ?: readSetting {
+                        Settings.System.getString(contentResolver, "device_name")
+                    } ?: readSetting {
+                        Settings.Secure.getString(contentResolver, "bluetooth_name")
+                    }
+                    val isEmulator = (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
+                        || Build.FINGERPRINT.startsWith("generic")
+                        || Build.FINGERPRINT.startsWith("unknown")
+                        || Build.HARDWARE.contains("goldfish")
+                        || Build.HARDWARE.contains("ranchu")
+                        || Build.MODEL.contains("google_sdk")
+                        || Build.MODEL.contains("Emulator")
+                        || Build.MODEL.contains("Android SDK built for x86")
+                        || Build.MODEL.startsWith("sdk_gphone")
+                        || Build.MANUFACTURER.contains("Genymotion")
+                        || Build.PRODUCT.contains("sdk_gphone")
+                        || Build.PRODUCT.contains("emulator")
+                        || Build.PRODUCT.contains("simulator")
+                    result.success(
+                        mapOf(
+                            "deviceName" to deviceName,
+                            "manufacturer" to Build.MANUFACTURER,
+                            "brand" to Build.BRAND,
+                            "model" to Build.MODEL,
+                            "osVersion" to Build.VERSION.RELEASE,
+                            "sdkInt" to Build.VERSION.SDK_INT,
+                            "isEmulator" to isEmulator,
+                        ),
+                    )
+                }
+            }
+    }
+
+    private fun readSetting(reader: () -> String?): String? {
+        return try {
+            reader()?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     @Deprecated("Required for document picker result")
@@ -69,8 +121,9 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Protect task previews and screenshots before the first Flutter frame.
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // FLAG_SECURE intentionally not set so users can take screenshots.
+        // To re-enable screenshot/task-preview protection, add:
+        // window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         super.onCreate(savedInstanceState)
     }
 }

@@ -74,6 +74,13 @@ class FinancialExportRepository {
           .toList()
         ..sort((a, b) => '${a['name']}'.compareTo('${b['name']}'));
 
+  /// Leaf accounts only (hides parent container accounts that have children).
+  List<Map<String, dynamic>> get leafAccounts => accounts
+      .where(
+        (a) => !accounts.any((child) => child['parent_account_id'] == a['id']),
+      )
+      .toList();
+
   List<Map<String, dynamic>> get reconciliationAccounts => accounts.where((a) {
     final type = source.row('account_types', '${a['account_type_id']}');
     return a['currency'] == 'IDR' &&

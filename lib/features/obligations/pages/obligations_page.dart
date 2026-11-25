@@ -1215,7 +1215,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: Text(
-                            'Sisa ${money(debt['outstanding'])} • jatuh tempo ${debt['due_date'] ?? 'belum ditentukan'}',
+                            'Sisa ${money(debt['outstanding'])} • jatuh tempo ${debt['due_date'] != null ? DateFormatter.calendarDate(debt['due_date']) : 'belum ditentukan'}',
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -1564,7 +1564,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                row['due_date'] as String,
+                                                DateFormatter.calendarDate(
+                                                  row['due_date'],
+                                                ),
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,

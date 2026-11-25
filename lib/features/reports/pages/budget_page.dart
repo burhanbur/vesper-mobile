@@ -5,7 +5,6 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/budget_period.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
-import '../../transactions/models/transaction.dart';
 import '../models/budget.dart';
 
 class BudgetPage extends StatefulWidget {
@@ -388,37 +387,7 @@ class _BudgetPageState extends State<BudgetPage> {
     final int totalSpent;
 
     if (isYearly) {
-      final annualPeriodKey = '$_currentYear';
-      final annualBudgets = state.budgetsForPeriod(
-        period: annualPeriodKey,
-        periodType: 'ANNUAL',
-      );
-      if (annualBudgets.isNotEmpty) {
-        displayedBudgets = annualBudgets;
-      } else {
-        displayedBudgets = state.budgets.map((b) {
-          final yearTransactions = state.transactions.where(
-            (tx) =>
-                tx.type == TransactionType.expense &&
-                tx.categoryId == b.categoryId &&
-                tx.date.toUtc().year == _currentYear,
-          );
-          final actualYearSpent = yearTransactions.fold(
-            0,
-            (sum, tx) => sum + tx.amount,
-          );
-          final annualAllocated = b.allocatedAmount * 12;
-          return b.copyWith(
-            period: annualPeriodKey,
-            allocatedAmount: annualAllocated,
-            spentAmount: actualYearSpent,
-            periodType: 'ANNUAL',
-            rawAllowance: '$annualAllocated.00',
-            rawSpent: '$actualYearSpent.00',
-            periodDays: 365,
-          );
-        }).toList();
-      }
+      displayedBudgets = state.annualBudgetsForYear(_currentYear);
       totalAllocated = displayedBudgets.fold(
         0,
         (sum, b) => sum + b.allocatedAmount,
@@ -476,7 +445,9 @@ class _BudgetPageState extends State<BudgetPage> {
                   children: [
                     Expanded(
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () {
+                          if (_selectedPeriodTab == 0) return;
                           setState(() => _selectedPeriodTab = 0);
                           _fetchProgress();
                         },
@@ -506,7 +477,9 @@ class _BudgetPageState extends State<BudgetPage> {
                     ),
                     Expanded(
                       child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () {
+                          if (_selectedPeriodTab == 1) return;
                           setState(() => _selectedPeriodTab = 1);
                           _fetchProgress();
                         },
