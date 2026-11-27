@@ -331,12 +331,22 @@ class BillsRepository {
       if (!schedules.any((b) => b['id'] == id)) {
         throw const ApiFailure('Jadwal tidak tersedia.');
       }
-      source.mutate('bill_schedules', 'UPDATE', {
+      final updatePayload = <String, dynamic>{
         'title': title,
         'active': data['active'],
         'reminder_enabled': data['reminder_enabled'],
         'reminder_days': data['reminder_days'],
-      }, id: id);
+      };
+      if (data.containsKey('admin_fee')) {
+        final rawFee = '${data['admin_fee'] ?? ''}'.trim();
+        final feeMinor = rawFee.isEmpty ? BigInt.zero : goalMinor(rawFee);
+        if (feeMinor < BigInt.zero ||
+            feeMinor % BigInt.from(100) != BigInt.zero) {
+          throw const ApiFailure('Biaya admin harus Rupiah bulat tidak negatif.');
+        }
+        updatePayload['admin_fee'] = goalMoney(feeMinor);
+      }
+      source.mutate('bill_schedules', 'UPDATE', updatePayload, id: id);
       return;
     }
     final at = goalDate('${data['anchor_date']}');
@@ -390,6 +400,14 @@ class BillsRepository {
         !['FIXED', 'ESTIMATED'].contains(data['amount_type'])) {
       throw const ApiFailure('Nominal harus positif.');
     }
+    final rawFee = '${data['admin_fee'] ?? ''}'.trim();
+    final feeMinor = rawFee.isEmpty ? BigInt.zero : goalMinor(rawFee);
+    if (feeMinor < BigInt.zero || feeMinor % BigInt.from(100) != BigInt.zero) {
+      throw const ApiFailure('Biaya admin harus Rupiah bulat tidak negatif.');
+    }
+    final normalizedFee = data['transaction_type'] == 'EXPENSE'
+        ? goalMoney(feeMinor)
+        : '0.00';
     source.mutate(
       'bill_schedules',
       'CREATE',
@@ -397,6 +415,7 @@ class BillsRepository {
         ...data,
         'title': title,
         'amount': goalMoney(goalMinor('${data['amount']}')),
+        'admin_fee': normalizedFee,
       },
       local: {
         'active': true,
@@ -459,6 +478,7 @@ class BillsRepository {
     BillDueItem o,
     String action, {
     String? amount,
+    String? adminFee,
     String? recordId,
     String note = '',
   }) {
@@ -491,6 +511,8 @@ class BillsRepository {
       isUtc: true,
     ).toIso8601String();
     BigInt actual = BigInt.zero;
+    BigInt feeMinor = BigInt.zero;
+    String? feeLedger;
     String? transactionId, eventId;
     if (action == 'PAY') {
       if (bill['obligation_id'] != null) {
@@ -505,6 +527,19 @@ class BillsRepository {
         throw const ApiFailure(
           'Nominal aktual harus Rupiah bulat dan sesuai nilai tetap.',
         );
+      }
+      if (bill['transaction_type'] == 'EXPENSE') {
+        final rawFee = (adminFee ?? '').trim();
+        feeMinor = rawFee.isEmpty ? BigInt.zero : goalMinor(rawFee);
+        if (feeMinor < BigInt.zero ||
+            feeMinor % BigInt.from(100) != BigInt.zero) {
+          throw const ApiFailure(
+            'Biaya admin harus Rupiah bulat tidak negatif.',
+          );
+        }
+        if (feeMinor > BigInt.zero) {
+          feeLedger = const Uuid().v4();
+        }
       }
       transactionId = ledger;
     } else if (action.startsWith('LINK_')) {
@@ -530,6 +565,10 @@ class BillsRepository {
       'action': action,
       'expected_version': '${current?['version'] ?? '0'}',
       'amount': action == 'PAY' ? goalMoney(actual) : null,
+      if (feeMinor > BigInt.zero && feeLedger != null) ...{
+        'admin_fee': goalMoney(feeMinor),
+        'fee_ledger_id': feeLedger,
+      },
       'record_id': recordId,
       'ledger_id': ledger,
       'transacted_at': now,
@@ -585,9 +624,11 @@ class BillsRepository {
           !accounts.any((a) => a['id'] == account['id'])) {
         throw const ApiFailure('Pilih akun kas IDR dengan saldo Rupiah bulat.');
       }
-      final next =
-          balance + (bill['transaction_type'] == 'EXPENSE' ? -actual : actual);
-      if (actual > BigInt.from(9007199254740991) * BigInt.from(100) ||
+      final totalDelta = bill['transaction_type'] == 'EXPENSE'
+          ? -(actual + feeMinor)
+          : actual;
+      final next = balance + totalDelta;
+      if (actual + feeMinor > BigInt.from(9007199254740991) * BigInt.from(100) ||
           next.abs() > BigInt.from(9007199254740991) * BigInt.from(100)) {
         throw const ApiFailure('Saldo melampaui batas presisi aman tampilan.');
       }
@@ -608,6 +649,23 @@ class BillsRepository {
         'created_by': source.userId,
         'transfer_id': null,
       };
+      if (feeMinor > BigInt.zero && feeLedger != null) {
+        final feeCat = categories('EXPENSE')
+            .where((c) => c['name'] == 'Biaya Admin')
+            .firstOrNull;
+        changes['transactions:$feeLedger'] = {
+          'id': feeLedger,
+          'account_id': account['id'],
+          'category_id': feeCat?['id'] ?? bill['category_id'],
+          'type': 'EXPENSE',
+          'amount': goalMoney(feeMinor),
+          'transacted_at': now,
+          'description': 'Biaya admin: ${bill['title']}',
+          'version': '0',
+          'created_by': source.userId,
+          'transfer_id': null,
+        };
+      }
     }
     source.commitBillCommand(id, payload, changes);
   }

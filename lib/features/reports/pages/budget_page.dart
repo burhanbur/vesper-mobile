@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/budget_period.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../models/budget.dart';
 
@@ -45,16 +46,24 @@ class _BudgetPageState extends State<BudgetPage> {
     }
   }
 
-  void _fetchProgress() {
+  void _fetchProgress({bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final state = AppStateScope.of(context);
       if (_selectedPeriodTab == 0) {
         final periodKey = _monthlyPeriodKey;
-        state.loadBudgetProgressForPeriod(periodKey, periodType: 'MONTHLY');
+        state.loadBudgetProgressForPeriod(
+          periodKey,
+          periodType: 'MONTHLY',
+          force: force,
+        );
       } else {
         final periodKey = '$_currentYear';
-        state.loadBudgetProgressForPeriod(periodKey, periodType: 'ANNUAL');
+        state.loadBudgetProgressForPeriod(
+          periodKey,
+          periodType: 'ANNUAL',
+          force: force,
+        );
       }
     });
   }
@@ -265,6 +274,16 @@ class _BudgetPageState extends State<BudgetPage> {
                   fillColor: Colors.white,
                 ),
               ),
+              NominalQuickKeys(
+                controller: amountController,
+                mode: NominalFormatMode.groupedNumber,
+                keyPrefix: 'budget_amount',
+                onChanged: (_) {
+                  if (errorMessage != null) {
+                    setModalState(() => errorMessage = null);
+                  }
+                },
+              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -317,7 +336,7 @@ class _BudgetPageState extends State<BudgetPage> {
                           if (!modalCtx.mounted) return;
                           Navigator.of(ctx).pop();
 
-                          _fetchProgress();
+                          _fetchProgress(force: true);
 
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -781,127 +800,141 @@ class _BudgetPageState extends State<BudgetPage> {
                   ),
                 )
               else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: displayedBudgets.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final item = displayedBudgets[index];
+                Column(
+                  children: [
+                    for (var index = 0; index < displayedBudgets.length; index++)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == displayedBudgets.length - 1 ? 0 : 12,
+                        ),
+                        child: Builder(
+                          builder: (context) {
+                            final item = displayedBudgets[index];
 
-                    final allocated = item.allocatedAmount;
-                    final spent = item.spentAmount;
-                    final progress = allocated > 0
-                        ? (spent / allocated).clamp(0.0, 1.0)
-                        : (spent > 0 ? 1.0 : 0.0);
-                    final pct = allocated > 0
-                        ? ((spent / allocated) * 100).toInt()
-                        : (spent > 0 ? 100 : 0);
+                            final allocated = item.allocatedAmount;
+                            final spent = item.spentAmount;
+                            final progress = allocated > 0
+                                ? (spent / allocated).clamp(0.0, 1.0)
+                                : (spent > 0 ? 1.0 : 0.0);
+                            final pct = allocated > 0
+                                ? ((spent / allocated) * 100).toInt()
+                                : (spent > 0 ? 100 : 0);
 
-                    // Warning logic
-                    final isExceeded = spent > allocated;
-                    final isWarning =
-                        allocated > 0 && (spent / allocated) >= 0.75;
+                            // Warning logic
+                            final isExceeded = spent > allocated;
+                            final isWarning =
+                                allocated > 0 && (spent / allocated) >= 0.75;
 
-                    Color statusColor = AppColors.primary;
-                    if (isExceeded) {
-                      statusColor = AppColors.expense;
-                    } else if (isWarning) {
-                      statusColor = AppColors.warning;
-                    }
+                            Color statusColor = AppColors.primary;
+                            if (isExceeded) {
+                              statusColor = AppColors.expense;
+                            } else if (isWarning) {
+                              statusColor = AppColors.warning;
+                            }
 
-                    return Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: statusColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  _getCategoryIcon(item.icon),
-                                  color: statusColor,
-                                  size: 20,
-                                ),
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppColors.border),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.categoryName,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textPrimary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          _getCategoryIcon(item.icon),
+                                          color: statusColor,
+                                          size: 20,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      isYearly
-                                          ? 'YTD: ${CurrencyFormatter.formatCompact(spent)} / Thn: ${CurrencyFormatter.formatCompact(allocated)}'
-                                          : '${CurrencyFormatter.formatRupiah(spent)} / ${CurrencyFormatter.formatRupiah(allocated)}',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondary,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.categoryName,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              isYearly
+                                                  ? 'YTD: ${CurrencyFormatter.formatCompact(spent)} / Thn: ${CurrencyFormatter.formatCompact(allocated)}'
+                                                  : '${CurrencyFormatter.formatRupiah(spent)} / ${CurrencyFormatter.formatRupiah(allocated)}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  isExceeded && allocated > 0
-                                      ? '$pct%'
-                                      : (allocated == 0 && spent > 0
-                                            ? '>100%'
-                                            : '$pct%'),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: statusColor,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          isExceeded && allocated > 0
+                                              ? '$pct%'
+                                              : (allocated == 0 && spent > 0
+                                                    ? '>100%'
+                                                    : '$pct%'),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                            color: statusColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      minHeight: 8,
+                                      backgroundColor: AppColors.surfaceVariant,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        statusColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 8,
-                              backgroundColor: AppColors.surfaceVariant,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                statusColor,
-                              ),
-                            ),
-                          ),
-                        ],
+                            );
+                          },
+                        ),
                       ),
-                    );
-                  },
+                  ],
                 ),
 
               const SizedBox(height: 20),

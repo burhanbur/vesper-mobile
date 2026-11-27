@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/credit_card_summary.dart';
 import '../../../core/widgets/currency_amount_input.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../../obligations/pages/obligations_page.dart';
 
 import '../../../app/app_state.dart';
@@ -11,6 +12,8 @@ import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/string_formatter.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../asset_allocation/data/asset_allocation_repository.dart'
+    show allocationClasses, allocationLabels;
 import '../../household/models/household.dart';
 import '../../household/widgets/create_group_sheet.dart';
 import '../models/account.dart';
@@ -61,6 +64,7 @@ class _AccountsPageState extends State<AccountsPage> {
     final limitController = TextEditingController();
     bool isCreditCard = false;
     String? selectedParentId;
+    String selectedAssetClass = 'CASH';
 
     final state = AppStateScope.of(context);
     final newAccountTypes = state.accountTypes
@@ -243,7 +247,7 @@ class _AccountsPageState extends State<AccountsPage> {
                         );
                       },
                     ),
-                  if (isCreditCard)
+                  if (isCreditCard) ...[
                     TextField(
                       controller: limitController,
                       inputFormatters: const [CurrencyAmountInput()],
@@ -255,6 +259,12 @@ class _AccountsPageState extends State<AccountsPage> {
                         helperText: 'Saldo tagihan awal Rp0. Kosongkan jika tidak ingin melacak limit.',
                       ),
                     ),
+                    NominalQuickKeys(
+                      controller: limitController,
+                      mode: NominalFormatMode.currencyAmountInput,
+                      keyPrefix: 'account_limit',
+                    ),
+                  ],
                   const Text(
                     'Nama Akun',
                     style: TextStyle(
@@ -297,6 +307,11 @@ class _AccountsPageState extends State<AccountsPage> {
                         prefixIcon: Icon(Icons.money_rounded),
                       ),
                     ),
+                    NominalQuickKeys(
+                      controller: balanceController,
+                      mode: NominalFormatMode.groupedNumber,
+                      keyPrefix: 'account_balance',
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'Nomor Rekening / Keterangan',
@@ -314,6 +329,48 @@ class _AccountsPageState extends State<AccountsPage> {
                         hintText: 'Contoh: 1234 5678 90',
                         prefixIcon: Icon(Icons.numbers_rounded),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Kelas Aset (Alokasi Aset)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      key: const ValueKey('account_asset_class_dropdown'),
+                      initialValue: selectedAssetClass,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.pie_chart_outline_rounded),
+                        helperText:
+                            'Menentukan pengelompokan akun di halaman Alokasi Aset.',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                      items: [
+                        for (final kind in allocationClasses)
+                          DropdownMenuItem<String>(
+                            value: kind,
+                            child: Text(
+                              allocationLabels[kind] ?? kind,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() => selectedAssetClass = val);
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -434,6 +491,7 @@ class _AccountsPageState extends State<AccountsPage> {
                             selectedType,
                           ).categoryGroup,
                           parentAccountId: selectedParentId,
+                          assetClass: isCreditCard ? null : selectedAssetClass,
                         );
                       } catch (error) {
                         AppToast.showError(context, error.toString());
@@ -479,6 +537,7 @@ class _AccountsPageState extends State<AccountsPage> {
     final validHouseholdIds = state.households.map((h) => h.id).toSet();
     bool modalIsShared = account.isShared;
     bool modalIsCreditCard = account.isCreditCard;
+    String modalAssetClass = account.effectiveAssetClass;
     bool saving = false;
     final classificationProblem = state.repository
         ?.accountClassificationProblem(account.id);
@@ -799,6 +858,50 @@ class _AccountsPageState extends State<AccountsPage> {
                                   : null,
                             ),
                           ],
+                          if (!modalIsCreditCard) ...[
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              key: const ValueKey(
+                                'edit_account_asset_class_dropdown',
+                              ),
+                              initialValue:
+                                  allocationClasses.contains(modalAssetClass)
+                                  ? modalAssetClass
+                                  : 'CASH',
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: 'Kelas Aset (Alokasi Aset)',
+                                helperText:
+                                    'Ubah kapan saja tanpa mempengaruhi riwayat transaksi.',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                              ),
+                              items: [
+                                for (final kind in allocationClasses)
+                                  DropdownMenuItem<String>(
+                                    value: kind,
+                                    child: Text(
+                                      allocationLabels[kind] ?? kind,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setModalState(() => modalAssetClass = val);
+                                }
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1115,7 +1218,11 @@ class _AccountsPageState extends State<AccountsPage> {
                                   newName != account.name ||
                                   modalAccountTypeId != account.accountTypeId ||
                                   modalIsCreditCard != account.isCreditCard ||
-                                  modalIsIncludeTotal != account.isIncludeTotal;
+                                  modalIsIncludeTotal !=
+                                      account.isIncludeTotal ||
+                                  (!modalIsCreditCard &&
+                                      modalAssetClass !=
+                                          account.effectiveAssetClass);
                               if (changed) {
                                 await state.updateAccount(
                                   accountId: account.id,
@@ -1135,6 +1242,12 @@ class _AccountsPageState extends State<AccountsPage> {
                                       modalIsIncludeTotal !=
                                           account.isIncludeTotal
                                       ? modalIsIncludeTotal
+                                      : null,
+                                  assetClass:
+                                      (!modalIsCreditCard &&
+                                          modalAssetClass !=
+                                              account.effectiveAssetClass)
+                                      ? modalAssetClass
                                       : null,
                                 );
                               }
@@ -2097,7 +2210,9 @@ class _AccountsPageState extends State<AccountsPage> {
                                             children: [
                                               Flexible(
                                                 child: Text(
-                                                  account.name,
+                                                  state.accountDisplayName(
+                                                    account,
+                                                  ),
                                                   style: const TextStyle(
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w700,

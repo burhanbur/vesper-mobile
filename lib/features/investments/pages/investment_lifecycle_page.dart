@@ -1199,7 +1199,13 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
             ))
               DropdownMenuItem(
                 value: account['id'] as String,
-                child: Text('${account['name']}'),
+                child: Text(
+                  AppStateScope.of(context).accountDisplayNameById(
+                    account['id'] as String,
+                    fallback: '${account['name']}',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
           onChanged: (v) => setState(() => accountId = v == '' ? null : v),

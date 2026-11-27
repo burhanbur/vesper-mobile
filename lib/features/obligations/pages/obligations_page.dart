@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/app_state.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../app/theme/app_colors.dart';
@@ -254,7 +255,13 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         : repo.fundingAccounts))
                   DropdownMenuItem(
                     value: account['id'] as String,
-                    child: Text('${account['name']}'),
+                    child: Text(
+                      AppStateScope.of(context).accountDisplayNameById(
+                        account['id'] as String,
+                        fallback: '${account['name']}',
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
               onChanged: (v) => update(() => change(v)),
@@ -299,26 +306,37 @@ class _ObligationsPageState extends State<ObligationsPage> {
               ],
               onChanged: (v) => update(() => change(v)),
             );
-            Widget amount(TextEditingController c, String label) => TextField(
-              controller: c,
-              inputFormatters: const [ObligationAmountInput()],
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: InputDecoration(
-                labelText: label,
-                helperText: label == 'Jumlah pembayaran'
-                    ? 'Bagian pinjaman yang dikembalikan. Isi bunga dan biaya terpisah.'
-                    : null,
-                prefixText: 'Rp ',
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+            Widget amount(TextEditingController c, String label) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: c,
+                  inputFormatters: const [ObligationAmountInput()],
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: label,
+                    helperText: label == 'Jumlah pembayaran'
+                        ? 'Bagian pinjaman yang dikembalikan. Isi bunga dan biaya terpisah.'
+                        : null,
+                    prefixText: 'Rp ',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                NominalQuickKeys(
+                  controller: c,
+                  mode: NominalFormatMode.currencyAmountInput,
+                  keyPrefix: 'obligation_${label.hashCode}',
                 ),
-              ),
+              ],
             );
             return Material(
               color: Colors.white,

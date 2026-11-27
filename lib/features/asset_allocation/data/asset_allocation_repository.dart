@@ -184,7 +184,7 @@ class AllocationSnapshot {
     for (final row in classes.where(
       (r) => !['CASH', 'RECEIVABLE'].contains(r['asset_class']),
     )) {
-      if (allocationMinor(row['known_amount']) !=
+      if (allocationMinor(row['known_amount']) <
           (instrumentTotals[row['asset_class']] ?? BigInt.zero)) {
         throw invalidAllocation();
       }

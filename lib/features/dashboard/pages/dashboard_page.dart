@@ -4,7 +4,6 @@ import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/widgets/app_header.dart';
 import '../../../app/widgets/shell_management_scope.dart';
-import '../../../core/utils/currency_formatter.dart';
 import '../../../database/transaction_query.dart';
 import '../../accounts/pages/accounts_page.dart';
 import '../../accounts/pages/account_detail_page.dart';
@@ -40,7 +39,6 @@ class DashboardPage extends StatelessWidget {
     final transactions = state
         .transactionPage(const TransactionQuery(limit: 5))
         .items;
-    final netSavings = state.monthNetSavings;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -63,163 +61,8 @@ class DashboardPage extends StatelessWidget {
                 // Offline Mode Banner
                 const OfflineBanner(),
 
-                // Hero Total Kekayaan Card
+                // Hero Total Kekayaan Card (includes Pemasukan, Pengeluaran, Surplus/Defisit)
                 const NetWorthCard(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 4,
-                  ),
-                  child: Material(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: AppColors.border),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const NetWorthAssessmentPage(),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(
-                                  alpha: 0.08,
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.insights_rounded,
-                                size: 18,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Lihat rincian valuasi',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Analisis aset, portofolio, dan liabilitas',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              size: 20,
-                              color: AppColors.textMuted,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Neraca Card matching contoh-1.png ("Neraca: + Rp 6.800.000")
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 4,
-                  ),
-                  child: Container(
-                    key: const ValueKey('dashboard_month_balance'),
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      spacing: 12,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 190,
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: netSavings >= 0
-                                      ? AppColors.incomeLight
-                                      : AppColors.expenseLight,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  netSavings >= 0
-                                      ? Icons.savings_outlined
-                                      : Icons.trending_down_rounded,
-                                  color: netSavings >= 0
-                                      ? AppColors.income
-                                      : AppColors.expense,
-                                  size: 18,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Flexible(
-                                child: Text(
-                                  'Surplus/Defisit Bulan Ini',
-                                  maxLines: 2,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          isHidden
-                              ? '••••••'
-                              : CurrencyFormatter.formatRupiah(
-                                  netSavings,
-                                  withSign: true,
-                                ),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: netSavings >= 0
-                                ? AppColors.income
-                                : AppColors.expense,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
 
                 const SizedBox(height: 10),
 
@@ -237,6 +80,11 @@ class DashboardPage extends StatelessWidget {
                   onSpending: onNavigateToReports,
                   onBudgets: () =>
                       ShellManagementScope.open(context, const BudgetPage()),
+                  onValuation: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NetWorthAssessmentPage(),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 14),

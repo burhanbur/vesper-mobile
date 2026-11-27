@@ -1,7 +1,34 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vesper_mobile/core/network/api_client.dart';
 import 'package:vesper_mobile/features/reports/models/budget.dart';
 
 import '../fixtures/cached_finance.dart';
+
+class _BudgetProgressClient extends ApiClient {
+  int progressCalls = 0;
+  String spentAmount = '500000.00';
+
+  @override
+  Future<dynamic> request(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, dynamic>? query,
+    bool authenticated = true,
+    bool retry = true,
+  }) async {
+    if (path.endsWith('/progress')) {
+      progressCalls++;
+      return {
+        'period': query?['period'],
+        'allowance': '1000000.00',
+        'total_amount': spentAmount,
+        'period_days': 31,
+      };
+    }
+    return {};
+  }
+}
 
 void main() {
   group('BudgetItem formatting and models', () {
@@ -242,6 +269,77 @@ void main() {
         expect(food.spentAmount, 2000000);
         expect(fun.allocatedAmount, 6000000);
         expect(fun.spentAmount, 350000);
+
+        // Memoized on same revision (identical list returned in O(1))
+        expect(identical(state.annualBudgetsForYear(2026), items), isTrue);
+
+        // Automatically invalidates as soon as a new local transaction commits
+        repo.atomic(() {
+          repo.entities['transactions']['tx-fun-2'] = {
+            'id': 'tx-fun-2',
+            'type': 'EXPENSE',
+            'amount': '-150000.00',
+            'category_id': 'cat-fun',
+            'transacted_at': '2026-07-01T10:00:00.000Z',
+            'account_id': 'acc-1',
+          };
+        });
+        final updated = state.annualBudgetsForYear(2026);
+        expect(
+          updated.firstWhere((b) => b.categoryId == 'cat-fun').spentAmount,
+          500000,
+        );
+      },
+    );
+
+    test(
+      'loadBudgetProgressForPeriod deduplicates rapid toggles and skips unchanged writes',
+      () async {
+        final client = _BudgetProgressClient();
+        final state = cachedFinanceState(client: client);
+        addTearDown(state.dispose);
+        final repo = state.repository!;
+
+        repo.atomic(() {
+          repo.entities['categories'] = {
+            'cat-food': {'id': 'cat-food', 'name': 'Makan', 'type': 'EXPENSE'},
+          };
+          repo.entities['budgets'] = {
+            'b-food': {
+              'id': 'b-food',
+              'category_id': 'cat-food',
+              'anchor_date': '2026-01-01',
+              'period_type': 'MONTHLY',
+              'current_amount': '1000000.00',
+            },
+          };
+        });
+
+        var notifications = 0;
+        state.addListener(() => notifications++);
+        final revisionBefore = state.localDataRevision;
+
+        // First load hits API once and writes cache
+        await state.loadBudgetProgressForPeriod('2026-11', periodType: 'MONTHLY');
+        expect(client.progressCalls, 1);
+        expect(state.localDataRevision, revisionBefore + 1);
+        expect(notifications, 1);
+
+        // Rapid toggle back and forth within TTL skips network + disk write
+        await state.loadBudgetProgressForPeriod('2026-11', periodType: 'MONTHLY');
+        expect(client.progressCalls, 1);
+        expect(state.localDataRevision, revisionBefore + 1);
+        expect(notifications, 1);
+
+        // Forced reload with identical server response skips SQLite commit + notify
+        await state.loadBudgetProgressForPeriod(
+          '2026-11',
+          periodType: 'MONTHLY',
+          force: true,
+        );
+        expect(client.progressCalls, 2);
+        expect(state.localDataRevision, revisionBefore + 1);
+        expect(notifications, 1);
       },
     );
   });

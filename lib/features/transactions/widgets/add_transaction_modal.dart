@@ -9,6 +9,7 @@ import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/string_formatter.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../../accounts/widgets/account_picker_sheet.dart';
 import '../../categories/models/category.dart';
 import '../models/transaction.dart';
@@ -210,16 +211,19 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         );
         return;
       }
-      if (!_isEditing && _feeController.text.trim().isNotEmpty) {
-        if (RegExp(r'[,\.]\d{1,2}$').hasMatch(_feeController.text)) {
-          AppToast.showError(
-            context,
-            'Biaya admin pecahan Rupiah belum didukung; masukkan Rupiah utuh.',
-          );
-          return;
-        }
-        fee = CurrencyFormatter.parseRupiah(_feeController.text);
+    }
+    if (!_isEditing &&
+        (_selectedType == TransactionType.transfer ||
+            _selectedType == TransactionType.expense) &&
+        _feeController.text.trim().isNotEmpty) {
+      if (RegExp(r'[,\.]\d{1,2}$').hasMatch(_feeController.text)) {
+        AppToast.showError(
+          context,
+          'Biaya admin pecahan Rupiah belum didukung; masukkan Rupiah utuh.',
+        );
+        return;
       }
+      fee = CurrencyFormatter.parseRupiah(_feeController.text);
     }
 
     setState(() => _isSaving = true);
@@ -308,6 +312,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         categoryName: _selectedCategory,
         note: _noteController.text.trim(),
         date: _selectedDate,
+        fee: _selectedType == TransactionType.expense ? fee : 0,
       );
     }
 
@@ -719,6 +724,10 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                       ),
                       onChanged: _onAmountChanged,
                     ),
+                    NominalQuickKeys(
+                      controller: _amountController,
+                      mode: NominalFormatMode.rupiahWithPrefix,
+                    ),
                     const SizedBox(height: 16),
 
                     // Akun Selector (Supporting pockets)
@@ -779,85 +788,88 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                           );
                         },
                       ),
-                      if (!_isEditing) ...[
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Biaya Admin (opsional)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                    ],
+                    if (!_isEditing &&
+                        (_selectedType == TransactionType.transfer ||
+                            _selectedType == TransactionType.expense)) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Biaya Admin (opsional)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        key: const ValueKey('transfer_fee_input'),
+                        controller: _feeController,
+                        keyboardType: TextInputType.number,
+                        onChanged: _onFeeChanged,
+                        decoration: InputDecoration(
+                          hintText: 'Rp 0 (jika gratis)',
+                          prefixIcon: const Icon(
+                            Icons.receipt_outlined,
+                            size: 18,
                             color: AppColors.textSecondary,
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        TextField(
-                          key: const ValueKey('transfer_fee_input'),
-                          controller: _feeController,
-                          keyboardType: TextInputType.number,
-                          onChanged: _onFeeChanged,
-                          decoration: InputDecoration(
-                            hintText: 'Rp 0 (jika gratis)',
-                            prefixIcon: const Icon(
-                              Icons.receipt_outlined,
-                              size: 18,
-                              color: AppColors.textSecondary,
-                            ),
-                            suffixIcon: _feeController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(
-                                      Icons.clear_rounded,
-                                      size: 16,
-                                    ),
-                                    onPressed: () => setState(
-                                      () => _feeController.clear(),
-                                    ),
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: AppColors.surfaceVariant,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                          suffixIcon: _feeController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 16,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _feeController.clear(),
+                                  ),
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: AppColors.surfaceVariant,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            for (final preset in [2500, 6500])
-                              ActionChip(
-                                visualDensity: VisualDensity.compact,
-                                backgroundColor: Colors.white,
-                                side: const BorderSide(color: AppColors.border),
-                                label: Text(
-                                  CurrencyFormatter.formatRupiah(preset),
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final preset in [2500, 6500])
+                            ActionChip(
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: AppColors.border),
+                              label: Text(
+                                CurrencyFormatter.formatRupiah(preset),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    final text =
-                                        CurrencyFormatter.formatRupiah(preset);
-                                    _feeController.value = TextEditingValue(
-                                      text: text,
-                                      selection: TextSelection.collapsed(
-                                        offset: text.length,
-                                      ),
-                                    );
-                                  });
-                                },
                               ),
-                          ],
-                        ),
-                      ],
+                              onPressed: () {
+                                setState(() {
+                                  final text = CurrencyFormatter.formatRupiah(
+                                    preset,
+                                  );
+                                  _feeController.value = TextEditingValue(
+                                    text: text,
+                                    selection: TextSelection.collapsed(
+                                      offset: text.length,
+                                    ),
+                                  );
+                                });
+                              },
+                            ),
+                        ],
+                      ),
                     ],
 
                     if (selectedAcc?.isCreditCard == true ||

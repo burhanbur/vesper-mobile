@@ -61,6 +61,8 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
     switch (assetClass) {
       case 'CASH':
         return Icons.account_balance_wallet_rounded;
+      case 'RECEIVABLE':
+        return Icons.handshake_rounded;
       case 'STOCK':
         return Icons.trending_up_rounded;
       case 'MUTUAL_FUND':
@@ -82,6 +84,8 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
     switch (assetClass) {
       case 'CASH':
         return AppColors.primary;
+      case 'RECEIVABLE':
+        return const Color(0xFF0891B2);
       case 'STOCK':
         return const Color(0xFF2563EB);
       case 'MUTUAL_FUND':
@@ -376,6 +380,326 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
       }
     }
     if (mounted && identical(controller, active)) setState(() {});
+  }
+
+  Future<void> _configureAccountClasses() async {
+    final active = controller;
+    if (active == null) return;
+    final state = AppStateScope.of(context);
+    final repo = state.repository;
+    final parentIds = state.accounts
+        .map((a) => a.parentAccountId)
+        .whereType<String>()
+        .toSet();
+    final eligibleAccounts = state.accounts.where((a) {
+      if (!a.isVisible || !a.isIncludeTotal || a.isCreditCard) return false;
+      if (parentIds.contains(a.id)) return false;
+      if (a.ownerUserId.isNotEmpty &&
+          state.currentUserId.isNotEmpty &&
+          a.ownerUserId != state.currentUserId) {
+        return false;
+      }
+      if (repo != null && repo.isMappedObligationAccount(a.id)) return false;
+      return true;
+    }).toList();
+
+    final selections = <String, String>{
+      for (final a in eligibleAccounts)
+        a.id: allocationClasses.contains(a.effectiveAssetClass)
+            ? a.effectiveAssetClass
+            : 'CASH',
+    };
+    var saving = false;
+
+    final savedAny = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 12, 8),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Atur kelas aset akun',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Pilih kelas aset untuk setiap akun Anda.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: saving ? null : () => Navigator.pop(ctx),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: eligibleAccounts.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'Belum ada akun pribadi aktif yang masuk total alokasi aset.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                            itemCount: eligibleAccounts.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (_, index) {
+                              final acc = eligibleAccounts[index];
+                              final currentVal = selections[acc.id] ?? 'CASH';
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceVariant.withValues(
+                                    alpha: 0.45,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            state.accountDisplayName(acc),
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          state.isBalanceHidden
+                                              ? '••••••'
+                                              : CurrencyFormatter.formatRupiah(
+                                                  acc.balance,
+                                                ),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    DropdownButtonFormField<String>(
+                                      key: ValueKey(
+                                        'allocation_account_class_${acc.id}',
+                                      ),
+                                      initialValue: currentVal,
+                                      isDense: true,
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: AppColors.border,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: AppColors.border,
+                                          ),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
+                                      ),
+                                      items: [
+                                        for (final kind in allocationClasses)
+                                          DropdownMenuItem<String>(
+                                            value: kind,
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  _classIcon(kind),
+                                                  size: 16,
+                                                  color: _classColor(kind),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  allocationLabels[kind] ??
+                                                      kind,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                      onChanged: saving
+                                          ? null
+                                          : (val) {
+                                              if (val != null) {
+                                                setModalState(
+                                                  () =>
+                                                      selections[acc.id] = val,
+                                                );
+                                              }
+                                            },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: saving
+                                ? null
+                                : () => Navigator.pop(ctx, false),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Batal'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: saving || eligibleAccounts.isEmpty
+                                ? null
+                                : () async {
+                                    setModalState(() => saving = true);
+                                    var changedCount = 0;
+                                    try {
+                                      for (final acc in eligibleAccounts) {
+                                        final picked =
+                                            selections[acc.id] ?? 'CASH';
+                                        if (picked != acc.effectiveAssetClass) {
+                                          await state.updateAccount(
+                                            accountId: acc.id,
+                                            assetClass: picked,
+                                          );
+                                          changedCount++;
+                                        }
+                                      }
+                                      if (ctx.mounted) {
+                                        Navigator.pop(ctx, changedCount > 0);
+                                      }
+                                    } finally {
+                                      if (ctx.mounted) {
+                                        setModalState(() => saving = false);
+                                      }
+                                    }
+                                  },
+                            child: Text(
+                              saving ? 'Menyimpan…' : 'Simpan kelas',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (savedAny == true && mounted && identical(controller, active)) {
+      if (state.isOfflineMode) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              'Kelas aset akun disimpan lokal. Sinkronkan saat online untuk memperbarui Alokasi Aset.',
+            ),
+          ),
+        );
+      } else {
+        try {
+          await state.syncPendingNow();
+        } catch (_) {}
+        if (mounted && identical(controller, active)) {
+          await active.refresh();
+        }
+      }
+    }
   }
 
   Widget bar(String? percent, bool hidden, [Color? color]) {
@@ -979,6 +1303,19 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
           onPressed: active.loading ? null : active.refresh,
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(active.loading ? 'Memuat…' : 'Perbarui dari server'),
+        ),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.textPrimary,
+            side: const BorderSide(color: AppColors.border),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+          onPressed: _configureAccountClasses,
+          icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+          label: const Text('Atur kelas akun'),
         ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(

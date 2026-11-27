@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
@@ -902,12 +903,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               accountTypeId: r['account_type_id'] as String?,
               isCreditCard: r['is_credit_card'] == true,
               creditLimit: r['credit_limit'] as String?,
+              assetClass: r['asset_class'] as String?,
               accountNumber: (r['description'] as String?) ?? '',
               institution: r['is_credit_card'] == true
                   ? 'Kartu Kredit'
                   : accountTypes
                             .where((t) => t['id'] == r['account_type_id'])
-                            .map((t) => t['name'] as String)
+                            .map((t) => t['name']?.toString())
+                            .whereType<String>()
                             .firstOrNull ??
                         (r['account_type_id'] is String
                             ? r['account_type_id'] as String
@@ -952,6 +955,35 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Account? getAccountById(String id) =>
       accounts.where((a) => a.id == id).firstOrNull;
 
+  /// Formats account name as `Parent - Nama Account` when it belongs to a parent.
+  String accountDisplayName(Account account) {
+    final parentId = account.parentAccountId;
+    if (parentId == null || parentId == account.id) return account.name;
+    final parent = getAccountById(parentId);
+    if (parent == null || parent.name.trim().isEmpty) return account.name;
+    return '${parent.name} - ${account.name}';
+  }
+
+  /// Resolves and formats an account by ID as `Parent - Nama Account` when applicable.
+  String accountDisplayNameById(String? accountId, {String fallback = ''}) {
+    if (accountId == null || accountId.isEmpty) return fallback;
+    final row = _repo.row('accounts', accountId);
+    if (row != null) {
+      final name = '${row['name'] ?? ''}'.trim();
+      if (name.isEmpty) return fallback;
+      final parentId = row['parent_account_id'] as String?;
+      if (parentId == null || parentId.isEmpty || parentId == accountId) {
+        return name;
+      }
+      final parent = _repo.row('accounts', parentId);
+      final parentName = '${parent?['name'] ?? ''}'.trim();
+      return parentName.isEmpty ? name : '$parentName - $name';
+    }
+    final account = getAccountById(accountId);
+    if (account != null) return accountDisplayName(account);
+    return fallback;
+  }
+
   Future<void> updateAccountIncludeTotal({
     required String accountId,
     required bool isIncludeTotal,
@@ -974,6 +1006,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String? accountTypeId,
     bool? isCreditCard,
     bool? isIncludeTotal,
+    String? assetClass,
   }) async {
     final payload = <String, dynamic>{};
     if (name != null && name.trim().isNotEmpty) {
@@ -985,6 +1018,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (isCreditCard != null) {
       payload['is_credit_card'] = isCreditCard;
       if (!isCreditCard) payload['credit_limit'] = null;
+      if (isCreditCard) payload['asset_class'] = null;
+    }
+    if (assetClass != null && isCreditCard != true) {
+      payload['asset_class'] = assetClass == 'CASH' ? null : assetClass;
     }
     if (isIncludeTotal != null) {
       if (isIncludeTotal && getChildrenForAccount(accountId).isNotEmpty) {
@@ -1063,6 +1100,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     String? accountTypeId,
     bool isCreditCard = false,
     String? creditLimit,
+    String? assetClass,
   }) {
     if (isShared || householdId != null) {
       throw const ApiFailure(
@@ -1088,6 +1126,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           'name': name.trim(),
           if (isCreditCard) 'is_credit_card': true,
           if (isCreditCard) 'credit_limit': creditLimit,
+          if (!isCreditCard && assetClass != null && assetClass != 'CASH')
+            'asset_class': assetClass,
           'account_type_id': accountTypeId,
           'parent_account_id': parentAccountId,
           'currency': 'IDR',
@@ -1406,7 +1446,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return (income: income, expense: expense);
   }
 
-  String _ensureTransferFeeCategoryId(String ownerUserId) {
+  String _ensureAdminFeeCategoryId(String ownerUserId) {
     final repo = _repo;
     bool valid(Map<String, dynamic> row) =>
         row['deleted_at'] == null &&
@@ -1458,7 +1498,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         if (fee > 0) {
           final fromAccount = _repo.row('accounts', accountId);
           final ownerId = '${fromAccount?['user_id'] ?? currentUserId}';
-          final feeCategoryId = _ensureTransferFeeCategoryId(ownerId);
+          final feeCategoryId = _ensureAdminFeeCategoryId(ownerId);
           final trimmedNote = note?.trim() ?? '';
           final feeDescription =
               trimmedNote.isNotEmpty && trimmedNote != 'Transfer antar akun'
@@ -1493,6 +1533,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'Transfer, utang, dan piutang belum mendukung antrean offline.',
       );
     }
+    if (type == TransactionType.expense && fee < 0) {
+      throw const ApiFailure('Biaya admin tidak boleh negatif.');
+    }
     final account = _repo.row('accounts', accountId);
     final category = categories
         .where(
@@ -1508,26 +1551,53 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (account == null || category == null || amount <= 0) {
       throw const ApiFailure('Pilih akun, kategori, dan nominal yang valid.');
     }
-    // One durable SQLite commit contains the mutation, outbox, and optimistic cash balance.
-    _repo.mutate(
-      'transactions',
-      'CREATE',
-      {
-        'account_id': accountId,
-        'category_id': category.id,
-        'type': type == TransactionType.income ? 'INCOME' : 'EXPENSE',
-        'amount': '$amount.00',
-        'transacted_at': DateTime.fromMillisecondsSinceEpoch(
-          date.millisecondsSinceEpoch,
-          isUtc: true,
-        ).toIso8601String(),
-        'description': note?.trim().isEmpty == true ? null : note,
-      },
-      local: {'created_by': currentUserId},
-      balanceDelta: {
-        accountId: type == TransactionType.income ? amount : -amount,
-      },
-    );
+    final transactedAt = DateTime.fromMillisecondsSinceEpoch(
+      date.millisecondsSinceEpoch,
+      isUtc: true,
+    ).toIso8601String();
+    final trimmedNote = note?.trim() ?? '';
+    // One durable SQLite commit contains the mutation(s), outbox, and optimistic cash balance.
+    _repo.atomic(() {
+      _repo.mutate(
+        'transactions',
+        'CREATE',
+        {
+          'account_id': accountId,
+          'category_id': category.id,
+          'type': type == TransactionType.income ? 'INCOME' : 'EXPENSE',
+          'amount': '$amount.00',
+          'transacted_at': transactedAt,
+          'description': trimmedNote.isEmpty ? null : note,
+        },
+        local: {'created_by': currentUserId},
+        balanceDelta: {
+          accountId: type == TransactionType.income ? amount : -amount,
+        },
+      );
+      if (type == TransactionType.expense && fee > 0) {
+        final ownerId = '${account['user_id'] ?? currentUserId}';
+        final feeCategoryId = _ensureAdminFeeCategoryId(ownerId);
+        final feeDescription = trimmedNote.isNotEmpty
+            ? 'Biaya admin: $trimmedNote'
+            : (categoryName.trim().isNotEmpty
+                  ? 'Biaya admin: ${categoryName.trim()}'
+                  : 'Biaya admin');
+        _repo.mutate(
+          'transactions',
+          'CREATE',
+          {
+            'account_id': accountId,
+            'category_id': feeCategoryId,
+            'type': 'EXPENSE',
+            'amount': '$fee.00',
+            'transacted_at': transactedAt,
+            'description': feeDescription,
+          },
+          local: {'created_by': currentUserId},
+          balanceDelta: {accountId: -fee},
+        );
+      }
+    });
     _changed();
   }
 
@@ -2172,6 +2242,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           )
           .toList();
 
+  (Object, int)? _budgetCacheVersion;
+  final Map<String, List<BudgetItem>> _periodBudgetCache = {};
+  final Map<int, List<BudgetItem>> _annualBudgetCache = {};
+  final Map<String, Future<void>> _inFlightBudgetProgress = {};
+  final Map<String, (DateTime, int)> _budgetProgressFetchedAt = {};
+  static const _budgetProgressTtl = Duration(seconds: 30);
+
+  void _ensureBudgetCacheValid() {
+    final version = (netWorthSessionKey, localDataRevision);
+    if (_budgetCacheVersion != version) {
+      _budgetCacheVersion = version;
+      _periodBudgetCache.clear();
+      _annualBudgetCache.clear();
+    }
+  }
+
   List<BudgetItem> get budgets {
     final now = DateTime.now().toUtc();
     final defaultMonthlyPeriod =
@@ -2183,6 +2269,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String period,
     String? periodType,
   }) {
+    _ensureBudgetCacheValid();
+    final memoKey = '$period:${periodType ?? '*'}';
+    final cachedList = _periodBudgetCache[memoKey];
+    if (cachedList != null) return cachedList;
+
     final budgetRows = _rows('budgets').where((r) {
       if (r['deleted_at'] != null) return false;
       if (periodType != null && r['period_type'] != periodType) {
@@ -2190,7 +2281,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
       return true;
     }).toList();
-    if (budgetRows.isEmpty) return const [];
+    if (budgetRows.isEmpty) {
+      _periodBudgetCache[memoKey] = const [];
+      return const [];
+    }
 
     // Precompute category names once instead of per-budget.
     final categoryNames = <String, String>{
@@ -2219,7 +2313,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       return map;
     }
 
-    return budgetRows
+    final result = budgetRows
         .map((r) {
           final cacheKey = 'progress:${r['id']}:$period';
           final fallbackKey = 'progress:${r['id']}';
@@ -2311,21 +2405,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           );
         })
         .where((item) => item.allocatedAmount > 0)
-        .toList();
+        .toList(growable: false);
+    _periodBudgetCache[memoKey] = result;
+    return result;
   }
 
   /// Annual budgets for [year], falling back to 12x monthly budgets with a
   /// single-pass raw expense sum (avoids O(B * T * C) rebuild lag).
   List<BudgetItem> annualBudgetsForYear(int year) {
+    _ensureBudgetCacheValid();
+    final cachedAnnual = _annualBudgetCache[year];
+    if (cachedAnnual != null) return cachedAnnual;
+
     final annualPeriodKey = '$year';
     final explicitAnnual = budgetsForPeriod(
       period: annualPeriodKey,
       periodType: 'ANNUAL',
     );
-    if (explicitAnnual.isNotEmpty) return explicitAnnual;
+    if (explicitAnnual.isNotEmpty) {
+      _annualBudgetCache[year] = explicitAnnual;
+      return explicitAnnual;
+    }
 
     final monthly = budgets;
-    if (monthly.isEmpty) return const [];
+    if (monthly.isEmpty) {
+      _annualBudgetCache[year] = const [];
+      return const [];
+    }
 
     final yearSpentByCategory = <String, int>{};
     for (final tx in _rows('transactions')) {
@@ -2339,7 +2445,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
           (yearSpentByCategory[catId] ?? 0) + rupiah(tx['amount']).abs();
     }
 
-    return monthly.map((b) {
+    final result = monthly.map((b) {
       final actualYearSpent = yearSpentByCategory[b.categoryId] ?? 0;
       final annualAllocated = b.allocatedAmount * 12;
       return b.copyWith(
@@ -2351,15 +2457,31 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         rawSpent: '$actualYearSpent.00',
         periodDays: 365,
       );
-    }).toList();
+    }).toList(growable: false);
+    _annualBudgetCache[year] = result;
+    return result;
   }
 
   Future<void> loadBudgetProgressForPeriod(
     String period, {
     String? periodType,
-  }) async {
+    bool force = false,
+  }) {
     final repo = repository;
-    if (repo == null || _offline || repo.offline) return;
+    if (repo == null || _offline || repo.offline) return Future.value();
+    final fetchKey = '${repo.userId}:$period:${periodType ?? '*'}';
+    final revisionAtStart = localDataRevision;
+    if (!force) {
+      final active = _inFlightBudgetProgress[fetchKey];
+      if (active != null) return active;
+      final last = _budgetProgressFetchedAt[fetchKey];
+      if (last != null &&
+          last.$2 == revisionAtStart &&
+          DateTime.now().difference(last.$1) < _budgetProgressTtl) {
+        return Future.value();
+      }
+    }
+
     final targets = repo
         .rows('budgets')
         .where(
@@ -2368,31 +2490,53 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               (periodType == null || b['period_type'] == periodType),
         )
         .toList();
-    if (targets.isEmpty) return;
+    if (targets.isEmpty) {
+      _budgetProgressFetchedAt[fetchKey] = (DateTime.now(), revisionAtStart);
+      return Future.value();
+    }
 
-    final updates = <String, dynamic>{};
-    await Future.wait(
-      targets.map((budget) async {
-        try {
-          final value = await repo.client.request(
-            'GET',
-            '/budgets/${budget['id']}/progress',
-            query: {'period': period},
-          );
-          updates['progress:${budget['id']}:$period'] = value;
-        } catch (_) {
-          // Fall back gracefully to local transactions.
-        }
-      }),
-    );
+    final task = () async {
+      final updates = <String, dynamic>{};
+      await Future.wait(
+        targets.map((budget) async {
+          try {
+            final value = await repo.client.request(
+              'GET',
+              '/budgets/${budget['id']}/progress',
+              query: {'period': period},
+            );
+            updates['progress:${budget['id']}:$period'] = value;
+          } catch (_) {
+            // Fall back gracefully to local transactions.
+          }
+        }),
+      );
 
-    if (updates.isEmpty || _disposed || !identical(repository, repo)) return;
-    repo.atomic(() {
+      if (_disposed || !identical(repository, repo)) return;
+      final changed = <String, dynamic>{};
       updates.forEach((key, value) {
-        repo.state[key] = value;
+        if (jsonEncode(repo.state[key]) != jsonEncode(value)) {
+          changed[key] = value;
+        }
       });
+      if (changed.isEmpty) {
+        _budgetProgressFetchedAt[fetchKey] = (DateTime.now(), localDataRevision);
+        return;
+      }
+      repo.atomic(() {
+        changed.forEach((key, value) {
+          repo.state[key] = value;
+        });
+      });
+      _budgetProgressFetchedAt[fetchKey] = (DateTime.now(), localDataRevision);
+      notifyListeners();
+    }();
+    _inFlightBudgetProgress[fetchKey] = task;
+    return task.whenComplete(() {
+      if (identical(_inFlightBudgetProgress[fetchKey], task)) {
+        _inFlightBudgetProgress.remove(fetchKey);
+      }
     });
-    notifyListeners();
   }
 
   int get totalBudgetAllocated =>
@@ -3102,14 +3246,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return local.year == now.year && local.month == now.month;
   }
 
-  int get monthIncome => repository?.store.isIndexed == true
+  int get monthIncome => repository == null
+      ? 0
+      : repository!.store.isIndexed
       ? rupiah(_monthSummary.income)
       : transactions
             .where(
               (t) => t.type == TransactionType.income && _thisMonth(t.date),
             )
             .fold(0, (sum, t) => sum + t.amount);
-  int get monthExpense => repository?.store.isIndexed == true
+  int get monthExpense => repository == null
+      ? 0
+      : repository!.store.isIndexed
       ? rupiah(_monthSummary.expense)
       : transactions
             .where(

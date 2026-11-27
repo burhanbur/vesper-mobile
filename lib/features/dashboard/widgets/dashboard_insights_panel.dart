@@ -9,6 +9,7 @@ class DashboardInsightsPanel extends StatelessWidget {
   final DashboardInsights insights;
   final bool hidden;
   final VoidCallback onBills, onSpending, onBudgets;
+  final VoidCallback? onValuation;
   const DashboardInsightsPanel({
     super.key,
     required this.insights,
@@ -16,6 +17,7 @@ class DashboardInsightsPanel extends StatelessWidget {
     required this.onBills,
     required this.onSpending,
     required this.onBudgets,
+    this.onValuation,
   });
 
   String _money(BigInt value) =>
@@ -133,6 +135,22 @@ class DashboardInsightsPanel extends StatelessWidget {
                   onTap: onBudgets,
                   attention: !hidden && budget != null,
                 ),
+                if (onValuation != null) ...[
+                  const Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: AppColors.borderSubtle,
+                  ),
+                  _InsightRow(
+                    id: 'valuation',
+                    icon: Icons.insights_rounded,
+                    title: 'Rincian valuasi',
+                    value: 'Lihat rincian valuasi',
+                    detail: 'Analisis aset, portofolio, dan liabilitas',
+                    onTap: onValuation!,
+                  ),
+                ],
               ],
             ),
           ),

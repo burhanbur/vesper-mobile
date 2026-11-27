@@ -218,4 +218,87 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'bill payment with admin fee formats currency and deducts amount plus fee, and link list formats currency cleanly',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final source = FinanceRepository(ApiClient(), store, 'owner')
+        ..offline = true;
+      seedBills(source);
+      source.atomic(() {
+        final bill = source.row('bill_schedules', billId)!;
+        source.entities['bill_schedules'][billId] = {
+          ...bill,
+          'frequency': 'ONCE',
+          'amount': '100000.00',
+          'admin_fee': '2500.00',
+        };
+        final acc = source.row('accounts', cashId)!;
+        source.entities['accounts'][cashId] = {
+          ...acc,
+          'balance': '500000.00',
+        };
+        source.entities['transactions'] = {
+          'tx_existing': {
+            'id': 'tx_existing',
+            'account_id': cashId,
+            'category_id': bill['category_id'],
+            'type': 'EXPENSE',
+            'amount': '100000.00',
+            'transacted_at': '2026-10-10T08:00:00.000Z',
+            'description': 'Bayar sewa manual',
+            'version': '1',
+          },
+        };
+      });
+      final state = AppState(repository: source)..currentUserId = 'owner';
+      state.toggleOfflineMode();
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: BillsPage()),
+        ),
+      );
+
+      // 1) Check Link Transaction modal formats currency and displays clean selectable cards
+      await tester.tap(find.text('Tautkan transaksi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tautkan pembayaran yang sudah dicatat'), findsOneWidget);
+      expect(find.text('Bayar sewa manual'), findsOneWidget);
+      expect(find.text('Rp 100.000'), findsWidgets);
+      expect(find.textContaining('100000.00 IDR'), findsNothing);
+      await tester.tap(find.text('Batal'));
+      await tester.pumpAndSettle();
+
+      // 2) Check Confirm Payment modal pre-fills admin fee, formats currency, and deducts amount + fee
+      await tester.tap(find.text('Catat pembayaran'));
+      await tester.pumpAndSettle();
+      expect(find.text('Konfirmasi pencatatan pembayaran'), findsOneWidget);
+      expect(find.textContaining('100000.00 IDR'), findsNothing);
+      final feeField = find.byKey(const ValueKey('bill_pay_admin_fee_input'));
+      expect(tester.widget<TextField>(feeField).controller!.text, '2.500');
+
+      await tester.tap(find.text('Konfirmasi'));
+      await tester.pumpAndSettle();
+
+      // 500,000 - 100,000 - 2,500 = 397,500
+      expect(source.row('accounts', cashId)!['balance'], '397500.00');
+      expect(
+        source
+            .rows('transactions')
+            .where((t) => t['description'] == 'Biaya admin: Rent'),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

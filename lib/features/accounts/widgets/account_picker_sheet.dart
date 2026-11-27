@@ -561,7 +561,9 @@ class _AccountGroupCard extends StatelessWidget {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      account.name,
+                                      parent != null
+                                          ? '${parent.name} - ${account.name}'
+                                          : account.name,
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: isSelected
@@ -779,7 +781,7 @@ class AccountSelectorTile extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                account!.name,
+                                state.accountDisplayName(account!),
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,

@@ -4,6 +4,7 @@ import '../../../app/app_state.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/widgets/currency_amount_input.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../goals/data/goals_repository.dart';
 import '../../obligations/data/obligations_repository.dart';
@@ -106,9 +107,17 @@ class _BillsPageState extends State<BillsPage> {
 
   Future<void> schedule({Map<String, dynamic>? bill}) async {
     final active = controller!, repo = active.repository;
+    final state = AppStateScope.of(context);
     final title = TextEditingController(text: bill?['title'] as String?);
     final amount = TextEditingController(
       text: CurrencyAmountInput.fromDecimal(bill?['amount'] as String? ?? ''),
+    );
+    final initialFeeRaw = '${bill?['admin_fee'] ?? ''}'.trim();
+    final hasInitialFee =
+        initialFeeRaw.isNotEmpty &&
+        !RegExp(r'^0+(?:\.0+)?$').hasMatch(initialFeeRaw);
+    final adminFee = TextEditingController(
+      text: hasInitialFee ? CurrencyAmountInput.fromDecimal(initialFeeRaw) : '',
     );
     final preferredOffset = AppStateScope.of(context).timeZone
         .offsetMinutesAt(DateTime.now());
@@ -371,6 +380,85 @@ class _BillsPageState extends State<BillsPage> {
                                       ),
                                     ),
                                   ),
+                                  NominalQuickKeys(
+                                    controller: amount,
+                                    mode: NominalFormatMode.currencyAmountInput,
+                                    keyPrefix: 'bill_amount',
+                                  ),
+                                  if (type == 'EXPENSE') ...[
+                                    const SizedBox(height: 10),
+                                    TextField(
+                                      key: const ValueKey(
+                                        'bill_admin_fee_input',
+                                      ),
+                                      controller: adminFee,
+                                      inputFormatters: const [
+                                        CurrencyAmountInput(),
+                                      ],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      decoration: InputDecoration(
+                                        labelText: 'Biaya admin (opsional)',
+                                        hintText: '0 (jika gratis)',
+                                        prefixText: 'Rp ',
+                                        labelStyle: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 13,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 12,
+                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      children: [
+                                        for (final preset in [2500, 6500])
+                                          ActionChip(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            backgroundColor: Colors.white,
+                                            side: const BorderSide(
+                                              color: AppColors.border,
+                                            ),
+                                            label: Text(
+                                              CurrencyFormatter.formatRupiah(
+                                                preset,
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              update(() {
+                                                final text = CurrencyAmountInput
+                                                    .fromDecimal('$preset');
+                                                adminFee.value =
+                                                    TextEditingValue(
+                                                      text: text,
+                                                      selection:
+                                                          TextSelection.collapsed(
+                                                            offset: text.length,
+                                                          ),
+                                                    );
+                                              });
+                                            },
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                   const SizedBox(height: 10),
                                   DropdownButtonFormField<String>(
                                     key: ValueKey('frequency:$frequency'),
@@ -544,7 +632,10 @@ class _BillsPageState extends State<BillsPage> {
                                       DropdownMenuItem(
                                         value: a['id'] as String,
                                         child: Text(
-                                          '${a['name']}',
+                                          state.accountDisplayNameById(
+                                            a['id'] as String,
+                                            fallback: '${a['name']}',
+                                          ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -755,6 +846,17 @@ class _BillsPageState extends State<BillsPage> {
                                         };
                                         if (bill != null) {
                                           data['active'] = isActive;
+                                          if (bill['transaction_type'] ==
+                                                  'EXPENSE' &&
+                                              bill['obligation_id'] == null) {
+                                            data['admin_fee'] = adminFee.text
+                                                    .trim()
+                                                    .isEmpty
+                                                ? '0.00'
+                                                : CurrencyAmountInput.toDecimal(
+                                                    adminFee.text.trim(),
+                                                  );
+                                          }
                                         } else {
                                           data.addAll({
                                             'transaction_type': type,
@@ -762,6 +864,16 @@ class _BillsPageState extends State<BillsPage> {
                                             'amount': CurrencyAmountInput.toDecimal(
                                               amount.text.trim(),
                                             ),
+                                            'admin_fee':
+                                                (type == 'EXPENSE' &&
+                                                    debt == null &&
+                                                    adminFee.text
+                                                        .trim()
+                                                        .isNotEmpty)
+                                                ? CurrencyAmountInput.toDecimal(
+                                                    adminFee.text.trim(),
+                                                  )
+                                                : '0.00',
                                             'account_id': account ?? '',
                                             'category_id': category,
                                             'obligation_id': debt,
@@ -805,6 +917,7 @@ class _BillsPageState extends State<BillsPage> {
     } finally {
       title.dispose();
       amount.dispose();
+      adminFee.dispose();
       anchor.dispose();
       end.dispose();
       days.dispose();
@@ -821,10 +934,18 @@ class _BillsPageState extends State<BillsPage> {
 
   Future<void> action(BillDueItem item, String action) async {
     final active = controller!, repo = active.repository;
+    final state = AppStateScope.of(context);
     final actual = TextEditingController(
-          text: CurrencyAmountInput.fromDecimal(item.amount),
-        ),
-        note = TextEditingController();
+      text: CurrencyAmountInput.fromDecimal(item.amount),
+    );
+    final defaultFeeRaw = '${item.bill['admin_fee'] ?? ''}'.trim();
+    final hasDefaultFee =
+        defaultFeeRaw.isNotEmpty &&
+        !RegExp(r'^0+(?:\.0+)?$').hasMatch(defaultFeeRaw);
+    final adminFee = TextEditingController(
+      text: hasDefaultFee ? CurrencyAmountInput.fromDecimal(defaultFeeRaw) : '',
+    );
+    final note = TextEditingController();
     String? recordId, error;
     bool saved = false;
     try {
@@ -897,18 +1018,84 @@ class _BillsPageState extends State<BillsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(12),
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: AppColors.surfaceVariant,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${item.bill['title']} • ${DateFormatter.calendarDate(item.date)} • ${item.amount} IDR',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: AppColors.textPrimary,
+                                  color: AppColors.surfaceVariant.withValues(
+                                    alpha: 0.7,
                                   ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.accentLight,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        Icons.receipt_long_rounded,
+                                        size: 18,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${item.bill['title']}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${DateFormatter.calendarDate(item.date)} • ${state.accountDisplayNameById(item.bill['account_id'] as String?, fallback: '-')}',
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          CurrencyFormatter.formatCurrency(
+                                            item.amount,
+                                          ),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        if (hasDefaultFee &&
+                                            item.bill['transaction_type'] ==
+                                                'EXPENSE')
+                                          Text(
+                                            '+ Admin ${CurrencyFormatter.formatCurrency(defaultFeeRaw)}',
+                                            style: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -935,6 +1122,82 @@ class _BillsPageState extends State<BillsPage> {
                                     ),
                                   ),
                                 ),
+                                NominalQuickKeys(
+                                  controller: actual,
+                                  mode: NominalFormatMode.currencyAmountInput,
+                                  keyPrefix: 'bill_pay_amount',
+                                ),
+                                if (item.bill['transaction_type'] ==
+                                    'EXPENSE') ...[
+                                  const SizedBox(height: 10),
+                                  TextField(
+                                    key: const ValueKey(
+                                      'bill_pay_admin_fee_input',
+                                    ),
+                                    controller: adminFee,
+                                    inputFormatters: const [
+                                      CurrencyAmountInput(),
+                                    ],
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: InputDecoration(
+                                      labelText: 'Biaya admin (opsional)',
+                                      hintText: '0 (jika gratis)',
+                                      prefixText: 'Rp ',
+                                      labelStyle: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      for (final preset in [2500, 6500])
+                                        ActionChip(
+                                          visualDensity: VisualDensity.compact,
+                                          backgroundColor: Colors.white,
+                                          side: const BorderSide(
+                                            color: AppColors.border,
+                                          ),
+                                          label: Text(
+                                            CurrencyFormatter.formatRupiah(
+                                              preset,
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            update(() {
+                                              final text = CurrencyAmountInput
+                                                  .fromDecimal('$preset');
+                                              adminFee.value = TextEditingValue(
+                                                text: text,
+                                                selection:
+                                                    TextSelection.collapsed(
+                                                      offset: text.length,
+                                                    ),
+                                              );
+                                            });
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: 8),
                                 const Text(
                                   'Membuat satu transaksi baru saat ini dan mengubah saldo kas. Jika sudah dicatat sebelumnya, batalkan lalu pilih Tautkan transaksi; jangan bayar dua kali.',
@@ -946,36 +1209,226 @@ class _BillsPageState extends State<BillsPage> {
                                 ),
                               ],
                               if (action.startsWith('LINK_')) ...[
-                                DropdownButtonFormField<String>(
-                                  initialValue: recordId,
-                                  isExpanded: true,
-                                  decoration: InputDecoration(
-                                    labelText: 'Bukti pembayaran yang sesuai',
-                                    labelStyle: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 13,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
+                                const Text(
+                                  'Pilih bukti pembayaran yang sesuai',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
                                   ),
-                                  items: [
-                                    for (final r in repo.linkable(item))
-                                      DropdownMenuItem(
-                                        value: r['id'] as String,
-                                        child: Text(
-                                          '${DateFormatter.timestamp(r['transacted_at'], timeZone: AppStateScope.of(context).timeZone)} • ${r['principal'] ?? r['amount']} IDR',
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: (v) => update(() => recordId = v),
                                 ),
                                 const SizedBox(height: 8),
+                                Builder(
+                                  builder: (_) {
+                                    final candidates = repo.linkable(item)
+                                      ..sort(
+                                        (a, b) => '${b['transacted_at'] ?? ''}'
+                                            .compareTo(
+                                              '${a['transacted_at'] ?? ''}',
+                                            ),
+                                      );
+                                    if (candidates.isEmpty) {
+                                      return Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceVariant
+                                              .withValues(alpha: 0.5),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.border,
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline_rounded,
+                                              size: 16,
+                                              color: AppColors.textMuted,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Belum ada transaksi cocok yang dapat ditautkan untuk akun dan kategori ini.',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                    return Column(
+                                      children: [
+                                        for (final r in candidates)
+                                          Builder(
+                                            builder: (_) {
+                                              final id = r['id'] as String;
+                                              final selected = recordId == id;
+                                              final rawDesc =
+                                                  '${r['description'] ?? r['note'] ?? ''}'
+                                                      .trim();
+                                              final titleText =
+                                                  rawDesc.isNotEmpty
+                                                  ? rawDesc
+                                                  : '${item.bill['title']}';
+                                              final accId =
+                                                  (r['account_id'] ??
+                                                          r['cash_account_id'] ??
+                                                          item.bill['account_id'])
+                                                      as String?;
+                                              final accLabel = state
+                                                  .accountDisplayNameById(
+                                                    accId,
+                                                  );
+                                              final timeText =
+                                                  DateFormatter.timestamp(
+                                                    r['transacted_at'],
+                                                    timeZone: state.timeZone,
+                                                  );
+                                              final formattedNominal =
+                                                  CurrencyFormatter.formatCurrency(
+                                                    r['principal'] ??
+                                                        r['amount'],
+                                                  );
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  bottom: 8,
+                                                ),
+                                                child: Material(
+                                                  color: selected
+                                                      ? AppColors.primary
+                                                            .withValues(
+                                                              alpha: 0.06,
+                                                            )
+                                                      : Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                    side: BorderSide(
+                                                      color: selected
+                                                          ? AppColors.primary
+                                                          : AppColors.border,
+                                                      width: selected
+                                                          ? 1.5
+                                                          : 1.0,
+                                                    ),
+                                                  ),
+                                                  clipBehavior: Clip.antiAlias,
+                                                  child: InkWell(
+                                                    key: ValueKey(
+                                                      'link_candidate_$id',
+                                                    ),
+                                                    onTap: () => update(
+                                                      () => recordId = id,
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 12,
+                                                            vertical: 10,
+                                                          ),
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(
+                                                            selected
+                                                                ? Icons
+                                                                      .radio_button_checked_rounded
+                                                                : Icons
+                                                                      .radio_button_off_rounded,
+                                                            size: 20,
+                                                            color: selected
+                                                                ? AppColors
+                                                                      .primary
+                                                                : AppColors
+                                                                      .textMuted,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 10,
+                                                          ),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Text(
+                                                                  titleText,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: const TextStyle(
+                                                                    fontSize:
+                                                                        13,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color: AppColors
+                                                                        .textPrimary,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(
+                                                                  height: 2,
+                                                                ),
+                                                                Text(
+                                                                  [
+                                                                    timeText,
+                                                                    if (accLabel
+                                                                        .isNotEmpty)
+                                                                      accLabel,
+                                                                  ].join(' • '),
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: const TextStyle(
+                                                                    fontSize:
+                                                                        11,
+                                                                    color: AppColors
+                                                                        .textSecondary,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Text(
+                                                            formattedNominal,
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w800,
+                                                              color: selected
+                                                                  ? AppColors
+                                                                        .primary
+                                                                  : AppColors
+                                                                        .textPrimary,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 6),
                                 const Text(
                                   'Hanya menautkan bukti. Tidak mengurangi kas atau membuat transaksi lagi. Pembayaran cicilan besar dapat dibagi ke beberapa kejadian selama total pokoknya cukup.',
                                   style: TextStyle(
@@ -1070,6 +1523,17 @@ class _BillsPageState extends State<BillsPage> {
                                             amount: CurrencyAmountInput.toDecimal(
                                               actual.text.trim(),
                                             ),
+                                            adminFee:
+                                                action == 'PAY' &&
+                                                    item.bill['transaction_type'] ==
+                                                        'EXPENSE' &&
+                                                    adminFee.text
+                                                        .trim()
+                                                        .isNotEmpty
+                                                ? CurrencyAmountInput.toDecimal(
+                                                    adminFee.text.trim(),
+                                                  )
+                                                : null,
                                             recordId: recordId,
                                             note: note.text,
                                           ),
@@ -1099,6 +1563,7 @@ class _BillsPageState extends State<BillsPage> {
       await route.completed;
     } finally {
       actual.dispose();
+      adminFee.dispose();
       note.dispose();
     }
     if (mounted && identical(controller, active)) {
@@ -1941,6 +2406,16 @@ class _BillsPageState extends State<BillsPage> {
                                         bg: AppColors.infoLight,
                                         fg: AppColors.info,
                                       ),
+                                    if (bill['admin_fee'] != null &&
+                                        !RegExp(
+                                          r'^0+(?:\.0+)?$',
+                                        ).hasMatch('${bill['admin_fee']}'))
+                                      _BillTag(
+                                        label:
+                                            '+ Admin ${CurrencyFormatter.formatCurrency(bill['admin_fee'])}',
+                                        bg: AppColors.surfaceVariant,
+                                        fg: AppColors.textSecondary,
+                                      ),
                                   ],
                                 ),
                               ],
@@ -2176,6 +2651,20 @@ class _BillsPageState extends State<BillsPage> {
                       color: AppColors.textMuted,
                     ),
                   ),
+                  if (o.bill['admin_fee'] != null &&
+                      !RegExp(
+                        r'^0+(?:\.0+)?$',
+                      ).hasMatch('${o.bill['admin_fee']}'))
+                    Text(
+                      state.isBalanceHidden
+                          ? '+ Admin •••'
+                          : '+ Admin ${CurrencyFormatter.formatCurrency(o.bill['admin_fee'])}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                 ],
               ),
               IconButton(

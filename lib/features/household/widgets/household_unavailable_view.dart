@@ -1862,6 +1862,109 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                   ),
                 ],
               ),
+              if (!state.groupCategories.any((c) => c.type == 'INCOME') ||
+                  (_collabData != null &&
+                      (_collabData!['contributions'] as List).isNotEmpty &&
+                      (_collabData!['contributions'] as List).every((row) {
+                        final raw = '${row['income'] ?? '0'}'.trim();
+                        return RegExp(r'^0+(?:\.0+)?$').hasMatch(raw);
+                      }))) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.infoLight,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.info.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 15,
+                            color: AppColors.info,
+                          ),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Pemasukan di akun bersama hanya masuk ke sini setelah kategori Pemasukan pribadi dipetakan ke Kategori Grup bertipe Pemasukan (transfer antar akun tidak dihitung sebagai pemasukan).',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          if (state.canManageGroupCategories &&
+                              !state.isOfflineMode &&
+                              !state.groupCategories.any(
+                                (c) => c.type == 'INCOME',
+                              ))
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                foregroundColor: AppColors.primary,
+                              ),
+                              onPressed: () => showModalBottomSheet<void>(
+                                context: context,
+                                isScrollControlled: true,
+                                builder: (_) => AppStateScope(
+                                  state: state,
+                                  child: const CreateGroupCategorySheet(
+                                    initialType: 'INCOME',
+                                  ),
+                                ),
+                              ),
+                              icon: const Icon(Icons.add_rounded, size: 14),
+                              label: const Text(
+                                'Buat Kategori Pemasukan',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              foregroundColor: AppColors.primary,
+                            ),
+                            onPressed: () => _tabController.animateTo(2),
+                            icon: const Icon(Icons.link_rounded, size: 14),
+                            label: const Text(
+                              'Atur Pemetaan di Kelola',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               if (_collabData != null) ...[
                 if ((_collabData!['contributions'] as List).isEmpty)
@@ -2496,9 +2599,9 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                           fontSize: 13,
                         ),
                       ),
-                      subtitle: const Text(
-                        'Ketuk untuk pemetaan kategori pribadi.',
-                        style: TextStyle(
+                      subtitle: Text(
+                        '${category.type == 'INCOME' ? 'Pemasukan' : 'Pengeluaran'} • Ketuk untuk pemetaan kategori pribadi.',
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textSecondary,
                         ),

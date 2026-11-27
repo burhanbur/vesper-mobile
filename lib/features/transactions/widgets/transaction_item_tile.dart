@@ -213,18 +213,27 @@ class TransactionItemTile extends StatelessWidget {
             _buildDetailRow('Jenis Transaksi', transaction.typeLabel),
             if (transaction.type == TransactionType.transfer) ...[
               if (transaction.isIncoming) ...[
-                _buildDetailRow('Akun Penerima', account?.name ?? 'Akun Utama'),
+                _buildDetailRow(
+                  'Akun Penerima',
+                  account != null ? state.accountDisplayName(account) : 'Akun Utama',
+                ),
                 if (toAccount != null)
-                  _buildDetailRow('Dari Akun', toAccount.name),
+                  _buildDetailRow('Dari Akun', state.accountDisplayName(toAccount)),
               ] else ...[
-                _buildDetailRow('Akun Pengirim', account?.name ?? 'Akun Utama'),
+                _buildDetailRow(
+                  'Akun Pengirim',
+                  account != null ? state.accountDisplayName(account) : 'Akun Utama',
+                ),
                 if (toAccount != null)
-                  _buildDetailRow('Ke Akun', toAccount.name),
+                  _buildDetailRow('Ke Akun', state.accountDisplayName(toAccount)),
               ],
             ] else ...[
-              _buildDetailRow('Akun', account?.name ?? 'Akun Utama'),
+              _buildDetailRow(
+                'Akun',
+                account != null ? state.accountDisplayName(account) : 'Akun Utama',
+              ),
               if (toAccount != null)
-                _buildDetailRow('Akun Tujuan', toAccount.name),
+                _buildDetailRow('Akun Tujuan', state.accountDisplayName(toAccount)),
             ],
             _buildDetailRow(
               'Tanggal & Waktu',
@@ -519,7 +528,12 @@ class TransactionItemTile extends StatelessWidget {
     final toAccount = transaction.toAccountId != null
         ? state.getAccountById(transaction.toAccountId!)
         : null;
-    final accountName = account?.name ?? 'Akun';
+    final accountName = account != null
+        ? state.accountDisplayName(account)
+        : 'Akun';
+    final toAccountName = toAccount != null
+        ? state.accountDisplayName(toAccount)
+        : null;
     final isShared = account?.isShared ?? false;
     final storedCategory =
         (transaction.type == TransactionType.income ||
@@ -560,16 +574,16 @@ class TransactionItemTile extends StatelessWidget {
 
     if (transaction.type == TransactionType.transfer) {
       if (currentAccountId != null) {
-        if (transaction.accountId == currentAccountId && toAccount != null) {
-          subtitleParts.add('ke ${toAccount.name}');
+        if (transaction.accountId == currentAccountId && toAccountName != null) {
+          subtitleParts.add('ke $toAccountName');
         } else if (transaction.toAccountId == currentAccountId &&
             account != null) {
-          subtitleParts.add('dari ${account.name}');
-        } else if (toAccount != null) {
-          subtitleParts.add('$accountName → ${toAccount.name}');
+          subtitleParts.add('dari $accountName');
+        } else if (toAccountName != null) {
+          subtitleParts.add('$accountName → $toAccountName');
         }
-      } else if (toAccount != null) {
-        subtitleParts.add('$accountName → ${toAccount.name}');
+      } else if (toAccountName != null) {
+        subtitleParts.add('$accountName → $toAccountName');
       } else {
         subtitleParts.add(accountName);
       }

@@ -157,8 +157,13 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('dashboard_month_balance')))
             .width,
-        280,
-        reason: 'The monthly balance fills the width inside the page margins.',
+        greaterThanOrEqualTo(200),
+        reason: 'The monthly surplus/deficit row fits cleanly inside the hero card.',
+      );
+      expect(find.text('Surplus Bulan ini'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('dashboard_insight_valuation')),
+        findsOneWidget,
       );
       final card = find.byKey(const ValueKey('dashboard_account_first'));
       await tester.ensureVisible(card);

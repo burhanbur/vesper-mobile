@@ -362,4 +362,126 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'AddTransactionModal expense with optional admin fee records atomic expenses and hides fee on income',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final store = LocalStore(sqlite3.openInMemory());
+      final repo = FinanceRepository(_LocalClient(), store, 'user');
+      repo.atomic(() {
+        repo.entities['accounts'] = {
+          'acc_1': {
+            'id': 'acc_1',
+            'name': 'BCA',
+            'user_id': 'user',
+            'currency': 'IDR',
+            'balance': '200000.00',
+            'version': '1',
+          },
+        };
+        repo.entities['categories'] = {
+          'cat_1': {
+            'id': 'cat_1',
+            'name': 'Tagihan',
+            'type': 'EXPENSE',
+            'user_id': 'user',
+          },
+          'cat_2': {
+            'id': 'cat_2',
+            'name': 'Gaji',
+            'type': 'INCOME',
+            'user_id': 'user',
+          },
+        };
+      });
+
+      final state = AppState(repository: repo)..currentUserId = 'user';
+      state.toggleOfflineMode();
+      addTearDown(state.dispose);
+      addTearDown(store.close);
+
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => AddTransactionModal.show(context),
+                  child: const Text('Buka Modal'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Buka Modal'));
+      await tester.pumpAndSettle();
+
+      // Default tab is Pengeluaran: fee input should be visible
+      expect(find.byKey(const ValueKey('transfer_fee_input')), findsOneWidget);
+
+      // Switching to Pemasukan hides the admin fee input
+      await tester.tap(find.text('Pemasukan'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('transfer_fee_input')), findsNothing);
+
+      // Switch back to Pengeluaran
+      await tester.tap(find.text('Pengeluaran'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('transfer_fee_input')), findsOneWidget);
+
+      // Enter expense amount 100,000
+      await tester.enterText(find.byType(TextField).first, '100000');
+      await tester.pumpAndSettle();
+
+      // Tap Rp 2.500 preset chip for admin fee
+      await tester.tap(find.widgetWithText(ActionChip, 'Rp 2.500'));
+      await tester.pumpAndSettle();
+
+      // Enter description/note (3rd TextField: amount, fee, description)
+      await tester.enterText(find.byType(TextField).at(2), 'Bayar listrik');
+      await tester.pumpAndSettle();
+
+      // Save expense
+      await tester.tap(find.byKey(const ValueKey('transaction_save_button')));
+      await tester.pumpAndSettle();
+
+      // Balance: 200,000 - 100,000 - 2,500 = 97,500
+      expect(state.getAccountById('acc_1')!.balance, 97500);
+
+      // 2 expense transactions: primary 'Tagihan' (100,000) + 'Biaya Admin' (2,500)
+      expect(state.transactions, hasLength(2));
+      final primaryTx = state.transactions.singleWhere(
+        (t) => t.categoryName == 'Tagihan',
+      );
+      expect(primaryTx.amount, 100000);
+      expect(primaryTx.note, 'Bayar listrik');
+
+      final feeTx = state.transactions.singleWhere(
+        (t) => t.categoryName == 'Biaya Admin',
+      );
+      expect(feeTx.type, TransactionType.expense);
+      expect(feeTx.amount, 2500);
+      expect(feeTx.accountId, 'acc_1');
+      expect(feeTx.note, 'Biaya admin: Bayar listrik');
+
+      // Outbox should contain category + 2 expense transactions
+      final outboxTypes = repo.outbox
+          .map((e) => (e as Map)['entity_type'])
+          .toList();
+      expect(
+        outboxTypes.where((t) => t == 'transactions'),
+        hasLength(2),
+      );
+      expect(outboxTypes, contains('categories'));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

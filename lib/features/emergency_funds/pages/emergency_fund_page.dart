@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/currency_amount_input.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../data/emergency_fund_controller.dart';
 import '../data/emergency_fund_repository.dart';
 
@@ -226,6 +227,12 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                                   prefixText: 'Rp ',
                                 ),
                               ),
+                              if (mode == 'MANUAL')
+                                NominalQuickKeys(
+                                  controller: manual,
+                                  mode: NominalFormatMode.currencyAmountInput,
+                                  keyPrefix: 'emergency_manual',
+                                ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
@@ -357,7 +364,7 @@ class _EmergencyFundPageState extends State<EmergencyFundPage> {
                                                     horizontal: 12,
                                                   ),
                                               title: Text(
-                                                '${a['name']}${a['is_visible'] == false ? ' (tersembunyi)' : ''}',
+                                                '${AppStateScope.of(context).accountDisplayNameById(a['id'] as String, fallback: '${a['name']}')}${a['is_visible'] == false ? ' (tersembunyi)' : ''}',
                                                 style: const TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w500,

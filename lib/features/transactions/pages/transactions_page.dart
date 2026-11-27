@@ -152,7 +152,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             color: AppColors.textSecondary,
                           ),
                           title: Text(
-                            acc.name,
+                            AppStateScope.of(context).accountDisplayName(acc),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(

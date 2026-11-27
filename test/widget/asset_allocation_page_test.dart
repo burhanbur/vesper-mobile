@@ -194,4 +194,86 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'Atur kelas akun bottom sheet updates account asset_class offline-first and queues sync',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final source = FinanceRepository(AllocationClient(), store, 'owner')
+        ..offline = true;
+      source.atomic(() {
+        source.entities['account_types'] = {
+          'type_inv': {
+            'id': 'type_inv',
+            'user_id': 'owner',
+            'name': 'Investasi',
+            'category': 'INVESTMENT',
+          },
+        };
+        source.entities['accounts'] = {
+          'acc_bibit': {
+            'id': 'acc_bibit',
+            'user_id': 'owner',
+            'account_type_id': 'type_inv',
+            'name': 'Bibit',
+            'currency': 'IDR',
+            'balance': '5000000.00',
+            'is_credit_card': false,
+            'is_visible': true,
+            'is_include_total': true,
+            'version': '1',
+          },
+        };
+        source.state['asset_allocation_cache'] = {
+          'schema': 1,
+          'user_id': 'owner',
+          'snapshot': allocationFixture(),
+        };
+      });
+      final state = AppState(repository: source)..currentUserId = 'owner';
+      state.toggleOfflineMode();
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: AssetAllocationPage()),
+        ),
+      );
+
+      await tester.tap(find.text('Atur kelas akun'));
+      await tester.pumpAndSettle();
+      expect(find.text('Atur kelas aset akun'), findsOneWidget);
+      expect(find.text('Bibit'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('allocation_account_class_acc_bibit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reksa dana').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Simpan kelas'));
+      await tester.pumpAndSettle();
+
+      expect(state.getAccountById('acc_bibit')!.assetClass, 'MUTUAL_FUND');
+      expect(
+        source.outbox.any(
+          (item) =>
+              item['entity_type'] == 'accounts' &&
+              item['entity_id'] == 'acc_bibit' &&
+              item['operation'] == 'UPDATE' &&
+              (item['payload'] as Map)['asset_class'] == 'MUTUAL_FUND',
+        ),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

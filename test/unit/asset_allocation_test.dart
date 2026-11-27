@@ -165,6 +165,43 @@ void main() {
           ),
           '99.99',
         );
+        // Account-level asset_class override allows non-CASH classes without instrument rows.
+        final accountTagged = {
+          ...allocationFixture(zero: true),
+          'known_assets': '1000.00',
+          'total_assets': '1000.00',
+          'classes': [
+            for (final kind in allocationClasses)
+              <String, dynamic>{
+                'asset_class': kind,
+                'known_amount': kind == 'CASH'
+                    ? '600.00'
+                    : kind == 'MUTUAL_FUND'
+                    ? '400.00'
+                    : '0.00',
+                'market_value': kind == 'CASH'
+                    ? '600.00'
+                    : kind == 'MUTUAL_FUND'
+                    ? '400.00'
+                    : '0.00',
+                'weight_percent': kind == 'CASH'
+                    ? '60.00'
+                    : kind == 'MUTUAL_FUND'
+                    ? '40.00'
+                    : '0.00',
+                'unavailable_count': 0,
+              },
+          ],
+          'instruments': <Map<String, dynamic>>[],
+        };
+        final parsedTagged = AllocationSnapshot.fromJson(accountTagged);
+        expect(parsedTagged.total, BigInt.from(100000));
+        expect(
+          parsedTagged.classes.firstWhere(
+            (c) => c['asset_class'] == 'MUTUAL_FUND',
+          )['weight_percent'],
+          '40.00',
+        );
       });
       test('rejects fabricated complete totals, weights, duplicate instruments and foreign scope', () {
         final invalid = <Map<String, dynamic>>[

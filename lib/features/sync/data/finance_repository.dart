@@ -116,6 +116,8 @@ class FinanceRepository {
           'is_credit_card': previous!['is_credit_card'],
         if (previous?.containsKey('credit_limit') ?? false)
           'credit_limit': previous!['credit_limit'],
+        if (previous?.containsKey('asset_class') ?? false)
+          'asset_class': previous!['asset_class'],
         ...payload,
       };
     }

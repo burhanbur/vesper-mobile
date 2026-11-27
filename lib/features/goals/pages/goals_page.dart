@@ -5,6 +5,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/currency_amount_input.dart';
+import '../../../core/widgets/nominal_quick_keys.dart';
 import '../data/goals_controller.dart';
 import '../data/goals_repository.dart';
 import '../widgets/goals_overview.dart';
@@ -193,6 +194,11 @@ class _GoalsPageState extends State<GoalsPage> {
                                       ? 'Rp '
                                       : '${currency.text.trim().toUpperCase()} ',
                                 ),
+                              ),
+                              NominalQuickKeys(
+                                controller: target,
+                                mode: NominalFormatMode.currencyAmountInput,
+                                keyPrefix: 'goal_target',
                               ),
                               const SizedBox(height: 12),
                               TextField(
@@ -539,7 +545,12 @@ class _GoalsPageState extends State<GoalsPage> {
                                       DropdownMenuItem(
                                         value: a['id'] as String,
                                         child: Text(
-                                          '${a['name']}',
+                                          AppStateScope.of(
+                                            context,
+                                          ).accountDisplayNameById(
+                                            a['id'] as String,
+                                            fallback: '${a['name']}',
+                                          ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -614,6 +625,11 @@ class _GoalsPageState extends State<GoalsPage> {
                                       ? 'Rp '
                                       : '$currencyCode ',
                                 ),
+                              ),
+                              NominalQuickKeys(
+                                controller: amount,
+                                mode: NominalFormatMode.currencyAmountInput,
+                                keyPrefix: 'goal_allocation',
                               ),
                               const SizedBox(height: 12),
                               Container(

@@ -15,6 +15,8 @@ class NetWorthCard extends StatelessWidget {
     final isHidden = state.isBalanceHidden;
     final view = state.dashboardBalanceView;
     final balance = state.dashboardBalance;
+    final netSavings = state.monthNetSavings;
+    final isDeficit = netSavings < 0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -309,6 +311,68 @@ class NetWorthCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      key: const ValueKey('dashboard_month_balance'),
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 12,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isDeficit
+                                    ? Icons.trending_down_rounded
+                                    : Icons.savings_outlined,
+                                size: 15,
+                                color: isDeficit
+                                    ? const Color(0xFFFF8A80)
+                                    : AppColors.accent,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  isDeficit
+                                      ? 'Defisit Bulan ini'
+                                      : 'Surplus Bulan ini',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.sageMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            isHidden
+                                ? '••••••'
+                                : CurrencyFormatter.formatRupiah(
+                                    netSavings,
+                                    withSign: true,
+                                  ),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: isDeficit
+                                  ? const Color(0xFFFF8A80)
+                                  : AppColors.accent,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

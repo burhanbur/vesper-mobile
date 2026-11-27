@@ -110,7 +110,11 @@ class Account {
   final String? accountTypeId;
   final bool isCreditCard;
   final String? creditLimit;
+  final String? assetClass;
   final String? exactBalance;
+
+  String get effectiveAssetClass =>
+      (assetClass != null && assetClass!.isNotEmpty) ? assetClass! : 'CASH';
   bool get isLegacyLoan =>
       !isCreditCard &&
       RegExp(r'utang|piutang', caseSensitive: false).hasMatch(institution);
@@ -148,6 +152,7 @@ class Account {
     this.ownerName = '',
     this.isCreditCard = false,
     this.creditLimit,
+    this.assetClass,
     this.exactBalance,
   });
 
@@ -217,6 +222,7 @@ class Account {
     String? currency,
     String? ownerUserId,
     String? ownerName,
+    String? assetClass,
   }) {
     return Account(
       id: id ?? this.id,
@@ -237,6 +243,7 @@ class Account {
       ownerName: ownerName ?? this.ownerName,
       isCreditCard: isCreditCard,
       creditLimit: creditLimit,
+      assetClass: assetClass ?? this.assetClass,
       exactBalance: balance == null ? exactBalance : '$balance.00',
     );
   }
