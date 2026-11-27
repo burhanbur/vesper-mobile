@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../app/theme/app_colors.dart';
 import '../../../core/utils/string_formatter.dart';
 
 class CreateGroupCategorySheet extends StatefulWidget {
@@ -110,64 +111,135 @@ class _CreateGroupCategorySheetState extends State<CreateGroupCategorySheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      24,
-      24,
-      24,
-      24 + MediaQuery.viewInsetsOf(context).bottom,
-    ),
-    child: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            widget.categoryId == null
-                ? 'Tambah Kategori Grup'
-                : 'Edit Kategori Grup',
-          ),
-          const Text(
-            'Membutuhkan koneksi. Tidak mengubah kategori atau transaksi pribadi.',
-          ),
-          if (widget.categoryId != null)
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+    clipBehavior: Clip.antiAlias,
+    child: SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          12,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.categoryId == null
+                        ? 'Tambah Kategori Grup'
+                        : 'Edit Kategori Grup',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             const Text(
-              'Tipe tidak dapat diubah jika kategori sudah dipetakan.',
+              'Membutuhkan koneksi. Tidak mengubah kategori atau transaksi pribadi.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-          TextField(
-            controller: _name,
-            enabled: !_saving,
-            maxLength: 120,
-            textCapitalization: TextCapitalization.words,
-            inputFormatters: const [CapitalizeWordsInputFormatter()],
-            decoration: const InputDecoration(labelText: 'Nama kategori grup'),
-          ),
-          DropdownButtonFormField<String>(
-            initialValue: _type,
-            decoration: const InputDecoration(labelText: 'Tipe kategori'),
-            items: const [
-              DropdownMenuItem(value: 'EXPENSE', child: Text('Pengeluaran')),
-              DropdownMenuItem(value: 'INCOME', child: Text('Pemasukan')),
+            if (widget.categoryId != null) ...[
+              const SizedBox(height: 4),
+              const Text(
+                'Tipe tidak dapat diubah jika kategori sudah dipetakan.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.textMuted),
+              ),
             ],
-            onChanged: _saving
-                ? null
-                : (value) => setState(() => _type = value!),
-          ),
-          if (_error != null) Text(_error!),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? 'Menyimpan…' : 'Simpan kategori grup'),
-          ),
-          if (widget.categoryId != null &&
-              AppStateScope.of(context).canManageGroupCategories)
-            TextButton.icon(
-              onPressed: _saving || AppStateScope.of(context).isOfflineMode
-                  ? null
-                  : _delete,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Hapus kategori grup'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _name,
+              enabled: !_saving,
+              maxLength: 120,
+              textCapitalization: TextCapitalization.words,
+              inputFormatters: const [CapitalizeWordsInputFormatter()],
+              decoration: InputDecoration(
+                labelText: 'Nama kategori grup',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
-        ],
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              decoration: InputDecoration(
+                labelText: 'Tipe kategori',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'EXPENSE', child: Text('Pengeluaran')),
+                DropdownMenuItem(value: 'INCOME', child: Text('Pemasukan')),
+              ],
+              onChanged: _saving
+                  ? null
+                  : (value) => setState(() => _type = value!),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.expense,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _saving ? null : _save,
+              child: Text(_saving ? 'Menyimpan…' : 'Simpan kategori grup'),
+            ),
+            if (widget.categoryId != null &&
+                AppStateScope.of(context).canManageGroupCategories) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+                onPressed: _saving || AppStateScope.of(context).isOfflineMode
+                    ? null
+                    : _delete,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Hapus kategori grup'),
+              ),
+            ],
+          ],
+        ),
       ),
     ),
   );

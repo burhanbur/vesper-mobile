@@ -160,10 +160,38 @@ void main() {
       () => source.entities['instrument_prices'] = <String, dynamic>{},
     );
     expect(repo.overview().marketValue, isNull);
+    expect(repo.overview().knownMarketValue, isNull);
     expect(repo.overview().missingPrices, 2);
+    expect(repo.overview().isPartial, isFalse);
     source.atomic(() => source.state.remove('investment_history_coverage'));
     expect(repo.overview, throwsA(isA<ApiFailure>()));
   });
+
+  test(
+    'partial prices preserve priced holdings valuation while marking missing price count',
+    () {
+      history();
+      source.atomic(() {
+        source.entities['investment_transactions']['f'] = {
+          'id': 'f',
+          'account_id': 'one',
+          'type': 'BUY',
+          'quantity': '1',
+          'price_per_unit': '50',
+          'fee': '0',
+          'instrument_id': 'unpriced',
+          'transacted_at': '2026-10-06T00:00:00.000Z',
+        };
+      });
+      final overview = repo.overview();
+      expect(overview.marketValue, isNull);
+      expect(overview.knownMarketValue, '60.00');
+      expect(overview.knownUnrealized, '30.00');
+      expect(overview.valuedPositions, 2);
+      expect(overview.missingPrices, 1);
+      expect(overview.isPartial, isTrue);
+    },
+  );
 
   test('local catalog survives restart and lost response reuses exact UUID payload', () async {
     final id = source.saveInstrumentLocal(

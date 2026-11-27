@@ -101,31 +101,32 @@ class SyncStatusSheet {
                                     style: TextStyle(fontSize: 12),
                                   ),
                                 ),
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.expense,
-                                    side: BorderSide(
-                                      color: AppColors.expense.withValues(
-                                        alpha: 0.5,
+                                if (entry.canDiscard)
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.expense,
+                                      side: BorderSide(
+                                        color: AppColors.expense.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
                                       ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
+                                    onPressed: () {
+                                      state.discardOutboxEntry(entry);
+                                    },
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 16,
+                                    ),
+                                    label: const Text(
+                                      'Buang perubahan lokal',
+                                      style: TextStyle(fontSize: 12),
                                     ),
                                   ),
-                                  onPressed: () {
-                                    state.discardOutboxEntry(entry);
-                                  },
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 16,
-                                  ),
-                                  label: const Text(
-                                    'Buang perubahan lokal',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
                               ],
                             ),
                           ),

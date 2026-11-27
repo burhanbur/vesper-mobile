@@ -49,8 +49,11 @@ class LocalStore {
   void atomicState(void Function() action) => _indexed!.atomic(action);
   TransactionPage transactionPage(TransactionQuery query) =>
       _indexed!.transactionPage(query);
-  TransactionSummary transactionSummary(DateTime start, DateTime end) =>
-      _indexed!.transactionSummary(start, end);
+  TransactionSummary transactionSummary(
+    DateTime start,
+    DateTime end, {
+    String? accountId,
+  }) => _indexed!.transactionSummary(start, end, accountId: accountId);
 
   static final Map<String, Future<void>> _opening = {};
 

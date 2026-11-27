@@ -8,6 +8,7 @@ import '../../../core/utils/transaction_period.dart';
 import '../../../core/utils/app_time_zone.dart';
 import '../../../core/widgets/month_selector.dart';
 import '../../../database/transaction_query.dart';
+import '../../accounts/models/account.dart';
 import '../../categories/models/category.dart';
 import '../models/transaction.dart';
 import '../widgets/transaction_item_tile.dart';
@@ -22,9 +23,11 @@ class TransactionsPage extends StatefulWidget {
 class _TransactionsPageState extends State<TransactionsPage> {
   String _selectedFilter = 'Semua'; // Semua, Pemasukan, Pengeluaran, Transfer
   String? _selectedCategoryId;
+  String? _selectedAccountId;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isSearchVisible = false;
+  bool _searchAllPeriods = false;
   TransactionPeriod _period = TransactionPeriod(DateTime.now());
   AppTimeZone? _timeZone;
 
@@ -58,6 +61,132 @@ class _TransactionsPageState extends State<TransactionsPage> {
     super.dispose();
   }
 
+  void _openAccountFilterSheet(
+    BuildContext context,
+    List<Account> accounts,
+    String? activeAccountId,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Filter Akun',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const Divider(height: 12, color: AppColors.divider),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                        ),
+                        leading: const Icon(
+                          Icons.layers_outlined,
+                          color: AppColors.primary,
+                        ),
+                        title: const Text(
+                          'Semua Akun',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        trailing: activeAccountId == null
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.primary,
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _selectedAccountId = null;
+                            _resetPages();
+                          });
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                      for (final acc in accounts)
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          leading: const Icon(
+                            Icons.account_balance_wallet_outlined,
+                            color: AppColors.textSecondary,
+                          ),
+                          title: Text(
+                            acc.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            acc.institution,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                          trailing: activeAccountId == acc.id
+                              ? const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppColors.primary,
+                                )
+                              : null,
+                          onTap: () {
+                            setState(() {
+                              _selectedAccountId = acc.id;
+                              _resetPages();
+                            });
+                            Navigator.of(ctx).pop();
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
@@ -81,10 +210,19 @@ class _TransactionsPageState extends State<TransactionsPage> {
         categoryOptions.any((c) => c.id == _selectedCategoryId)
         ? _selectedCategoryId
         : null;
+    final accountOptions = state.accounts;
+    final activeAccountId =
+        accountOptions.any((a) => a.id == _selectedAccountId)
+        ? _selectedAccountId
+        : null;
+    final activeAccount = activeAccountId == null
+        ? null
+        : accountOptions.where((a) => a.id == activeAccountId).firstOrNull;
     final page = state.transactionPage(
       TransactionQuery(
-        start: _period.start,
-        end: _period.end,
+        start: _searchAllPeriods ? null : _period.start,
+        end: _searchAllPeriods ? null : _period.end,
+        accountId: activeAccountId,
         after: _pages[_page],
         type: switch (_selectedFilter) {
           'Pengeluaran' => 'EXPENSE',
@@ -99,18 +237,13 @@ class _TransactionsPageState extends State<TransactionsPage> {
       ),
     );
     final filtered = page.items;
-    final periodTransactions = state.transactionsInPeriod(
+    final summary = state.periodSummary(
       _period.start,
       _period.end,
+      accountId: activeAccountId,
     );
-    final periodIncome = _period.total(
-      periodTransactions,
-      TransactionType.income,
-    );
-    final periodExpense = _period.total(
-      periodTransactions,
-      TransactionType.expense,
-    );
+    final periodIncome = summary.income;
+    final periodExpense = summary.expense;
     final isHidden = state.isBalanceHidden;
     final periodNet = periodIncome - periodExpense;
     final netColor = periodNet < 0
@@ -135,6 +268,75 @@ class _TransactionsPageState extends State<TransactionsPage> {
       appBar: AppBar(
         title: const Text('Transaksi'),
         actions: [
+          if (accountOptions.isNotEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: GestureDetector(
+                  key: const ValueKey('transaction_account_filter'),
+                  onTap: () => _openAccountFilterSheet(
+                    context,
+                    accountOptions,
+                    activeAccountId,
+                  ),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: activeAccount != null
+                          ? AppColors.primary.withValues(alpha: 0.1)
+                          : AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: activeAccount != null
+                            ? AppColors.primary
+                            : AppColors.border.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 13,
+                          color: activeAccount != null
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            activeAccount?.name ?? 'Semua Akun',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: activeAccount != null
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: activeAccount != null
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 1),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 15,
+                          color: activeAccount != null
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: _isSearchVisible ? 'Tutup pencarian' : 'Cari transaksi',
             icon: Icon(
@@ -149,6 +351,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 if (!_isSearchVisible) {
                   _searchController.clear();
                   _searchQuery = '';
+                  _searchAllPeriods = false;
                   _resetPages();
                 }
               });
@@ -163,53 +366,88 @@ class _TransactionsPageState extends State<TransactionsPage> {
           _page,
           _selectedFilter,
           activeCategoryId,
+          activeAccountId,
           _searchQuery,
+          _searchAllPeriods,
           _period.start,
         )),
         slivers: [
           SliverToBoxAdapter(
             child: Column(
               children: [
-                // Optional Expandable Search Bar
+                // Optional Expandable Search Bar + Cross-Month Scope Toggle
                 if (_isSearchVisible)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 4,
                     ),
-                    child: TextField(
-                      controller: _searchController,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: 'Cari transaksi, kategori, atau nama...',
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                tooltip: 'Hapus pencarian',
-                                icon: const Icon(Icons.clear_rounded, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {
-                                    _searchQuery = '';
-                                    _resetPages();
-                                  });
-                                },
-                              )
-                            : null,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          decoration: InputDecoration(
+                            hintText: 'Cari transaksi, kategori, atau nama...',
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    tooltip: 'Hapus pencarian',
+                                    icon: const Icon(
+                                      Icons.clear_rounded,
+                                      size: 18,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = '';
+                                        _resetPages();
+                                      });
+                                    },
+                                  )
+                                : null,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                          ),
+                          onChanged: (val) {
+                            setState(() {
+                              _searchQuery = val.trim();
+                              _resetPages();
+                            });
+                          },
                         ),
-                      ),
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val.trim();
-                          _resetPages();
-                        });
-                      },
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _buildScopePill(
+                              label: 'Bulan ini',
+                              selected: !_searchAllPeriods,
+                              onTap: () => setState(() {
+                                _searchAllPeriods = false;
+                                _resetPages();
+                              }),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildScopePill(
+                              label: 'Semua periode',
+                              selected: _searchAllPeriods,
+                              onTap: () => setState(() {
+                                _searchAllPeriods = true;
+                                _resetPages();
+                              }),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
 
-                // Filter Chips
+                // Type Filter Chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(
@@ -270,13 +508,72 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     ),
                   ),
 
-                // Month Selector & Monthly Summary Card
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 6,
-                  ),
-                  child: Container(
+                // Month Selector & Monthly Summary Card (or All-Periods Banner)
+                if (_searchAllPeriods)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.history_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Menampilkan transaksi lintas semua periode',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => setState(() {
+                              _searchAllPeriods = false;
+                              _resetPages();
+                            }),
+                            child: const Text(
+                              'Bulan ini',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
+                    child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -706,6 +1003,34 @@ class _TransactionsPageState extends State<TransactionsPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildScopePill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected ? Colors.white : AppColors.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 

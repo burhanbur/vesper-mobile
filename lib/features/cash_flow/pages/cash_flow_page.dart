@@ -76,6 +76,7 @@ class _CashFlowPageState extends State<CashFlowPage>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => Material(
@@ -166,7 +167,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Disimpan hanya per pengguna/perangkat. Tidak mengubah saldo, jadwal asli, atau memindahkan uang.',
+                                    'Simulasi disimpan di perangkat ini saja; tidak mengubah saldo atau jadwal asli.',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.textMuted,
@@ -262,16 +263,18 @@ class _CashFlowPageState extends State<CashFlowPage>
                                 }
                               }),
                             ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Akun pembayaran/penerimaan pinjaman tanpa tagihan aktif. Jika sudah ditautkan ke Tagihan & Jadwal, akun pada tagihan dipakai. Pilih akun di luar pilihan skenario bila pembayaran dilakukan dari akun tersebut. Pokok dihitung sekali.',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
-                              height: 1.35,
+                          if (repo.debts.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Rekening pembayaran untuk pinjaman tanpa jadwal di Tagihan:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
+                            const SizedBox(height: 8),
+                          ],
                           for (final debt in repo.debts) ...[
                             DropdownButtonFormField<String>(
                               key: ValueKey(
@@ -280,7 +283,8 @@ class _CashFlowPageState extends State<CashFlowPage>
                               initialValue: mappings[debt['id']],
                               isExpanded: true,
                               decoration: InputDecoration(
-                                labelText: '${debt['counterparty']} (${debt['kind']})',
+                                labelText:
+                                    '${debt['counterparty']} (${debt['kind'] == 'PAYABLE' ? 'Utang' : 'Piutang'})',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -1048,11 +1052,10 @@ class _CashFlowPageState extends State<CashFlowPage>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'PROYEKSI SALDO AKHIR',
+                            'Proyeksi penutup',
                             style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.textMuted,
                             ),
                           ),
@@ -1061,11 +1064,11 @@ class _CashFlowPageState extends State<CashFlowPage>
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Proyeksi penutup: ${money(r.closing)}',
+                              money(r.closing),
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 24,
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
+                                letterSpacing: -0.4,
                                 color: r.closing < BigInt.zero
                                     ? AppColors.expense
                                     : AppColors.primary,
@@ -1079,7 +1082,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 6,
+                        vertical: 7,
                       ),
                       decoration: BoxDecoration(
                         color: r.minimum < BigInt.zero
@@ -1107,7 +1110,7 @@ class _CashFlowPageState extends State<CashFlowPage>
                               ),
                               const SizedBox(width: 4),
                               const Text(
-                                'Titik Terendah',
+                                'Titik terendah',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -1120,10 +1123,10 @@ class _CashFlowPageState extends State<CashFlowPage>
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              'Titik terendah: ${money(r.minimum)}',
+                              money(r.minimum),
                               style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
                                 color: r.minimum < BigInt.zero
                                     ? AppColors.expense
                                     : AppColors.textPrimary,
@@ -1172,7 +1175,8 @@ class _CashFlowPageState extends State<CashFlowPage>
                     children: [
                       _buildMetricRow(
                         Icons.account_balance_wallet_outlined,
-                        'Saldo aktual gabungan: ${money(r.actual)}',
+                        'Saldo aktual gabungan',
+                        money(r.actual),
                         AppColors.primary,
                       ),
                       Divider(
@@ -1182,7 +1186,8 @@ class _CashFlowPageState extends State<CashFlowPage>
                       ),
                       _buildMetricRow(
                         Icons.flag_outlined,
-                        'Alokasi goal terdanai: ${money(r.reserved)}',
+                        'Alokasi goal terdanai',
+                        money(r.reserved),
                         AppColors.investment,
                       ),
                       Divider(
@@ -1192,7 +1197,8 @@ class _CashFlowPageState extends State<CashFlowPage>
                       ),
                       _buildMetricRow(
                         Icons.savings_outlined,
-                        'Kas tersedia pembuka: ${money(r.available)}',
+                        'Kas tersedia pembuka',
+                        money(r.available),
                         AppColors.income,
                       ),
                     ],
@@ -1388,26 +1394,13 @@ class _CashFlowPageState extends State<CashFlowPage>
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${r.paidExcluded} kejadian/pokok lunas dan ${r.skippedExcluded} kejadian dilewati tidak ditambahkan kembali.',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: AppColors.textMuted,
-                              height: 1.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Dihitung ${DateFormatter.formatFull(r.assessedAt, timeZone: state.timeZone)}.',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        '${r.paidExcluded} lunas & ${r.skippedExcluded} dilewati dikecualikan · ${DateFormatter.formatFull(r.assessedAt, timeZone: state.timeZone)}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.textMuted,
+                          height: 1.35,
+                        ),
                       ),
                     ),
                   ],
@@ -1653,7 +1646,12 @@ class _CashFlowPageState extends State<CashFlowPage>
     );
   }
 
-  Widget _buildMetricRow(IconData icon, String fullText, Color color) {
+  Widget _buildMetricRow(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Row(
       children: [
         Container(
@@ -1667,12 +1665,21 @@ class _CashFlowPageState extends State<CashFlowPage>
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            fullText,
+            label,
             style: const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
             ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
           ),
         ),
       ],

@@ -25,11 +25,79 @@ class DevicesPage extends StatefulWidget {
 
 class _DevicesPageState extends State<DevicesPage> {
   late Future<List<RegisteredDevice>> _devices;
+  final Set<String> _revokingIds = {};
 
   @override
   void initState() {
     super.initState();
     _devices = _fetchDevices();
+  }
+
+  Future<void> _revokeDevice(RegisteredDevice device) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Cabut akses perangkat?',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Sesi aktif pada "${device.displayName}" akan langsung dihentikan di server. Perangkat tersebut harus masuk kembali untuk mengakses akun Anda.',
+          style: const TextStyle(
+            fontSize: 13.5,
+            height: 1.45,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.expense,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cabut Akses'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _revokingIds.add(device.id));
+    try {
+      await widget.repository.revoke(device.id);
+      if (!mounted) return;
+      _retry();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.primary,
+          content: Text('Akses "${device.displayName}" berhasil dicabut.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is ApiFailure
+          ? error.message
+          : 'Gagal mencabut perangkat. Silakan coba lagi.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.expense,
+          content: Text(message),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _revokingIds.remove(device.id));
+    }
   }
 
   Future<List<RegisteredDevice>> _fetchDevices() {
@@ -183,7 +251,12 @@ class _DevicesPageState extends State<DevicesPage> {
                   ),
                   const SizedBox(height: 8),
                   for (final device in otherDevices) ...[
-                    _DeviceCard(device: device, isCurrent: false),
+                    _DeviceCard(
+                      device: device,
+                      isCurrent: false,
+                      isRevoking: _revokingIds.contains(device.id),
+                      onRevoke: () => _revokeDevice(device),
+                    ),
                     const SizedBox(height: 12),
                   ],
                 ],
@@ -357,7 +430,7 @@ class _DevicesPageState extends State<DevicesPage> {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Perangkat yang ditampilkan adalah perangkat terdaftar untuk sinkronisasi, bukan daftar sesi aktif. Fitur logout perangkat lain dari jarak jauh belum tersedia.',
+              'Mencabut akses perangkat lain akan langsung menghentikan sesi aktifnya di server. Perangkat tersebut harus masuk ulang untuk menyinkronkan data.',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.45,
@@ -453,8 +526,15 @@ class _DevicesPageState extends State<DevicesPage> {
 class _DeviceCard extends StatelessWidget {
   final RegisteredDevice device;
   final bool isCurrent;
+  final bool isRevoking;
+  final VoidCallback? onRevoke;
 
-  const _DeviceCard({required this.device, required this.isCurrent});
+  const _DeviceCard({
+    required this.device,
+    required this.isCurrent,
+    this.isRevoking = false,
+    this.onRevoke,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -643,6 +723,43 @@ class _DeviceCard extends StatelessWidget {
               ],
             ),
           ),
+          if (!isCurrent && onRevoke != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: ValueKey('revoke_device_${device.id}'),
+                onPressed: isRevoking ? null : onRevoke,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.expense,
+                  side: BorderSide(
+                    color: AppColors.expense.withValues(alpha: 0.35),
+                  ),
+                  minimumSize: const Size(0, 40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: isRevoking
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.expense,
+                        ),
+                      )
+                    : const Icon(Icons.link_off_rounded, size: 16),
+                label: Text(
+                  isRevoking ? 'Mencabut...' : 'Cabut Akses Perangkat',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -363,4 +363,145 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'new loan supports generating exact installment schedule offline',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final repo = FinanceRepository(ApiClient(), store, 'owner')
+        ..offline = true;
+      seedObligations(repo);
+      final state = AppState(repository: repo)..currentUserId = 'owner';
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: ObligationsPage()),
+        ),
+      );
+      await tester.tap(find.byTooltip('Tambah utang / piutang'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Saya berutang kepada'),
+        'Bank Cicilan',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Jumlah pinjaman'),
+        '1000000',
+      );
+
+      await tester.ensureVisible(find.text('Jadwal cicilan (opsional)'));
+      await tester.tap(find.text('Jadwal cicilan (opsional)'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Bagi rata'));
+      await tester.tap(find.text('Bagi rata'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3x'), findsOneWidget);
+      expect(
+        find.text('Total cicilan: Rp 1.000.000 / Rp 1.000.000'),
+        findsOneWidget,
+      );
+
+      final funding = find.widgetWithText(
+        DropdownButtonFormField<String>,
+        'Uang masuk ke',
+      );
+      await tester.ensureVisible(funding);
+      await tester.tap(funding);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cash').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Simpan'));
+      await tester.pumpAndSettle();
+
+      final savedInstallments =
+          repo.outbox.single['payload']['installments'] as List;
+      expect(savedInstallments, hasLength(3));
+      expect(savedInstallments[0]['principal'], '333333.00');
+      expect(savedInstallments[1]['principal'], '333333.00');
+      expect(savedInstallments[2]['principal'], '333334.00');
+      expect(
+        repo.outbox.single['payload']['due_date'],
+        savedInstallments[2]['due_date'],
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'separates active and settled obligations into Aktif/Lunas tabs with exact paid amount',
+    (tester) async {
+      final store = LocalStore(sqlite3.openInMemory());
+      final repo = FinanceRepository(ApiClient(), store, 'owner')
+        ..offline = true;
+      seedObligations(repo);
+      repo.atomic(() {
+        repo.entities['obligations'] = {
+          'active-1': {
+            'id': 'active-1',
+            'user_id': 'owner',
+            'kind': 'PAYABLE',
+            'counterparty': 'Andi',
+            'currency': 'IDR',
+            'principal': '500000.00',
+            'outstanding': '300000.00',
+            'installments': const [],
+            'version': '1',
+          },
+          'settled-1': {
+            'id': 'settled-1',
+            'user_id': 'owner',
+            'kind': 'RECEIVABLE',
+            'counterparty': 'Siti',
+            'currency': 'IDR',
+            'principal': '250000.00',
+            'outstanding': '0.00',
+            'installments': const [],
+            'version': '2',
+          },
+        };
+      });
+      final state = AppState(repository: repo)..currentUserId = 'owner';
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: ObligationsPage()),
+        ),
+      );
+      expect(find.text('Aktif (1)'), findsOneWidget);
+      expect(find.text('Lunas (1)'), findsOneWidget);
+      expect(find.text('Utang • Andi'), findsOneWidget);
+      expect(find.text('Piutang • Siti'), findsNothing);
+
+      // Expand active card and verify exact paid amount (500k - 300k = Rp 200.000, not 100x bug)
+      await tester.tap(find.text('Utang • Andi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Terbayar: Rp 200.000'), findsOneWidget);
+      expect(find.text('Bayar / cicil'), findsOneWidget);
+
+      // Switch to Lunas tab
+      await tester.tap(find.text('Lunas (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Piutang • Siti'), findsOneWidget);
+      expect(find.text('Utang • Andi'), findsNothing);
+      await tester.tap(find.text('Piutang • Siti'));
+      await tester.pumpAndSettle();
+      expect(find.text('Diterima: Rp 250.000'), findsOneWidget);
+      expect(find.text('Terima pembayaran'), findsNothing);
+      expect(find.text('Arsipkan'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

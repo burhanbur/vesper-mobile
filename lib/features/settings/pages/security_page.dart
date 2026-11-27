@@ -114,6 +114,28 @@ class _SecurityPageState extends State<SecurityPage> {
     );
   }
 
+  Future<void> _openChangePasswordSheet() async {
+    final revoked = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ChangePasswordSheet(auth: widget.auth),
+    );
+    if (revoked == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+        content: Text(
+          revoked > 0
+              ? 'Kata sandi diubah. $revoked sesi perangkat lain dicabut.'
+              : 'Kata sandi berhasil diubah.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final lock = AppLockScope.maybeOf(context);
@@ -211,6 +233,49 @@ class _SecurityPageState extends State<SecurityPage> {
                   activeThumbColor: AppColors.primary,
                   value: rememberMe,
                   onChanged: _busy ? null : _remember,
+                ),
+                const Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: AppColors.borderSubtle,
+                ),
+                ListTile(
+                  key: const ValueKey('change_password_tile'),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  leading: const _IconBadge(
+                    icon: Icons.password_rounded,
+                    fg: AppColors.primary,
+                    bg: AppColors.accentLight,
+                  ),
+                  title: const Text(
+                    'Ubah kata sandi',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  subtitle: const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Perbarui kata sandi akun dan otomatis cabut sesi di perangkat lain.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                  enabled: !_busy,
+                  onTap: _openChangePasswordSheet,
                 ),
                 if (_error != null)
                   _ErrorBanner(message: _error!, liveRegion: true),
@@ -607,6 +672,303 @@ class _ErrorBanner extends StatelessWidget {
                 : textWidget,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChangePasswordSheet extends StatefulWidget {
+  final AuthRepository auth;
+
+  const _ChangePasswordSheet({required this.auth});
+
+  @override
+  State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
+}
+
+class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
+  final _currentController = TextEditingController();
+  final _newController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _currentController.dispose();
+    _newController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    final current = _currentController.text;
+    final next = _newController.text;
+    final confirm = _confirmController.text;
+
+    if (current.isEmpty) {
+      setState(() => _error = 'Kata sandi saat ini wajib diisi.');
+      return;
+    }
+    if (next.length < 8 || next.length > 128) {
+      setState(() => _error = 'Kata sandi baru harus 8–128 karakter.');
+      return;
+    }
+    if (next == current) {
+      setState(
+        () => _error = 'Kata sandi baru harus berbeda dari kata sandi saat ini.',
+      );
+      return;
+    }
+    if (next != confirm) {
+      setState(() => _error = 'Konfirmasi kata sandi tidak sama.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final revoked = await widget.auth.changePassword(
+        currentPassword: current,
+        newPassword: next,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(revoked);
+    } on ApiFailure catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.message;
+          _saving = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Kata sandi gagal diperbarui. Silakan coba lagi.';
+          _saving = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildPasswordField({
+    required Key fieldKey,
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required bool obscure,
+    required VoidCallback onToggleObscure,
+    required TextInputAction textInputAction,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          key: fieldKey,
+          controller: controller,
+          obscureText: obscure,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
+          onChanged: (_) {
+            if (_error != null) setState(() => _error = null);
+          },
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textMuted,
+            ),
+            filled: true,
+            fillColor: AppColors.surfaceVariant,
+            prefixIcon: const Icon(
+              Icons.lock_outline_rounded,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscure
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              onPressed: onToggleObscure,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return SafeArea(
+      top: false,
+      child: Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, 20 + bottomInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Ubah Kata Sandi',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildPasswordField(
+                fieldKey: const ValueKey('current_password_field'),
+                controller: _currentController,
+                label: 'Kata sandi saat ini',
+                hint: 'Masukkan kata sandi saat ini',
+                obscure: _obscureCurrent,
+                onToggleObscure: () =>
+                    setState(() => _obscureCurrent = !_obscureCurrent),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              _buildPasswordField(
+                fieldKey: const ValueKey('new_password_field'),
+                controller: _newController,
+                label: 'Kata sandi baru',
+                hint: 'Minimal 8 karakter',
+                obscure: _obscureNew,
+                onToggleObscure: () =>
+                    setState(() => _obscureNew = !_obscureNew),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              _buildPasswordField(
+                fieldKey: const ValueKey('confirm_password_field'),
+                controller: _confirmController,
+                label: 'Konfirmasi kata sandi baru',
+                hint: 'Ulangi kata sandi baru',
+                obscure: _obscureConfirm,
+                onToggleObscure: () =>
+                    setState(() => _obscureConfirm = !_obscureConfirm),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.expenseLight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.expense.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        size: 18,
+                        color: AppColors.expense,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.expense,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              ElevatedButton(
+                key: const ValueKey('submit_change_password_button'),
+                onPressed: _saving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Simpan Kata Sandi Baru',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

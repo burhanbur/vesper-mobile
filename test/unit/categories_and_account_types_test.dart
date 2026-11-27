@@ -32,13 +32,30 @@ void main() {
           color: const Color(0xFFE11D48),
         );
         final added = state.getCategoryByName('Streaming')!;
+        expect(added.icon, Icons.movie_filter_rounded);
+        expect(added.color, const Color(0xFFE11D48));
         expect(state.repository!.store.read()['outbox'], hasLength(1));
+        expect(
+          state.repository!.outbox.single['payload']['icon'],
+          'movie',
+        );
+        expect(
+          state.repository!.outbox.single['payload']['color'],
+          '#E11D48',
+        );
         expect(
           () => state.updateCategory(id: added.id, name: 'Edited'),
           throwsA(isA<ApiFailure>()),
         );
-        state.updateCategory(id: 'food', name: 'Meals');
-        expect(state.getCategoryByName('Meals'), isNotNull);
+        state.updateCategory(
+          id: 'food',
+          name: 'Meals',
+          icon: Icons.restaurant_rounded,
+          color: const Color(0xFFD97706),
+        );
+        final updatedFood = state.getCategoryByName('Meals')!;
+        expect(updatedFood.icon, Icons.restaurant_rounded);
+        expect(updatedFood.color, const Color(0xFFD97706));
         expect(state.deleteCategory('salary'), isTrue);
         expect(state.getCategoryByName('Salary'), isNull);
         expect(state.repository!.outbox, hasLength(3));

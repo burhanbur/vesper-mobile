@@ -148,6 +148,64 @@ class ApiClient {
     }
   }
 
+  static final _unsafeErrorPattern = RegExp(
+    r'prisma|postgres|sql|stack|exception|syntaxerror|typeerror|econnrefused|enoent|node_modules',
+    caseSensitive: false,
+  );
+
+  static String? _extractSafeServerMessage(int? status, dynamic payload) {
+    if (status == null ||
+        !(status == 400 || status == 404 || status == 409 || status == 422)) {
+      return null;
+    }
+    if (payload is! Map || payload['success'] != false) return null;
+
+    String? clean(dynamic value) {
+      if (value is! String) return null;
+      final trimmed = value.trim();
+      if (trimmed.isEmpty || trimmed.length > 240) return null;
+      if (_unsafeErrorPattern.hasMatch(trimmed)) return null;
+      return trimmed;
+    }
+
+    final topMessage = clean(payload['message']);
+
+    // Check Zod flattened fieldErrors when top-level message is generic validation.
+    String? firstDetail;
+    final errors = payload['errors'];
+    if (errors is Map) {
+      for (final section in ['body', 'query', 'params']) {
+        final bucket = errors[section];
+        if (bucket is Map) {
+          final formErrors = bucket['formErrors'];
+          if (formErrors is List && formErrors.isNotEmpty) {
+            firstDetail = clean(formErrors.first);
+            if (firstDetail != null) break;
+          }
+          final fieldErrors = bucket['fieldErrors'];
+          if (fieldErrors is Map) {
+            for (final entry in fieldErrors.entries) {
+              if (entry.value is List && (entry.value as List).isNotEmpty) {
+                final detail = clean((entry.value as List).first);
+                if (detail != null) {
+                  firstDetail = detail;
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if (firstDetail != null) break;
+      }
+    }
+
+    if (firstDetail != null &&
+        (topMessage == null || topMessage.startsWith('Validasi gagal'))) {
+      return firstDetail;
+    }
+    return topMessage;
+  }
+
   Future<dynamic> request(
     String method,
     String path, {
@@ -214,18 +272,24 @@ class ApiClient {
         await clearSession();
       }
       // Never expose transport exceptions, request bodies, or server debug data.
+      final serverMessage = _extractSafeServerMessage(status, payload);
       throw ApiFailure(
         cursorAhead
             ? 'Posisi sinkronisasi perangkat lebih tinggi daripada versi server.'
-            : switch (status) {
-                400 || 422 =>
-                  'Permintaan tidak valid. Periksa data yang Anda masukkan.',
-                401 => 'Email atau kata sandi salah, atau sesi telah berakhir.',
-                403 => 'Anda tidak memiliki akses untuk tindakan ini.',
-                409 => 'Data sudah digunakan atau bertentangan dengan data yang ada.',
-                429 => 'Server sedang membatasi permintaan. Silakan coba lagi nanti.',
-                _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
-              },
+            : serverMessage ??
+                  switch (status) {
+                    400 || 422 =>
+                      'Permintaan tidak valid. Periksa data yang Anda masukkan.',
+                    401 =>
+                      'Email atau kata sandi salah, atau sesi telah berakhir.',
+                    403 => 'Anda tidak memiliki akses untuk tindakan ini.',
+                    404 => 'Data yang diminta tidak ditemukan.',
+                    409 =>
+                      'Data sudah digunakan atau bertentangan dengan data yang ada.',
+                    429 =>
+                      'Server sedang membatasi permintaan. Silakan coba lagi nanti.',
+                    _ => 'Backend tidak dapat dihubungi. Silakan coba lagi.',
+                  },
         statusCode: status,
         code: cursorAhead ? 'SYNC_CURSOR_AHEAD' : null,
         retryAfter: status == 429

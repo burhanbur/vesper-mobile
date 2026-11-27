@@ -129,6 +129,8 @@ void main() {
       );
       expect(find.text('80,00%'), findsOneWidget);
       expect(find.text('15,00 bulan'), findsOneWidget);
+      expect(find.text('Likuiditas Kas'), findsOneWidget);
+      expect(find.text('Disiplin Anggaran'), findsNothing);
       expect(find.textContaining('Pokok + bunga'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('health_debt')));
       await tester.pumpAndSettle();

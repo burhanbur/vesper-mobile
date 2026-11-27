@@ -359,4 +359,17 @@ void main() {
       expect(find.byType(TransactionItemTile), findsNWidgets(4));
     }
   });
+
+  testWidgets(
+    'Catat Transaksi button opens transaction modal and null onSettings hides gear icon',
+    (tester) async {
+      final state = _fixture(empty: true);
+      await _pump(tester, state, const AccountDetailPage(accountId: 'pocket'));
+      expect(find.byTooltip('Pengaturan & Sharing'), findsNothing);
+      await tester.tap(find.text('Catat Transaksi'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AddTransactionModal), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

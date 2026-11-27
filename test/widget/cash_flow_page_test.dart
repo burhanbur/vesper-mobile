@@ -39,8 +39,10 @@ void main() {
           child: const MaterialApp(home: CashFlowPage()),
         ),
       );
-      expect(find.text('Saldo aktual gabungan: Rp 1.000'), findsOneWidget);
-      expect(find.text('Proyeksi penutup: -Rp 200'), findsOneWidget);
+      expect(find.text('Saldo aktual gabungan'), findsOneWidget);
+      expect(find.text('Rp 1.000'), findsWidgets);
+      expect(find.text('Proyeksi penutup'), findsOneWidget);
+      expect(find.text('-Rp 200'), findsWidgets);
       expect(
         find.textContaining('Potensi kekurangan gabungan pertama'),
         findsOneWidget,
@@ -103,7 +105,7 @@ void main() {
         ),
       );
       expect(find.textContaining('Selesaikan sinkronisasi'), findsOneWidget);
-      expect(find.textContaining('Proyeksi penutup:'), findsNothing);
+      expect(find.text('Proyeksi penutup'), findsNothing);
       await tester.tap(find.text('Ubah asumsi proyeksi'));
       await tester.pumpAndSettle();
       state.currentUserId = 'other';
@@ -153,7 +155,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Initially on Ringkasan
-      expect(find.text('Saldo aktual gabungan: Rp 1.000'), findsOneWidget);
+      expect(find.text('Saldo aktual gabungan'), findsOneWidget);
       expect(find.text('Per akun — tanpa transfer otomatis'), findsNothing);
 
       // Switch to Per Akun
@@ -174,8 +176,52 @@ void main() {
       // Switch back to Ringkasan
       await tester.tap(find.text('Ringkasan'));
       await tester.pumpAndSettle();
-      expect(find.text('Saldo aktual gabungan: Rp 1.000'), findsOneWidget);
+      expect(find.text('Saldo aktual gabungan'), findsOneWidget);
 
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'assumption modal translates debt kind to Indonesian instead of raw enum',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1000, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final store = LocalStore(sqlite3.openInMemory());
+      final source = FinanceRepository(ApiClient(), store, 'owner')
+        ..offline = true;
+      seedForecast(source);
+      source.atomic(() {
+        source.entities['obligations'] = {
+          'debt-1': {
+            'id': 'debt-1',
+            'user_id': 'owner',
+            'kind': 'PAYABLE',
+            'counterparty': 'Budi',
+            'currency': 'IDR',
+            'principal': '1000.00',
+            'outstanding': '500.00',
+            'version': '1',
+          },
+        };
+      });
+      final state = AppState(repository: source)..currentUserId = 'owner';
+      state.toggleOfflineMode();
+      addTearDown(() {
+        state.dispose();
+        store.close();
+      });
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: const MaterialApp(home: CashFlowPage()),
+        ),
+      );
+      await tester.tap(find.text('Ubah asumsi proyeksi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Budi (Utang)'), findsOneWidget);
+      expect(find.textContaining('PAYABLE'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

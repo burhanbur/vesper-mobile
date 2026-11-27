@@ -30,6 +30,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
   FinancialExport? result;
   BalanceReconciliation? comparison;
   bool saving = false;
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -481,6 +482,47 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
     final selectedCash = cash.any((a) => a['id'] == reconciliationId)
         ? reconciliationId
         : null;
+    final hidden = state.isBalanceHidden;
+
+    Widget buildSegmentedTab(int index, IconData icon, String label) {
+      final activeTab = _selectedTab == index;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _selectedTab = index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: activeTab ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: activeTab ? Colors.white : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: activeTab ? Colors.white : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -495,89 +537,88 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
             color: AppColors.textPrimary,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: hidden ? 'Tampilkan nominal' : 'Sembunyikan nominal',
+            icon: Icon(
+              hidden
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: state.toggleHideBalance,
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
-          // Section 1: Ekspor Excel Card
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+            ),
+            child: Row(
+              children: [
+                buildSegmentedTab(
+                  0,
+                  Icons.table_chart_rounded,
+                  'Ekspor & Backup',
                 ),
+                buildSegmentedTab(1, Icons.balance_rounded, 'Rekonsiliasi'),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentLight,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.table_chart_rounded,
-                        size: 20,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Ekspor data',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+          ),
+          const SizedBox(height: 14),
+          if (_selectedTab == 0)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.table_chart_rounded,
+                          size: 20,
+                          color: AppColors.primary,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 16,
-                        color: AppColors.textMuted,
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
+                      const SizedBox(width: 12),
+                      const Expanded(
                         child: Text(
-                          'Hanya akun aktif milik sendiri, termasuk akun tersembunyi dan '
-                          'transaksi lokal yang belum tersinkron. Data pribadi anggota rumah tangga lain '
-                          'tidak disertakan. Periode mengikuti zona waktu pilihan di Pengaturan; tanggal Excel memakai zona waktu tersebut. '
-                          'Berkas berisi data keuangan pribadi.',
+                          'Ekspor data',
                           style: TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.textMuted,
-                            height: 1.35,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 14),
+                  const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
@@ -673,15 +714,8 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: saving ? null : () => saveExport(backup: true),
-                  icon: const Icon(Icons.backup_outlined),
+                  icon: const Icon(Icons.backup_rounded, size: 18),
                   label: Text('Simpan backup $currency (.mmbak)'),
-                ),
-                const Text(
-                  'Backup Money Manager menyimpan semua akun dan riwayat dalam mata uang yang dipilih, tanpa batas tanggal. Filter tanggal dan akun hanya untuk Excel. Detail investasi dan pinjaman Vesper tidak dapat dipulihkan di Money Manager.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
@@ -780,24 +814,14 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                       children: [
                         Text(
                           '${export.excelRowCount} baris • ${export.currency}\n'
-                          'Uang masuk: ${CurrencyFormatter.formatCurrency(financialDecimal(export.credits), currency: export.currency)}\n'
-                          'Uang keluar: ${CurrencyFormatter.formatCurrency(financialDecimal(export.debits), currency: export.currency)}\n'
-                          'Selisih: ${CurrencyFormatter.formatCurrency(financialDecimal(export.credits - export.debits), currency: export.currency)}',
+                          'Uang masuk: ${hidden ? '••••••' : CurrencyFormatter.formatCurrency(financialDecimal(export.credits), currency: export.currency)}\n'
+                          'Uang keluar: ${hidden ? '••••••' : CurrencyFormatter.formatCurrency(financialDecimal(export.debits), currency: export.currency)}\n'
+                          'Selisih: ${hidden ? '••••••' : CurrencyFormatter.formatCurrency(financialDecimal(export.credits - export.debits), currency: export.currency)}',
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             height: 1.4,
                             color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Total ini mencakup transfer dan penyelesaian investasi/utang; '
-                          'bukan total pemasukan atau pengeluaran. Saldo awal tidak termasuk.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
-                            height: 1.3,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -813,7 +837,7 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                               ),
                               onPressed: saving ? null : () => saveExport(),
                               icon: const Icon(
-                                Icons.download_outlined,
+                                Icons.download_rounded,
                                 size: 16,
                               ),
                               label: Text(
@@ -828,9 +852,8 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                 ],
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-
+          )
+          else
           // Section 2: Rekonsiliasi Saldo Card
           Container(
             padding: const EdgeInsets.all(18),
@@ -888,38 +911,6 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 16,
-                        color: AppColors.textMuted,
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Bandingkan saldo lokal saat ini dengan saldo rekening koran saat ini. '
-                          'Ini bukan rekonstruksi saldo masa lalu. Hanya akun kas IDR milik sendiri tanpa '
-                          'subakun dan tanpa pemetaan utang. Penyesuaian mendukung Rupiah bulat.',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: AppColors.textMuted,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 14),
                 DropdownButtonFormField<String>(
@@ -990,10 +981,12 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                CurrencyFormatter.formatCurrency(
-                                  a['balance'],
-                                  currency: '${a['currency'] ?? 'IDR'}',
-                                ),
+                                hidden
+                                    ? '••••••'
+                                    : CurrencyFormatter.formatCurrency(
+                                        a['balance'],
+                                        currency: '${a['currency'] ?? 'IDR'}',
+                                      ),
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -1236,31 +1229,37 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                           child: Column(
                             children: [
                               _summaryRow(
-                                icon: Icons.account_balance_wallet_outlined,
+                                icon: Icons.account_balance_wallet_rounded,
                                 label: 'Saldo Tercatat di Aplikasi',
-                                value: CurrencyFormatter.formatMinorRupiah(
-                                  preview.recorded,
-                                ),
+                                value: hidden
+                                    ? '••••••'
+                                    : CurrencyFormatter.formatMinorRupiah(
+                                        preview.recorded,
+                                      ),
                               ),
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8),
                                 child: Divider(height: 1),
                               ),
                               _summaryRow(
-                                icon: Icons.receipt_long_outlined,
+                                icon: Icons.receipt_long_rounded,
                                 label: 'Saldo Rekening Koran Bank',
-                                value: CurrencyFormatter.formatMinorRupiah(
-                                  preview.statement,
-                                ),
+                                value: hidden
+                                    ? '••••••'
+                                    : CurrencyFormatter.formatMinorRupiah(
+                                        preview.statement,
+                                      ),
                               ),
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 8),
                                 child: Divider(height: 1),
                               ),
                               _summaryRow(
-                                icon: Icons.difference_outlined,
+                                icon: Icons.difference_rounded,
                                 label: 'Selisih Penyesuaian',
-                                value: preview.difference == BigInt.zero
+                                value: hidden
+                                    ? '••••••'
+                                    : preview.difference == BigInt.zero
                                     ? 'Rp 0'
                                     : '${preview.difference > BigInt.zero ? '+' : '-'}${CurrencyFormatter.formatMinorRupiah(preview.difference.abs())}',
                                 valueColor: preview.difference == BigInt.zero
@@ -1391,6 +1390,46 @@ class _FinancialExportPageState extends State<FinancialExportPage> {
                 ],
               ),
             ),
+          const SizedBox(height: 16),
+          Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: AppColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: const ExpansionTile(
+              tilePadding: EdgeInsets.symmetric(horizontal: 16),
+              childrenPadding: EdgeInsets.fromLTRB(16, 0, 16, 14),
+              shape: Border(),
+              collapsedShape: Border(),
+              leading: Icon(
+                Icons.info_outline_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                'Catatan ekspor & rekonsiliasi',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              children: [
+                Text(
+                  '• Ekspor hanya mencakup akun milik sendiri (termasuk mutasi lokal pending) mengikuti zona waktu di Pengaturan.\n'
+                  '• Backup .mmbak menyimpan seluruh riwayat mata uang terpilih tanpa filter tanggal (detail investasi & pinjaman tidak dipulihkan di Money Manager).\n'
+                  '• Rekonsiliasi membandingkan saldo kas IDR saat ini dengan rekening koran dan mencatat selisih sebagai transaksi penyesuaian baru.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

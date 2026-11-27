@@ -284,5 +284,68 @@ void main() {
           bareksa.balance + children.fold<int>(0, (sum, c) => sum + c.balance);
       expect(aggregatedBalance, 103000000);
     });
+
+    test(
+      'addAccount persists description and records initialBalance atomically',
+      () {
+        final store = LocalStore(sqlite3.openInMemory());
+        addTearDown(store.close);
+        final repo = FinanceRepository(ApiClient(), store, 'user1');
+        repo.atomic(() {
+          repo.entities['account_types'] = <String, dynamic>{
+            'type_bank': {
+              'id': 'type_bank',
+              'user_id': 'user1',
+              'name': 'Bank',
+              'category': 'CASH',
+            },
+          };
+          repo.entities['categories'] = <String, dynamic>{
+            'cat_other': {
+              'id': 'cat_other',
+              'user_id': 'user1',
+              'name': 'Lainnya',
+              'type': 'INCOME',
+            },
+          };
+        });
+
+        final state = AppState(repository: repo)..currentUserId = 'user1';
+        addTearDown(state.dispose);
+
+        state.addAccount(
+          name: 'BCA Utama',
+          type: AccountType.bank,
+          initialBalance: 500000,
+          accountNumber: '1234 5678 90',
+          institution: 'Bank',
+          accountTypeId: 'type_bank',
+        );
+
+        final created = state.accounts.single;
+        expect(created.name, 'BCA Utama');
+        expect(created.accountNumber, '1234 5678 90');
+        expect(created.balance, 500000);
+        expect(repo.outbox, hasLength(2));
+        expect(repo.outbox[0]['entity_type'], 'accounts');
+        expect(repo.outbox[0]['payload']['description'], '1234 5678 90');
+        expect(repo.outbox[1]['entity_type'], 'transactions');
+        expect(repo.outbox[1]['payload']['amount'], '500000.00');
+        expect(repo.outbox[1]['payload']['description'], 'Saldo awal');
+
+        expect(
+          () => state.addAccount(
+            name: 'CC BCA',
+            type: AccountType.creditCard,
+            initialBalance: 100000,
+            accountNumber: '',
+            institution: 'Kartu Kredit',
+            accountTypeId: 'type_bank',
+            isCreditCard: true,
+          ),
+          throwsA(isA<ApiFailure>()),
+        );
+      },
+    );
   });
 }

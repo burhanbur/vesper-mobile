@@ -81,6 +81,7 @@ class AddTransactionModal extends StatefulWidget {
 class _AddTransactionModalState extends State<AddTransactionModal> {
   late TransactionType _selectedType;
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _feeController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
   String? _selectedAccountId;
@@ -130,8 +131,25 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
   @override
   void dispose() {
     _amountController.dispose();
+    _feeController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  void _onFeeChanged(String val) {
+    if (RegExp(r'[,\.]\d{1,2}$').hasMatch(val)) {
+      return;
+    }
+    final parsed = CurrencyFormatter.parseRupiah(val);
+    if (parsed == 0) {
+      _feeController.value = const TextEditingValue(text: '');
+      return;
+    }
+    final formatted = CurrencyFormatter.formatRupiah(parsed);
+    _feeController.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 
   void _onAmountChanged(String val) {
@@ -177,6 +195,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     }
 
     final accountId = _selectedAccountId ?? state.selectableAccounts.first.id;
+    var fee = 0;
     if (_selectedType == TransactionType.transfer) {
       final toAccountId =
           _selectedToAccountId ??
@@ -191,12 +210,22 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
         );
         return;
       }
+      if (!_isEditing && _feeController.text.trim().isNotEmpty) {
+        if (RegExp(r'[,\.]\d{1,2}$').hasMatch(_feeController.text)) {
+          AppToast.showError(
+            context,
+            'Biaya admin pecahan Rupiah belum didukung; masukkan Rupiah utuh.',
+          );
+          return;
+        }
+        fee = CurrencyFormatter.parseRupiah(_feeController.text);
+      }
     }
 
     setState(() => _isSaving = true);
 
     try {
-      _saveTransaction(amount: amount, accountId: accountId);
+      _saveTransaction(amount: amount, accountId: accountId, fee: fee);
     } on ApiFailure catch (error) {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -210,7 +239,11 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
     }
   }
 
-  void _saveTransaction({required int amount, required String accountId}) {
+  void _saveTransaction({
+    required int amount,
+    required String accountId,
+    int fee = 0,
+  }) {
     final state = AppStateScope.of(context);
 
     if (_isEditing) {
@@ -265,6 +298,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
             ? _noteController.text.trim()
             : 'Transfer antar akun',
         date: _selectedDate,
+        fee: fee,
       );
     } else {
       state.addTransaction(
@@ -289,7 +323,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     ? 'Perubahan transfer berhasil disimpan!'
                     : 'Perubahan transaksi berhasil disimpan!')
               : (state.isOfflineMode
-                    ? 'Transaksi tersimpan lokal ke SQLite (antre sinkronisasi saat online)'
+                    ? 'Transaksi tersimpan di perangkat (disinkronkan saat online)'
                     : 'Transaksi berhasil disimpan!'),
         ),
       ),
@@ -546,7 +580,7 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                     const SizedBox(height: 12),
 
                     // Segmented Type Selector (Pengeluaran, Pemasukan, Transfer)
-                    // If editing, we allow switching between expense and income, but not transfer
+                    // When editing a transfer, keep it locked to Transfer so destination picker stays intact.
                     if (!_isEditing)
                       Container(
                         padding: const EdgeInsets.all(4),
@@ -575,6 +609,42 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                                 type: TransactionType.transfer,
                                 label: 'Transfer',
                                 activeColor: AppColors.transfer,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_selectedType == TransactionType.transfer ||
+                        widget.transactionToEdit?.type ==
+                            TransactionType.transfer ||
+                        widget.transactionToEdit?.transferId != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.transferLight,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.transfer.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.swap_horiz_rounded,
+                              size: 18,
+                              color: AppColors.transfer,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Edit Transfer Antar Akun',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.transfer,
                               ),
                             ),
                           ],
@@ -709,6 +779,85 @@ class _AddTransactionModalState extends State<AddTransactionModal> {
                           );
                         },
                       ),
+                      if (!_isEditing) ...[
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Biaya Admin (opsional)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          key: const ValueKey('transfer_fee_input'),
+                          controller: _feeController,
+                          keyboardType: TextInputType.number,
+                          onChanged: _onFeeChanged,
+                          decoration: InputDecoration(
+                            hintText: 'Rp 0 (jika gratis)',
+                            prefixIcon: const Icon(
+                              Icons.receipt_outlined,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
+                            suffixIcon: _feeController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(
+                                      Icons.clear_rounded,
+                                      size: 16,
+                                    ),
+                                    onPressed: () => setState(
+                                      () => _feeController.clear(),
+                                    ),
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: AppColors.surfaceVariant,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final preset in [2500, 6500])
+                              ActionChip(
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: AppColors.border),
+                                label: Text(
+                                  CurrencyFormatter.formatRupiah(preset),
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    final text =
+                                        CurrencyFormatter.formatRupiah(preset);
+                                    _feeController.value = TextEditingValue(
+                                      text: text,
+                                      selection: TextSelection.collapsed(
+                                        offset: text.length,
+                                      ),
+                                    );
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
 
                     if (selectedAcc?.isCreditCard == true ||

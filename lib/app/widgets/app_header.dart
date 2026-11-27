@@ -145,23 +145,7 @@ class AppHeader extends StatelessWidget {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () {
-                      if (state.isOfflineMode) {
-                        OfflineModeSheet.show(context);
-                      } else {
-                        state.toggleOfflineMode();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            duration: Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: AppColors.warning,
-                            content: Text(
-                              'Mode Offline aktif: transaksi disimpan ke SQLite lokal.',
-                            ),
-                          ),
-                        );
-                      }
-                    },
+                    onTap: () => OfflineModeSheet.show(context),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       height: 38,

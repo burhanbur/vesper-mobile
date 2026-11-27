@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/dashboard/pages/dashboard_page.dart';
-import '../../features/household/pages/household_page.dart';
+import '../../features/household/widgets/household_unavailable_view.dart';
 import '../../features/investments/pages/portfolio_page.dart';
 
 import '../../features/reports/pages/reports_page.dart';
@@ -238,7 +238,7 @@ class _MainShellState extends State<MainShell> {
         onNavigateToHousehold: () => _onTabSelected(2),
       ),
       const TransactionsPage(),
-      const HouseholdPage(),
+      const HouseholdUnavailableView(),
       const SettingsPage(),
     ];
 

@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -46,8 +47,10 @@ void main() {
       );
       expect(find.textContaining('Instrumen terbesar: GOLD'), findsOneWidget);
       expect(find.textContaining('USANG'), findsOneWidget);
+      expect(find.byType(PieChart), findsOneWidget);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
+      expect(find.byType(PieChart), findsNothing);
       expect(find.textContaining('50.00%'), findsNothing);
       expect(find.textContaining('50.00 IDR'), findsNothing);
       expect(find.textContaining('-10.00'), findsNothing);
@@ -55,8 +58,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Atur target alokasi'));
       await tester.pumpAndSettle();
+      expect(find.text('Total target: 100.00% / 100%'), findsOneWidget);
       final cash = find.widgetWithText(TextField, 'Kas & kas investasi (%)');
       await tester.enterText(cash, '61');
+      await tester.pumpAndSettle();
+      expect(find.text('Total target: 101.00% / 100%'), findsOneWidget);
       await tester.tap(find.text('Simpan target'));
       await tester.pumpAndSettle();
       expect(find.textContaining('tepat 100%').last, findsOneWidget);
@@ -104,6 +110,7 @@ void main() {
         find.textContaining('parsial; persentase dan deviasi ditahan'),
         findsOneWidget,
       );
+      expect(find.text('Subtotal Aset Tervaluasi'), findsOneWidget);
       expect(find.textContaining('50.00%'), findsNothing);
       await tester.tap(find.text('Atur target alokasi'));
       await tester.pumpAndSettle();

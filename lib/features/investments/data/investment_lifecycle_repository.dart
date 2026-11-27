@@ -19,6 +19,8 @@ class InvestmentOverview {
   final String contributed, proceeds, realized, dividends, buyFees;
   final String? marketValue, unrealized;
   final int missingPrices;
+  final String? knownMarketValue, knownUnrealized;
+  final int valuedPositions;
   const InvestmentOverview(
     this.contributed,
     this.proceeds,
@@ -27,8 +29,13 @@ class InvestmentOverview {
     this.buyFees,
     this.marketValue,
     this.unrealized,
-    this.missingPrices,
-  );
+    this.missingPrices, {
+    this.knownMarketValue,
+    this.knownUnrealized,
+    this.valuedPositions = 0,
+  });
+
+  bool get isPartial => missingPrices > 0 && valuedPositions > 0;
 }
 
 /// All lifecycle reads use the durable owner cache. No settlement cash is added
@@ -111,7 +118,7 @@ class InvestmentLifecycleRepository {
             );
       instrumentIds[key] = row['instrument_id'] as String;
     }
-    var market = BigInt.zero, unrealized = BigInt.zero, missing = 0;
+    var market = BigInt.zero, unrealized = BigInt.zero, missing = 0, valued = 0;
     final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
     for (final entry in positions.entries) {
       if (entry.value.quantity == '0.00000000') continue;
@@ -135,7 +142,9 @@ class InvestmentLifecycleRepository {
       final value = entry.value.valueAt(quotes.first['close_price'] as String);
       market += investmentMinor(value.marketValue);
       unrealized += investmentMinor(value.unrealizedPl);
+      valued++;
     }
+    final hasKnownValuation = missing == 0 || valued > 0;
     return InvestmentOverview(
       investmentMoney(buys),
       investmentMoney(sales),
@@ -145,6 +154,9 @@ class InvestmentLifecycleRepository {
       missing == 0 ? investmentMoney(market) : null,
       missing == 0 ? investmentMoney(unrealized) : null,
       missing,
+      knownMarketValue: hasKnownValuation ? investmentMoney(market) : null,
+      knownUnrealized: hasKnownValuation ? investmentMoney(unrealized) : null,
+      valuedPositions: valued,
     );
   }
 

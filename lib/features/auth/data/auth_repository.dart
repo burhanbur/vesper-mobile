@@ -135,4 +135,23 @@ class AuthRepository {
       await client.clearSession();
     }
   }
+
+  /// Change the authenticated user's password and revoke other active sessions.
+  Future<int> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final data = await client.request(
+      'POST',
+      '/auth/change-password',
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
+    if (data is Map && data['revoked_other_sessions'] is int) {
+      return data['revoked_other_sessions'] as int;
+    }
+    return 0;
+  }
 }

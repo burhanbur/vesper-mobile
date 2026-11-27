@@ -902,7 +902,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
               accountTypeId: r['account_type_id'] as String?,
               isCreditCard: r['is_credit_card'] == true,
               creditLimit: r['credit_limit'] as String?,
-              accountNumber: '',
+              accountNumber: (r['description'] as String?) ?? '',
               institution: r['is_credit_card'] == true
                   ? 'Kartu Kredit'
                   : accountTypes
@@ -1005,6 +1005,52 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _changed();
   }
 
+  String _ensureAdjustmentCategoryId(FinanceRepository repo, String type) {
+    final defaultName = type == 'INCOME' ? 'Lainnya' : 'Lain-lain';
+    final identities =
+        repo.state.putIfAbsent(
+              'adjustment_category_ids',
+              () => <String, dynamic>{},
+            )
+            as Map;
+    String? categoryId = identities[type] as String?;
+    bool valid(Map<String, dynamic>? row) =>
+        row != null &&
+        row['user_id'] == currentUserId &&
+        row['type'] == type &&
+        row['deleted_at'] == null;
+    if (!valid(
+      categoryId == null ? null : repo.row('categories', categoryId),
+    )) {
+      final matches =
+          repo
+              .rows('categories')
+              .where((row) => valid(row) && row['name'] == defaultName)
+              .toList()
+            ..sort(
+              (a, b) => (a['id'] as String).compareTo(b['id'] as String),
+            );
+      categoryId = matches.isEmpty
+          ? repo.mutate('categories', 'CREATE', {
+              'name': defaultName,
+              'type': type,
+            })
+          : matches.first['id'] as String;
+      identities[type] = categoryId;
+    }
+    if (repo.outbox.any(
+      (item) =>
+          item['entity_type'] == 'categories' &&
+          item['entity_id'] == categoryId &&
+          item['status'] != 'pending',
+    )) {
+      throw const ApiFailure(
+        'Selesaikan konflik kategori bawaan terlebih dahulu.',
+      );
+    }
+    return categoryId!;
+  }
+
   void addAccount({
     required String name,
     required AccountType type,
@@ -1018,40 +1064,71 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     bool isCreditCard = false,
     String? creditLimit,
   }) {
-    if (initialBalance != 0 || isShared || householdId != null) {
+    if (isShared || householdId != null) {
       throw const ApiFailure(
-        'Saldo awal harus dicatat sebagai transaksi; sharing dilakukan setelah akun tersinkronisasi.',
+        'Bagikan akun ke grup dapat dilakukan setelah akun tersinkronisasi.',
+      );
+    }
+    if (isCreditCard && initialBalance != 0) {
+      throw const ApiFailure(
+        'Saldo awal kartu kredit dimulai dari Rp 0; catat tagihan sebagai transaksi.',
       );
     }
     if (accountTypeId == null) {
       throw const ApiFailure('Pilih jenis akun dari server.');
     }
-    _repo.mutate(
-      'accounts',
-      'CREATE',
-      {
-        'name': name.trim(),
-        if (isCreditCard) 'is_credit_card': true,
-        if (isCreditCard) 'credit_limit': creditLimit,
-        'account_type_id': accountTypeId,
-        'parent_account_id': parentAccountId,
-        'currency': 'IDR',
-        'icon': null,
-        'description': null,
-        'is_visible': true,
-        'is_include_total': true,
-        'sequence_order': '${accounts.length}',
-      },
-      local: {'balance': '0.00'},
-    );
-    if (parentAccountId != null) {
-      final parent = getAccountById(parentAccountId);
-      if (parent != null && parent.isIncludeTotal) {
-        _repo.mutate('accounts', 'UPDATE', {
-          'is_include_total': false,
-        }, id: parentAccountId);
+    final cleanDescription = accountNumber.trim().isEmpty
+        ? null
+        : accountNumber.trim();
+    _repo.atomic(() {
+      final newAccountId = _repo.mutate(
+        'accounts',
+        'CREATE',
+        {
+          'name': name.trim(),
+          if (isCreditCard) 'is_credit_card': true,
+          if (isCreditCard) 'credit_limit': creditLimit,
+          'account_type_id': accountTypeId,
+          'parent_account_id': parentAccountId,
+          'currency': 'IDR',
+          'icon': null,
+          'description': cleanDescription,
+          'is_visible': true,
+          'is_include_total': true,
+          'sequence_order': '${accounts.length}',
+        },
+        local: {'balance': '0.00'},
+      );
+      if (parentAccountId != null) {
+        final parent = getAccountById(parentAccountId);
+        if (parent != null && parent.isIncludeTotal) {
+          _repo.mutate('accounts', 'UPDATE', {
+            'is_include_total': false,
+          }, id: parentAccountId);
+        }
       }
-    }
+      if (initialBalance != 0) {
+        final txType = initialBalance > 0 ? 'INCOME' : 'EXPENSE';
+        final categoryId = _ensureAdjustmentCategoryId(_repo, txType);
+        _repo.mutate(
+          'transactions',
+          'CREATE',
+          {
+            'account_id': newAccountId,
+            'category_id': categoryId,
+            'type': txType,
+            'amount': '${initialBalance.abs()}.00',
+            'transacted_at': DateTime.fromMillisecondsSinceEpoch(
+              DateTime.now().millisecondsSinceEpoch,
+              isUtc: true,
+            ).toIso8601String(),
+            'description': 'Saldo awal',
+          },
+          local: {'created_by': currentUserId},
+          balanceDelta: {newAccountId: initialBalance},
+        );
+      }
+    });
     _changed();
   }
 
@@ -1088,18 +1165,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   List<Category> get categories => _rows('categories')
-      .map(
-        (r) => Category(
+      .map((r) {
+        final isIncome = r['type'] == 'INCOME';
+        final name = '${r['name'] ?? ''}';
+        return Category(
           id: r['id'],
-          name: r['name'],
-          type: r['type'] == 'INCOME'
-              ? CategoryType.income
-              : CategoryType.expense,
-          icon: Icons.category_rounded,
-          color: const Color(0xFF0D9488),
+          name: name,
+          type: isIncome ? CategoryType.income : CategoryType.expense,
+          icon: Category.iconFromKey(
+            r['icon'] as String?,
+            fallbackName: name,
+            isIncome: isIncome,
+          ),
+          color: Category.colorFromHex(
+            r['color'] as String?,
+            fallback: isIncome
+                ? const Color(0xFF137548)
+                : const Color(0xFF0D9488),
+          ),
           userId: r['user_id'],
-        ),
-      )
+        );
+      })
       .toList();
   List<Category> get expenseCategories =>
       categories.where((c) => c.type == CategoryType.expense).toList();
@@ -1128,9 +1214,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required IconData icon,
     required Color color,
   }) {
+    final iconKey = Category.iconKey(icon);
     _repo.mutate('categories', 'CREATE', {
       'name': name.trim(),
       'type': type == CategoryType.income ? 'INCOME' : 'EXPENSE',
+      'icon': ?iconKey,
+      'color': Category.colorToHex(color),
     });
     _changed();
   }
@@ -1141,10 +1230,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     IconData? icon,
     Color? color,
   }) {
-    if (name == null) {
-      throw const ApiFailure('Server hanya mendukung nama dan tipe kategori.');
+    final payload = <String, dynamic>{};
+    if (name != null) payload['name'] = name.trim();
+    if (icon != null) {
+      final iconKey = Category.iconKey(icon);
+      if (iconKey != null) payload['icon'] = iconKey;
     }
-    _repo.mutate('categories', 'UPDATE', {'name': name.trim()}, id: id);
+    if (color != null) payload['color'] = Category.colorToHex(color);
+    if (payload.isEmpty) {
+      throw const ApiFailure('Minimal satu kolom perubahan wajib diisi.');
+    }
+    _repo.mutate('categories', 'UPDATE', payload, id: id);
     _changed();
   }
 
@@ -1280,6 +1376,61 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return result;
   }
 
+  ({int income, int expense}) periodSummary(
+    DateTime start,
+    DateTime end, {
+    String? accountId,
+  }) {
+    if (repository == null) return (income: 0, expense: 0);
+    if (repository!.store.isIndexed) {
+      final summary = _repo.store.transactionSummary(
+        start,
+        end,
+        accountId: accountId,
+      );
+      return (
+        income: rupiah(summary.income),
+        expense: rupiah(summary.expense),
+      );
+    }
+    var income = 0;
+    var expense = 0;
+    for (final tx in transactionsInPeriod(start, end)) {
+      if (accountId != null && tx.accountId != accountId) continue;
+      if (tx.type == TransactionType.income) {
+        income += tx.amount;
+      } else if (tx.type == TransactionType.expense) {
+        expense += tx.amount;
+      }
+    }
+    return (income: income, expense: expense);
+  }
+
+  String _ensureTransferFeeCategoryId(String ownerUserId) {
+    final repo = _repo;
+    bool valid(Map<String, dynamic> row) =>
+        row['deleted_at'] == null &&
+        row['user_id'] == ownerUserId &&
+        row['type'] == 'EXPENSE';
+    final matches =
+        repo
+            .rows('categories')
+            .where((row) => valid(row) && row['name'] == 'Biaya Admin')
+            .toList()
+          ..sort(
+            (a, b) => (a['id'] as String).compareTo(b['id'] as String),
+          );
+    if (matches.isNotEmpty) {
+      return matches.first['id'] as String;
+    }
+    return repo.mutate('categories', 'CREATE', {
+      'name': 'Biaya Admin',
+      'type': 'EXPENSE',
+      'icon': 'receipt',
+      'color': '#64748B',
+    });
+  }
+
   void addTransaction({
     required TransactionType type,
     required int amount,
@@ -1288,17 +1439,50 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required String categoryName,
     String? note,
     required DateTime date,
+    int fee = 0,
     bool isDebt = false,
     bool isReceivable = false,
   }) {
     if (type == TransactionType.transfer && !isDebt && !isReceivable) {
-      _repo.createTransfer(
-        fromAccountId: accountId,
-        toAccountId: toAccountId ?? '',
-        amount: amount,
-        date: date,
-        description: note,
-      );
+      if (fee < 0) {
+        throw const ApiFailure('Biaya admin tidak boleh negatif.');
+      }
+      _repo.atomic(() {
+        _repo.createTransfer(
+          fromAccountId: accountId,
+          toAccountId: toAccountId ?? '',
+          amount: amount,
+          date: date,
+          description: note,
+        );
+        if (fee > 0) {
+          final fromAccount = _repo.row('accounts', accountId);
+          final ownerId = '${fromAccount?['user_id'] ?? currentUserId}';
+          final feeCategoryId = _ensureTransferFeeCategoryId(ownerId);
+          final trimmedNote = note?.trim() ?? '';
+          final feeDescription =
+              trimmedNote.isNotEmpty && trimmedNote != 'Transfer antar akun'
+              ? 'Biaya admin: $trimmedNote'
+              : 'Biaya admin transfer';
+          _repo.mutate(
+            'transactions',
+            'CREATE',
+            {
+              'account_id': accountId,
+              'category_id': feeCategoryId,
+              'type': 'EXPENSE',
+              'amount': '$fee.00',
+              'transacted_at': DateTime.fromMillisecondsSinceEpoch(
+                date.millisecondsSinceEpoch,
+                isUtc: true,
+              ).toIso8601String(),
+              'description': feeDescription,
+            },
+            local: {'created_by': currentUserId},
+            balanceDelta: {accountId: -fee},
+          );
+        }
+      });
       _changed();
       return;
     }
@@ -1536,48 +1720,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
     final type = delta > 0 ? 'INCOME' : 'EXPENSE';
-    // These are the backend's seeded catch-all categories, not arbitrary rows.
-    final defaultName = delta > 0 ? 'Lainnya' : 'Lain-lain';
     repo.atomic(() {
-      final identities = repo.state.putIfAbsent(
-        'adjustment_category_ids',
-        () => <String, dynamic>{},
-      ) as Map;
-      String? categoryId = identities[type] as String?;
-      bool valid(Map<String, dynamic>? row) =>
-          row != null &&
-          row['user_id'] == currentUserId &&
-          row['type'] == type &&
-          row['deleted_at'] == null;
-      if (!valid(
-        categoryId == null ? null : repo.row('categories', categoryId),
-      )) {
-        final matches =
-            repo
-                .rows('categories')
-                .where((row) => valid(row) && row['name'] == defaultName)
-                .toList()
-              ..sort(
-                (a, b) => (a['id'] as String).compareTo(b['id'] as String),
-              );
-        categoryId = matches.isEmpty
-            ? repo.mutate('categories', 'CREATE', {
-                'name': defaultName,
-                'type': type,
-              })
-            : matches.first['id'] as String;
-        identities[type] = categoryId;
-      }
-      if (repo.outbox.any(
-        (item) =>
-            item['entity_type'] == 'categories' &&
-            item['entity_id'] == categoryId &&
-            item['status'] != 'pending',
-      )) {
-        throw const ApiFailure(
-          'Selesaikan konflik kategori bawaan terlebih dahulu.',
-        );
-      }
+      final categoryId = _ensureAdjustmentCategoryId(repo, type);
       repo.mutate(
         'transactions',
         'CREATE',
@@ -2412,16 +2556,32 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   int get unreadNotificationCount =>
       notifications.where((n) => !n.isRead).length;
   Future<void> markNotificationsAsRead() async {
+    final hasUnreadServer = notifications.any(
+      (n) => !n.isRead && !n.id.startsWith('bill:'),
+    );
     if (repository != null) {
       BillsRepository(repository!, activate: false).markRemindersRead();
+      if (hasUnreadServer) {
+        _repo.atomic(() {
+          final table = _repo.entities['notifications'];
+          if (table is Map) {
+            for (final entry in table.values) {
+              if (entry is Map && entry['is_read'] != true) {
+                entry['is_read'] = true;
+              }
+            }
+          }
+        });
+      }
     }
     _notify();
-    for (final item in notifications.where(
-      (n) => !n.isRead && !n.id.startsWith('bill:'),
-    )) {
-      await _repo.writeOnline('PATCH', '/notifications/${item.id}/read', {});
+    if (!hasUnreadServer || repository == null || isOfflineMode) return;
+    try {
+      await _repo.writeOnline('POST', '/notifications/read-all', {});
+      await refresh();
+    } catch (_) {
+      // Offline or unreachable server: keep optimistic local read state without crashing UI.
     }
-    await refresh();
   }
 
   List<SyncQueueItem> get syncQueue => (repository?.outbox ?? [])
@@ -2462,21 +2622,81 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return 'Data berhasil diperbarui.';
   }
 
+  static String _conflictEntityLabel(dynamic rawType) {
+    switch ('$rawType') {
+      case 'transactions':
+        return 'Transaksi';
+      case 'accounts':
+        return 'Akun';
+      case 'categories':
+        return 'Kategori';
+      case 'goals':
+        return 'Target';
+      case 'budgets':
+        return 'Budget';
+      case 'bills':
+      case 'bill_schedules':
+        return 'Tagihan';
+      case 'obligations':
+        return 'Utang & Piutang';
+      default:
+        return 'Data';
+    }
+  }
+
+  static String _formatConflictData(dynamic raw) {
+    if (raw is! Map) return raw == null ? '-' : '$raw';
+    final parts = <String>[];
+    final name = raw['name']?.toString().trim();
+    if (name != null && name.isNotEmpty) parts.add('Nama: $name');
+    final title = raw['title']?.toString().trim();
+    if (title != null && title.isNotEmpty) parts.add('Judul: $title');
+    final amount = raw['amount']?.toString().trim();
+    if (amount != null && amount.isNotEmpty) {
+      parts.add('Nominal: ${CurrencyFormatter.formatCurrency(amount)}');
+    }
+    final balance = raw['balance']?.toString().trim();
+    if (balance != null && balance.isNotEmpty) {
+      parts.add('Saldo: ${CurrencyFormatter.formatCurrency(balance)}');
+    }
+    final desc = raw['description']?.toString().trim();
+    if (desc != null && desc.isNotEmpty) parts.add('Catatan: $desc');
+    if (parts.isEmpty) return 'Perubahan tersimpan';
+    return parts.join('\n');
+  }
+
   List<SyncConflictItem> get conflicts => (repository?.outbox ?? [])
       .where((e) => e['status'] == 'conflict')
-      .map(
-        (e) => SyncConflictItem(
+      .map((e) {
+        final payload = e['payload'];
+        final serverData = e['server_data'];
+        final label = _conflictEntityLabel(e['entity_type']);
+        final displayName =
+            (payload is Map ? payload['name'] ?? payload['description'] ?? payload['title'] : null)
+                ?.toString()
+                .trim();
+        final serverName =
+            (serverData is Map ? serverData['name'] ?? serverData['description'] ?? serverData['title'] : null)
+                ?.toString()
+                .trim();
+        final entityName = (displayName != null && displayName.isNotEmpty)
+            ? displayName
+            : (serverName != null && serverName.isNotEmpty)
+            ? serverName
+            : label;
+        return SyncConflictItem(
           id: e['id'],
           entityType: e['entity_type'],
-          entityName: e['entity_id'],
-          fieldName: 'Data',
-          localValue: '${e['payload']}',
-          serverValue: '${e['server_data']}',
-          localVersion: int.parse('${e['client_version']}'),
-          serverVersion: int.parse('${e['server_data']?['version'] ?? 0}'),
+          entityName: entityName,
+          fieldName: label,
+          localValue: _formatConflictData(payload),
+          serverValue: _formatConflictData(serverData),
+          localVersion: int.tryParse('${e['client_version']}') ?? 0,
+          serverVersion:
+              int.tryParse('${serverData is Map ? serverData['version'] ?? 0 : 0}') ?? 0,
           conflictTimestamp: DateTime.parse(e['created_at']),
-        ),
-      )
+        );
+      })
       .toList();
   int get conflictCount => conflicts.length;
   void resolveConflictUseMine(String id) {
@@ -2520,33 +2740,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   void discardOutboxEntry(SyncStatusEntry entry) {
     if (entry.id.isEmpty) return;
-    final repo = _repo;
-    repo.atomic(() {
-      final item = repo.outbox.firstWhere(
-        (e) => e['id'] == entry.id,
-        orElse: () => null,
-      );
-      if (item != null) {
-        repo.outbox.remove(item);
-        if (item['entity_type'] == 'transfers') {
-          if (item['operation'] == 'CREATE') {
-            repo.entities['transfers']?.remove(entry.entityId);
-            final legs = repo
-                .rows('transactions')
-                .where((t) => t['transfer_id'] == entry.entityId)
-                .toList();
-            for (final leg in legs) {
-              repo.entities['transactions']?.remove(leg['id']);
-            }
-          } else if (item['before'] is Map) {
-            repo.entities['transfers']?[entry.entityId] = item['before'];
-          }
-          repo.state['cursor'] = '0';
-        } else if (item['operation'] == 'CREATE' && entry.entityId.isNotEmpty) {
-          repo.entities[entry.entityType]?.remove(entry.entityId);
-        }
-      }
-    });
+    if (!_repo.discardOutboxEntry(entry.id)) return;
     _changed();
     unawaited(refresh());
   }

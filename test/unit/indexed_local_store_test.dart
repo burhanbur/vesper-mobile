@@ -453,4 +453,132 @@ void main() {
       recovered.close();
     },
   );
+
+  test(
+    'transactionSummary returns exact totals for all accounts and filtered by accountId',
+    () {
+      final store = LocalStore.indexed(
+        sqlite3.open('${temporary().path}${Platform.pathSeparator}summary.sqlite'),
+        key: key,
+        userId: 'user',
+      );
+      addTearDown(store.close);
+      store.write({
+        'entities': {
+          'accounts': {
+            'a1': {'id': 'a1', 'name': 'Cash', 'balance': '100.00'},
+            'a2': {'id': 'a2', 'name': 'Bank', 'balance': '200.00'},
+          },
+          'categories': {
+            'food': {'id': 'food', 'name': 'Food', 'type': 'EXPENSE'},
+            'sal': {'id': 'sal', 'name': 'Salary', 'type': 'INCOME'},
+          },
+          'transactions': {
+            't1': {
+              'id': 't1',
+              'account_id': 'a1',
+              'category_id': 'sal',
+              'type': 'INCOME',
+              'amount': '500000.00',
+              'transacted_at': '2026-10-05T10:00:00.000Z',
+            },
+            't2': {
+              'id': 't2',
+              'account_id': 'a1',
+              'category_id': 'food',
+              'type': 'EXPENSE',
+              'amount': '75000.00',
+              'transacted_at': '2026-10-06T10:00:00.000Z',
+            },
+            't3': {
+              'id': 't3',
+              'account_id': 'a2',
+              'category_id': 'food',
+              'type': 'EXPENSE',
+              'amount': '125000.00',
+              'transacted_at': '2026-10-07T10:00:00.000Z',
+            },
+            't4': {
+              'id': 't4',
+              'account_id': 'a1',
+              'type': 'TRANSFER',
+              'amount': '-50000.00',
+              'transacted_at': '2026-10-08T10:00:00.000Z',
+            },
+            't5': {
+              'id': 't5',
+              'account_id': 'a2',
+              'category_id': 'food',
+              'type': 'EXPENSE',
+              'amount': '999999.00',
+              'transacted_at': '2026-10-09T10:00:00.000Z',
+              'deleted_at': '2026-10-10T00:00:00.000Z',
+            },
+          },
+        },
+      });
+
+      final start = DateTime.utc(2026, 10, 1);
+      final end = DateTime.utc(2026, 11, 1);
+
+      final allSummary = store.transactionSummary(start, end);
+      expect(allSummary.income, '500000.00');
+      expect(allSummary.expense, '200000.00');
+
+      final a1Summary = store.transactionSummary(start, end, accountId: 'a1');
+      expect(a1Summary.income, '500000.00');
+      expect(a1Summary.expense, '75000.00');
+
+      final a2Summary = store.transactionSummary(start, end, accountId: 'a2');
+      expect(a2Summary.income, '0.00');
+      expect(a2Summary.expense, '125000.00');
+    },
+  );
+
+  test(
+    'bulk values/entries hydration preserves edits, removals, and rollbacks after reopen',
+    () {
+      final path = '${temporary().path}${Platform.pathSeparator}bulk.sqlite';
+      final initial = LocalStore.indexed(
+        sqlite3.open(path),
+        key: key,
+        userId: 'user',
+      );
+      initial.write(snapshot(count: 150));
+      initial.close();
+
+      final reopened = LocalStore.indexed(
+        sqlite3.open(path),
+        key: key,
+        userId: 'user',
+      );
+      addTearDown(reopened.close);
+      final repo = FinanceRepository(ApiClient(), reopened, 'user');
+
+      // Hydrate all 150 rows in a single bulk scan via values/entries
+      final allRows = repo.rows('transactions');
+      expect(allRows, hasLength(150));
+      final table = repo.entities['transactions'] as Map;
+      expect(table.entries.length, 150);
+
+      // Mutate after bulk hydration and verify commit & reopen
+      repo.atomic(() {
+        table['tx-0']['description'] = 'bulk-updated';
+        table.remove('tx-1');
+        table['tx-new'] = {
+          'id': 'tx-new',
+          'account_id': 'cash',
+          'category_id': 'food',
+          'amount': '500.00',
+          'type': 'EXPENSE',
+          'description': 'fresh',
+          'transacted_at': '2026-10-02T00:00:00.000Z',
+        };
+      });
+      expect(repo.rows('transactions'), hasLength(150));
+      expect(table['tx-0']['description'], 'bulk-updated');
+      expect(table['tx-1'], isNull);
+      expect(table['tx-new']['description'], 'fresh');
+    },
+  );
 }

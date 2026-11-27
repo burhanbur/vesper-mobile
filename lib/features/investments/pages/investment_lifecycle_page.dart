@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../sync/data/finance_repository.dart';
 import '../data/investment_lifecycle_controller.dart';
@@ -79,6 +80,38 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
     _tabController.dispose();
     controller?.dispose();
     super.dispose();
+  }
+
+  static String _instrumentTypeLabel(String? type) {
+    switch (type) {
+      case 'STOCK':
+        return 'Saham';
+      case 'MUTUAL_FUND':
+        return 'Reksa Dana';
+      case 'BOND':
+        return 'Obligasi';
+      case 'CRYPTO':
+        return 'Kripto';
+      case 'GOLD':
+        return 'Emas';
+      case 'OTHER':
+        return 'Lainnya';
+      default:
+        return type ?? 'Lainnya';
+    }
+  }
+
+  static String _tradeTypeLabel(String? type) {
+    switch (type) {
+      case 'BUY':
+        return 'Beli';
+      case 'SELL':
+        return 'Jual';
+      case 'DIVIDEND':
+        return 'Dividen';
+      default:
+        return type ?? '';
+    }
   }
 
   Future<void> edit({Map<String, dynamic>? instrument}) async {
@@ -191,11 +224,14 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
                           'MUTUAL_FUND',
                           'BOND',
                           'CRYPTO',
-                          'COMMODITY',
+                          'GOLD',
                           'OTHER',
                         ]
                             .map(
-                              (t) => DropdownMenuItem(value: t, child: Text(t)),
+                              (t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(_instrumentTypeLabel(t)),
+                              ),
                             )
                             .toList(),
                         onChanged: (t) => type = t!,
@@ -380,7 +416,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
         ? '••••••'
         : value == null
         ? 'Belum tersedia'
-        : 'IDR $value';
+        : CurrencyFormatter.formatCurrency(value);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -678,8 +714,10 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
     InvestmentOverview overview,
     String Function(String?) money,
   ) {
+    final displayMarket = overview.marketValue ?? overview.knownMarketValue;
+    final displayUnrealized = overview.unrealized ?? overview.knownUnrealized;
     final unrealizedPositive =
-        overview.unrealized != null && !overview.unrealized!.startsWith('-');
+        displayUnrealized != null && !displayUnrealized.startsWith('-');
     final realizedPositive = !overview.realized.startsWith('-');
 
     return Container(
@@ -716,26 +754,30 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
                 ),
               ),
               const Spacer(),
-              if (overview.unrealized != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: unrealizedPositive
-                        ? AppColors.incomeLight
-                        : AppColors.expenseLight,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    'Laba belum terealisasi: ${money(overview.unrealized)}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+              if (displayUnrealized != null)
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
                       color: unrealizedPositive
-                          ? AppColors.income
-                          : AppColors.expense,
+                          ? AppColors.incomeLight
+                          : AppColors.expenseLight,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      'Laba belum terealisasi${overview.isPartial ? ' (parsial)' : ''}: ${money(displayUnrealized)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: unrealizedPositive
+                            ? AppColors.income
+                            : AppColors.expense,
+                      ),
                     ),
                   ),
                 ),
@@ -746,7 +788,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
             children: [
               Expanded(
                 child: Text(
-                  'Nilai pasar: ${money(overview.marketValue)}',
+                  'Nilai pasar${overview.isPartial ? ' (parsial)' : ''}: ${money(displayMarket)}',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -764,6 +806,24 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
               ),
             ],
           ),
+          if (overview.missingPrices > 0) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${overview.missingPrices} posisi belum memiliki harga pasar',
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Row(
             children: [
@@ -899,7 +959,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
                 ),
               ),
               subtitle: Text(
-                '${item['type']} • ${item['pending_catalog'] == true ? 'Menunggu sinkronisasi' : 'IDR'}',
+                '${_instrumentTypeLabel(item['type'] as String?)} • ${item['pending_catalog'] == true ? 'Menunggu sinkronisasi' : 'IDR'}',
                 style: const TextStyle(
                   fontSize: 11,
                   color: AppColors.textSecondary,
@@ -1207,7 +1267,7 @@ class _InvestmentLifecyclePageState extends State<InvestmentLifecyclePage>
                 ),
               ),
               title: Text(
-                '${row['type']} • ${source.row('instruments', '${row['instrument_id']}')?['code'] ?? row['instrument_id']}',
+                '${_tradeTypeLabel(row['type'] as String?)} • ${source.row('instruments', '${row['instrument_id']}')?['code'] ?? row['instrument_id']}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               subtitle: Text(

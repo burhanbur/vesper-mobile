@@ -124,6 +124,18 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
     return (scaled.toInt() / 10000.0).clamp(0.0, 1.0);
   }
 
+  static String _formatPriceSource(String? raw) {
+    if (raw == null || raw.isEmpty) return 'sumber belum tersedia';
+    switch (raw.toUpperCase()) {
+      case 'MANUAL':
+        return 'Manual';
+      case 'MARKET':
+        return 'Pasar';
+      default:
+        return raw;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
@@ -132,7 +144,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
         ? '••••••'
         : data?.amounts[key] == null
         ? 'Belum tersedia'
-        : 'IDR ${_formatAmount(data!.amounts[key])}';
+        : 'Rp ${_formatAmount(data!.amounts[key])}';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -141,6 +153,19 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
           'Penilaian kekayaan pribadi',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          IconButton(
+            tooltip: state.isBalanceHidden
+                ? 'Tampilkan saldo'
+                : 'Sembunyikan saldo',
+            icon: Icon(
+              state.isBalanceHidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            onPressed: () => setState(() => state.toggleHideBalance()),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -166,7 +191,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Data server milik Anda saja, bukan total household. Perubahan lokal yang belum tersinkron belum tercakup.',
+                      'Data server milik Anda saja (bukan total household). Perubahan lokal yang belum tersinkron belum masuk.',
                       style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textMuted,
@@ -407,7 +432,7 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Histori belum tersedia: bukti saldo historis belum memadai. Tidak ada titik grafik yang direkayasa.',
+                        'Histori belum tersedia untuk tanggal ini karena data saldo historis belum tercatat.',
                         style: TextStyle(
                           fontSize: 12.5,
                           color: AppColors.textSecondary,
@@ -424,9 +449,10 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                 const SizedBox(height: 14),
 
                 // Visual Donut Chart: Alokasi Komposisi Aset
-                _buildDonutAllocationCard(data, money),
-
-                const SizedBox(height: 14),
+                if (!state.isBalanceHidden) ...[
+                  _buildDonutAllocationCard(data, money),
+                  const SizedBox(height: 14),
+                ],
 
                 // Rincian Komponen Posisi & Progress Bars Card
                 _buildPositionDetailsCard(data, money),
@@ -542,28 +568,22 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            data.complete
-                ? 'Net worth tercatat: ${money('net_worth')}'
-                : 'Subtotal diketahui: ${money('known_net_worth')}',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.3,
-            ),
-          ),
-          if (data.complete) ...[
-            const SizedBox(height: 3),
-            Text(
-              'Subtotal diketahui: ${money('known_net_worth')}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.8),
+          const SizedBox(height: 10),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              data.complete
+                  ? 'Net worth tercatat: ${money('net_worth')}'
+                  : 'Subtotal diketahui: ${money('known_net_worth')}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.3,
               ),
             ),
-          ],
+          ),
           const SizedBox(height: 16),
 
           // Visual Split Ratio Bar: Aset vs Kewajiban
@@ -909,17 +929,17 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                 ),
               ],
 
-              const SizedBox(height: 12),
-              Text(
-                data.complete
-                    ? 'Harga manual bertanggal tetap digunakan; periksa penanda harga usang.'
-                    : 'Subtotal bukan net worth lengkap. Harga lama tetap masuk subtotal; posisi tanpa harga tidak dinilai nol.',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: AppColors.textMuted,
-                  height: 1.35,
+              if (!data.complete) ...[
+                const SizedBox(height: 10),
+                const Text(
+                  'Sebagian posisi belum memiliki harga pasar dan tidak dihitung nol.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    height: 1.35,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1055,30 +1075,50 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
         ),
         const SizedBox(height: 10),
         for (final row in data.holdings)
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: const BorderSide(color: AppColors.border),
-            ),
-            color: Colors.white,
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Builder(
+            builder: (_) {
+              final inst = state.repository?.row(
+                'instruments',
+                row.instrumentId,
+              );
+              final code = inst?['code']?.toString().trim() ?? '';
+              final name = inst?['name']?.toString().trim() ?? '';
+              final primaryLabel = code.isNotEmpty
+                  ? code
+                  : name.isNotEmpty
+                  ? name
+                  : row.instrumentId;
+              final secondaryLabel =
+                  code.isNotEmpty && name.isNotEmpty && name != code
+                  ? name
+                  : null;
+              final priceDateText = row.priceDate != null
+                  ? DateFormatter.calendarDate(row.priceDate)
+                  : 'belum tersedia';
+              return Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                color: Colors.white,
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Container(
-                            width: 32,
-                            height: 32,
+                            width: 34,
+                            height: 34,
                             decoration: BoxDecoration(
                               color: const Color(0xFFF3E8FF),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(9),
                             ),
                             child: const Icon(
                               Icons.candlestick_chart_rounded,
@@ -1087,46 +1127,66 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
                             ),
                           ),
                           const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  primaryLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                if (secondaryLabel != null)
+                                  Text(
+                                    secondaryLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Text(
-                            row.instrumentId,
+                            state.isBalanceHidden
+                                ? '••••••'
+                                : row.marketValue != null
+                                ? 'Rp ${_formatAmount(row.marketValue)}'
+                                : 'Tidak dinilai',
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 14,
+                              fontSize: 13.5,
                               color: AppColors.textPrimary,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 6),
                       Text(
-                        state.isBalanceHidden
-                            ? '••••'
-                            : row.marketValue != null
-                            ? _formatAmount(row.marketValue)
-                            : 'Tidak dinilai',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
+                        'Harga: $priceDateText · ${row.stale == true ? 'USANG' : row.unavailableReason ?? 'tersedia'} · ${_formatPriceSource(row.priceSource)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: row.stale == true
+                              ? AppColors.expense
+                              : AppColors.textMuted,
+                          fontWeight: row.stale == true
+                              ? FontWeight.w600
+                              : FontWeight.w400,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Harga: ${row.priceDate ?? 'belum tersedia'} · ${row.stale == true ? 'USANG' : row.unavailableReason ?? 'tersedia'} · ${row.priceSource ?? 'sumber belum tersedia'}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: row.stale == true
-                          ? AppColors.expense
-                          : AppColors.textMuted,
-                      fontWeight: row.stale == true
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
       ],
     );
@@ -1136,90 +1196,118 @@ class _NetWorthAssessmentPageState extends State<NetWorthAssessmentPage> {
     BuildContext context,
     NetWorthAssessment data,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Informasi Audit & Observasi',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 16,
-            color: AppColors.textPrimary,
-            letterSpacing: -0.2,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                'Tanggal penilaian: ${DateFormatter.calendarDate(data.snapshotDate)}',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
+              const Icon(
+                Icons.fact_check_outlined,
+                size: 16,
+                color: AppColors.primary,
               ),
-              const SizedBox(height: 3),
-              Text(
-                data.unavailable
-                    ? 'Waktu respons: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)} (bukan bukti historis)'
-                    : 'Waktu observasi: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              if (!data.unavailable) ...[
-                const SizedBox(height: 3),
-                Text(
-                  data.isHistoricalObservation
-                      ? 'Observasi historis pertama yang tersimpan; bukan saldo akhir hari.'
-                      : 'Observasi saldo tercatat saat ini; bukan saldo akhir hari.',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tanggal penilaian: ${DateFormatter.calendarDate(data.snapshotDate)}',
                   style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
-                ),
-              ],
-              const SizedBox(height: 3),
-              Text(
-                'Komponen belum tersedia: ${data.missingComponents.isEmpty ? 'Tidak ada' : data.missingComponents.map(_formatMissingComponent).join(', ')}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'Akun dikecualikan: ${data.excludedAccountCount}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                data.complete
-                    ? 'Mencakup aset dan kewajiban yang tercatat. Data yang belum dicatat dan atribusi kontribusi versus perubahan pasar tidak tercakup.'
-                    : 'Observasi ini masih parsial. Periksa komponen belum tersedia; observasi lama tidak ditulis ulang setelah penambahan utang/piutang.',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: AppColors.textMuted,
-                  height: 1.35,
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            data.unavailable
+                ? 'Waktu respons: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)} (bukan bukti historis)'
+                : 'Waktu observasi: ${DateFormatter.timestamp(data.observedAt, timeZone: AppStateScope.of(context).timeZone)}',
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (!data.unavailable) ...[
+            const SizedBox(height: 3),
+            Text(
+              data.isHistoricalObservation
+                  ? 'Observasi historis pertama yang tersimpan.'
+                  : 'Observasi saldo tercatat saat ini.',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
+          if (!data.complete) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'Observasi ini masih parsial karena sebagian komponen belum tersedia.',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.warning,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Material(
+            color: Colors.transparent,
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+              ),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(top: 4),
+                dense: true,
+                title: const Text(
+                  'Detail cakupan penilaian',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Komponen belum tersedia: ${data.missingComponents.isEmpty ? 'Tidak ada' : data.missingComponents.map(_formatMissingComponent).join(', ')}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Akun dikecualikan: ${data.excludedAccountCount}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -60,7 +60,6 @@ class _AccountsPageState extends State<AccountsPage> {
     final balanceController = TextEditingController();
     final limitController = TextEditingController();
     bool isCreditCard = false;
-    bool isShared = false;
     String? selectedParentId;
 
     final state = AppStateScope.of(context);
@@ -98,11 +97,6 @@ class _AccountsPageState extends State<AccountsPage> {
     String? selectedAccountTypeId = initialTypeDef?['id'] as String?;
     AccountType selectedType = resolveType(initialTypeDef);
 
-    final validHouseholdIds = state.households.map((h) => h.id).toSet();
-    String selectedHouseholdId =
-        validHouseholdIds.contains(state.activeHouseholdId)
-        ? state.activeHouseholdId
-        : (state.households.isNotEmpty ? state.households.first.id : 'hh-1');
     final parentCandidates = state.accounts
         .where(
           (a) =>
@@ -223,7 +217,6 @@ class _AccountsPageState extends State<AccountsPage> {
                                     .firstOrNull?['id']
                                 as String?;
                         selectedType = AccountType.creditCard;
-                        isShared = false;
                         selectedParentId = null;
                         balanceController.clear();
                       } else {
@@ -297,7 +290,9 @@ class _AccountsPageState extends State<AccountsPage> {
                       keyboardType: TextInputType.number,
                       inputFormatters: const [CurrencyTextInputFormatter()],
                       decoration: const InputDecoration(
-                        hintText: 'Contoh: 1.000.000',
+                        hintText: 'Contoh: 1.000.000 (opsional)',
+                        helperText:
+                            'Jika diisi, otomatis dicatat sebagai transaksi saldo awal.',
                         prefixText: 'Rp ',
                         prefixIcon: Icon(Icons.money_rounded),
                       ),
@@ -404,91 +399,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       ),
                     const SizedBox(height: 16),
                   ],
-                  // Shared with group toggle
-                  if (!isCreditCard)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: isShared,
-                      activeThumbColor: AppColors.primary,
-                      title: const Text(
-                        'Bagikan ke Grup Bersama (Shared)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'Pilih grup yang dapat mengakses dan melihat transaksi akun ini.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                      onChanged: isCreditCard
-                          ? null
-                          : (val) => setModalState(() => isShared = val),
-                    ),
-                  if (isShared) ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Pilih Grup Tujuan',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: validHouseholdIds.contains(selectedHouseholdId)
-                              ? selectedHouseholdId
-                              : (state.households.isNotEmpty
-                                    ? state.households.first.id
-                                    : null),
-                          isExpanded: true,
-                          items: state.households
-                              .map(
-                                (h) => DropdownMenuItem<String>(
-                                  value: h.id,
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        h.type.emoji,
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          h.name,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => selectedHouseholdId = val);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () {
                       final rawName = nameController.text.trim();
@@ -518,14 +429,10 @@ class _AccountsPageState extends State<AccountsPage> {
                               : null,
                           type: selectedType,
                           initialBalance: balance,
-                          accountNumber: numberController.text.trim().isEmpty
-                              ? 'Rek. Baru'
-                              : numberController.text.trim(),
+                          accountNumber: numberController.text.trim(),
                           institution: AccountTypeDefinition.getDefinition(
                             selectedType,
                           ).categoryGroup,
-                          isShared: isShared,
-                          householdId: isShared ? selectedHouseholdId : null,
                           parentAccountId: selectedParentId,
                         );
                       } catch (error) {
@@ -1798,7 +1705,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Alokasi Kekayaan (Wealth Allocation)',
+                      'Alokasi Kekayaan',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -1887,41 +1794,7 @@ class _AccountsPageState extends State<AccountsPage> {
 
               const SizedBox(height: 14),
 
-              // 4. PERSPECTIVE FILTER CHIPS ("Mau liat dari sisi apa?")
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildPerspectiveFilterChip(
-                      id: 'all',
-                      label: 'Semua Aset',
-                      icon: Icons.dashboard_outlined,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildPerspectiveFilterChip(
-                      id: 'liquid',
-                      label: 'Dana Likuid',
-                      icon: Icons.wallet_outlined,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildPerspectiveFilterChip(
-                      id: 'investment',
-                      label: 'Aset Portofolio',
-                      icon: Icons.trending_up_rounded,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildPerspectiveFilterChip(
-                      id: 'debt',
-                      label: 'Kewajiban',
-                      icon: Icons.credit_card_outlined,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // 5. MODERN HORIZONTAL PILL SELECTOR (Semua, Pribadi, & Semua Grup Pengguna)
+              // 4. HORIZONTAL PILL SELECTOR (Semua, Pribadi, & Semua Grup Pengguna)
               SizedBox(
                 height: 40,
                 child: ListView(
@@ -2606,47 +2479,6 @@ class _AccountsPageState extends State<AccountsPage> {
               style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPerspectiveFilterChip({
-    required String id,
-    required String label,
-    required IconData icon,
-  }) {
-    final isSelected = _assetPerspective == id;
-    return GestureDetector(
-      onTap: () => setState(() => _assetPerspective = id),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-              ),
             ),
           ],
         ),

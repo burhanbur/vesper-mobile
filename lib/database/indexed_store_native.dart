@@ -271,8 +271,26 @@ class IndexedStore {
     ));
   }
 
-  TransactionSummary transactionSummary(DateTime start, DateTime end) {
+  TransactionSummary transactionSummary(
+    DateTime start,
+    DateTime end, {
+    String? accountId,
+  }) {
     _refreshSummaryZone();
+    if (accountId != null) {
+      final summary = _SummaryWindow(
+        start.toUtc().microsecondsSinceEpoch,
+        end.toUtc().microsecondsSinceEpoch,
+      );
+      for (final row in database.select(
+        '''SELECT payload FROM entity_records
+        WHERE entity_type='transactions' AND deleted=0 AND account_id=? AND date_us>=? AND date_us<?''',
+        [accountId, summary.start, summary.end],
+      )) {
+        summary.apply(jsonDecode(row['payload'] as String), 1);
+      }
+      return summary.snapshot;
+    }
     final key =
         '${start.toUtc().microsecondsSinceEpoch}:${end.toUtc().microsecondsSinceEpoch}:${DateTime.now().timeZoneName}:${start.toLocal().timeZoneOffset.inMinutes}:${end.toLocal().timeZoneOffset.inMinutes}';
     final cached = _summaries[key];
@@ -586,9 +604,11 @@ class _EntityRows extends MapBase<String, dynamic> {
   final Map<String, dynamic> _cache = {};
   final Set<String> _added = {}, _removed = {};
   Set<String>? _keys;
+  bool _loadedAll = false;
   _EntityRows(this.store, this.type, {Map<String, dynamic>? initial}) {
     if (initial != null) {
       _keys = initial.keys.toSet();
+      _loadedAll = true;
       for (final entry in initial.entries) {
         _cache[entry.key] = store.journal.wrap(entry.value, (
           'row',
@@ -596,6 +616,50 @@ class _EntityRows extends MapBase<String, dynamic> {
           entry.key,
         ));
       }
+    }
+  }
+
+  void _hydrateAll() {
+    if (_loadedAll) return;
+    final rows = store.database.select(
+      'SELECT id,payload FROM entity_records WHERE entity_type=? ORDER BY id',
+      [type],
+    );
+    final loaded = <String>{};
+    for (final row in rows) {
+      final id = row['id'] as String;
+      if (_removed.contains(id)) continue;
+      loaded.add(id);
+      _cache.putIfAbsent(
+        id,
+        () => store.journal.wrap(
+          jsonDecode(row['payload'] as String),
+          ('row', type, id),
+        ),
+      );
+    }
+    loaded.addAll(_added);
+    _keys = loaded;
+    _loadedAll = true;
+  }
+
+  @override
+  Iterable<dynamic> get values {
+    _hydrateAll();
+    return keys.map((key) => _cache[key]);
+  }
+
+  @override
+  Iterable<MapEntry<String, dynamic>> get entries {
+    _hydrateAll();
+    return keys.map((key) => MapEntry(key, _cache[key]));
+  }
+
+  @override
+  void forEach(void Function(String key, dynamic value) action) {
+    _hydrateAll();
+    for (final key in keys) {
+      action(key, _cache[key]);
     }
   }
   @override

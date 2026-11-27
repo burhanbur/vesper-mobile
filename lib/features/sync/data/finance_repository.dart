@@ -2465,6 +2465,95 @@ class FinanceRepository {
     }
   }
 
+  void _revertBalanceDelta(dynamic balanceDelta) {
+    if (balanceDelta is! Map) return;
+    for (final entry in balanceDelta.entries) {
+      final accountId = entry.key?.toString() ?? '';
+      final delta = entry.value;
+      if (accountId.isEmpty || delta is! int || delta == 0) continue;
+      final account = row('accounts', accountId);
+      if (account == null) continue;
+      final current = accountMinor('${account['balance']}');
+      final reverted = current - BigInt.from(delta) * BigInt.from(100);
+      _put('accounts', accountId, {
+        ...account,
+        'balance': accountDecimal(reverted),
+      });
+    }
+  }
+
+  bool discardOutboxEntry(String queueId) {
+    if (queueId.isEmpty) return false;
+    final item = outbox.firstWhere(
+      (e) => e['id'] == queueId,
+      orElse: () => null,
+    );
+    if (item is! Map) return false;
+    if (_isTrade(item) || _isRecordCommand(item)) {
+      return false;
+    }
+    atomic(() {
+      final type = item['entity_type']?.toString() ?? '';
+      final entityId = item['entity_id']?.toString() ?? '';
+      final operation = item['operation']?.toString() ?? '';
+      final balanceDelta = item['balance_delta'];
+
+      if (balanceDelta is Map && balanceDelta.isNotEmpty) {
+        _revertBalanceDelta(balanceDelta);
+      } else if (type == 'transfers' && operation == 'CREATE') {
+        final payload = item['payload'];
+        if (payload is Map) {
+          final fromId = payload['from_account_id']?.toString() ?? '';
+          final toId = payload['to_account_id']?.toString() ?? '';
+          final amount = _parseRupiah(payload['amount']);
+          if (fromId.isNotEmpty && toId.isNotEmpty && amount != 0) {
+            _revertBalanceDelta({fromId: -amount, toId: amount});
+          }
+        }
+      }
+
+      if (type == 'transfers') {
+        if (operation == 'CREATE') {
+          if (entityId.isNotEmpty) _put('transfers', entityId, null);
+          final payload = item['payload'];
+          if (payload is Map) {
+            final fromTx = payload['from_transaction_id']?.toString();
+            final toTx = payload['to_transaction_id']?.toString();
+            if (fromTx != null && fromTx.isNotEmpty) {
+              _put('transactions', fromTx, null);
+            }
+            if (toTx != null && toTx.isNotEmpty) {
+              _put('transactions', toTx, null);
+            }
+          }
+          final legs = rows('transactions')
+              .where((t) => t['transfer_id'] == entityId)
+              .toList();
+          for (final leg in legs) {
+            final legId = leg['id']?.toString() ?? '';
+            if (legId.isNotEmpty) _put('transactions', legId, null);
+          }
+        } else if (item['before'] is Map && entityId.isNotEmpty) {
+          _put(
+            'transfers',
+            entityId,
+            Map<String, dynamic>.from(item['before'] as Map),
+          );
+          state['cursor'] = '0';
+        }
+      } else if (operation == 'CREATE' && entityId.isNotEmpty) {
+        _put(type, entityId, null);
+      } else if (item['before'] is Map &&
+          type.isNotEmpty &&
+          entityId.isNotEmpty) {
+        _put(type, entityId, Map<String, dynamic>.from(item['before'] as Map));
+      }
+
+      outbox.remove(item);
+    });
+    return true;
+  }
+
   void resolve(String queueId, {required bool useMine}) {
     final item = outbox.firstWhere((e) => e['id'] == queueId) as Map;
     if (item['entity_type'] == 'transfers' ||
@@ -2484,6 +2573,7 @@ class FinanceRepository {
         item['status'] = 'pending';
         item.remove('error');
       } else {
+        _revertBalanceDelta(item['balance_delta']);
         _put(
           item['entity_type'] as String,
           item['entity_id'] as String,

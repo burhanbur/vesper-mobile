@@ -28,17 +28,34 @@ class _LoginPageState extends State<LoginPage>
   bool _loginObscurePassword = true;
   bool _rememberMe = true;
   bool _isLoading = false;
+  String? _loginEmailError;
+  String? _loginPasswordError;
 
   // Register Controllers
   final _regNameController = TextEditingController();
   final _regEmailController = TextEditingController();
   final _regPasswordController = TextEditingController();
   bool _regObscurePassword = true;
+  String? _regNameError;
+  String? _regEmailError;
+  String? _regPasswordError;
+
+  static final _emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+      setState(() {
+        _loginEmailError = null;
+        _loginPasswordError = null;
+        _regNameError = null;
+        _regEmailError = null;
+        _regPasswordError = null;
+      });
+    });
   }
 
   @override
@@ -66,16 +83,47 @@ class _LoginPageState extends State<LoginPage>
     final name = rawName != null
         ? StringFormatter.capitalizeWords(rawName)
         : null;
-    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email) ||
-        password.isEmpty ||
-        password.length > 128 ||
-        (register &&
-            (password.length < 8 || name!.length < 2 || name.length > 120))) {
+
+    String? emailErr;
+    String? passwordErr;
+    String? nameErr;
+    if (!_emailRegex.hasMatch(email)) {
+      emailErr = 'Masukkan format email yang valid';
+    }
+    if (password.isEmpty) {
+      passwordErr = 'Kata sandi wajib diisi';
+    } else if (password.length > 128) {
+      passwordErr = 'Kata sandi maksimal 128 karakter';
+    } else if (register && password.length < 8) {
+      passwordErr = 'Kata sandi minimal 8 karakter';
+    }
+    if (register && (name!.length < 2 || name.length > 120)) {
+      nameErr = 'Nama harus 2–120 karakter';
+    }
+
+    if (emailErr != null || passwordErr != null || nameErr != null) {
+      setState(() {
+        if (register) {
+          _regNameError = nameErr;
+          _regEmailError = emailErr;
+          _regPasswordError = passwordErr;
+        } else {
+          _loginEmailError = emailErr;
+          _loginPasswordError = passwordErr;
+        }
+      });
       _showError(
         'Masukkan email dan kata sandi yang valid. Untuk mendaftar, nama harus 2–120 karakter dan kata sandi minimal 8 karakter.',
       );
       return;
     }
+    setState(() {
+      _loginEmailError = null;
+      _loginPasswordError = null;
+      _regNameError = null;
+      _regEmailError = null;
+      _regPasswordError = null;
+    });
     final state = AppStateScope.of(context);
     setState(() => _isLoading = true);
     try {
@@ -272,39 +320,57 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildLoginSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Email Field
-        _buildInputField(
-          controller: _loginEmailController,
-          label: 'Alamat Email',
-          hint: 'nama@domain.com',
-          icon: Icons.alternate_email_rounded,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 14),
-
-        // Password Field
-        _buildInputField(
-          controller: _loginPasswordController,
-          label: 'Kata Sandi',
-          hint: '••••••••',
-          icon: Icons.lock_outline_rounded,
-          obscureText: _loginObscurePassword,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _loginObscurePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() => _loginObscurePassword = !_loginObscurePassword);
+    return AutofillGroup(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Email Field
+          _buildInputField(
+            controller: _loginEmailController,
+            label: 'Alamat Email',
+            hint: 'nama@domain.com',
+            icon: Icons.alternate_email_rounded,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+            errorText: _loginEmailError,
+            onChanged: (_) {
+              if (_loginEmailError != null) {
+                setState(() => _loginEmailError = null);
+              }
             },
           ),
-        ),
+          const SizedBox(height: 14),
+
+          // Password Field
+          _buildInputField(
+            controller: _loginPasswordController,
+            label: 'Kata Sandi',
+            hint: '••••••••',
+            icon: Icons.lock_outline_rounded,
+            obscureText: _loginObscurePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
+            errorText: _loginPasswordError,
+            onChanged: (_) {
+              if (_loginPasswordError != null) {
+                setState(() => _loginPasswordError = null);
+              }
+            },
+            onSubmitted: (_) => _handleLogin(),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _loginObscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+              onPressed: () {
+                setState(() => _loginObscurePassword = !_loginObscurePassword);
+              },
+            ),
+          ),
         const SizedBox(height: 12),
 
         // Remember Me & Forgot Password
@@ -378,87 +444,115 @@ class _LoginPageState extends State<LoginPage>
                 ),
         ),
       ],
+      ),
     );
   }
 
   Widget _buildRegisterSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildInputField(
-          controller: _regNameController,
-          label: 'Nama Lengkap',
-          hint: 'Contoh: Ahmad Rizki',
-          icon: Icons.person_outline_rounded,
-          textCapitalization: TextCapitalization.words,
-          inputFormatters: const [CapitalizeWordsInputFormatter()],
-        ),
-        const SizedBox(height: 14),
-        _buildInputField(
-          controller: _regEmailController,
-          label: 'Email',
-          hint: 'ahmad@example.com',
-          icon: Icons.alternate_email_rounded,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 14),
-        _buildInputField(
-          controller: _regPasswordController,
-          label: 'Kata Sandi',
-          hint: 'Minimal 8 karakter',
-          icon: Icons.lock_outline_rounded,
-          obscureText: _regObscurePassword,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _regObscurePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() => _regObscurePassword = !_regObscurePassword);
+    return AutofillGroup(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildInputField(
+            controller: _regNameController,
+            label: 'Nama Lengkap',
+            hint: 'Contoh: Ahmad Rizki',
+            icon: Icons.person_outline_rounded,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.name],
+            inputFormatters: const [CapitalizeWordsInputFormatter()],
+            errorText: _regNameError,
+            onChanged: (_) {
+              if (_regNameError != null) {
+                setState(() => _regNameError = null);
+              }
             },
           ),
-        ),
-        const SizedBox(height: 20),
-
-        ElevatedButton(
-          onPressed: _isLoading ? null : _handleRegister,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            elevation: 2,
+          const SizedBox(height: 14),
+          _buildInputField(
+            controller: _regEmailController,
+            label: 'Email',
+            hint: 'ahmad@example.com',
+            icon: Icons.alternate_email_rounded,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+            errorText: _regEmailError,
+            onChanged: (_) {
+              if (_regEmailError != null) {
+                setState(() => _regEmailError = null);
+              }
+            },
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Daftar & Mulai Kelola Keuangan',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
+          const SizedBox(height: 14),
+          _buildInputField(
+            controller: _regPasswordController,
+            label: 'Kata Sandi',
+            hint: 'Minimal 8 karakter',
+            icon: Icons.lock_outline_rounded,
+            obscureText: _regObscurePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.newPassword],
+            errorText: _regPasswordError,
+            onChanged: (_) {
+              if (_regPasswordError != null) {
+                setState(() => _regPasswordError = null);
+              }
+            },
+            onSubmitted: (_) => _handleRegister(),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _regObscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+              onPressed: () {
+                setState(() => _regObscurePassword = !_regObscurePassword);
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleRegister,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 2,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward_rounded, size: 18),
-                  ],
-                ),
-        ),
-      ],
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Daftar & Mulai Kelola Keuangan',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded, size: 18),
+                    ],
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -469,10 +563,16 @@ class _LoginPageState extends State<LoginPage>
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    TextInputAction textInputAction = TextInputAction.next,
+    Iterable<String>? autofillHints,
     List<TextInputFormatter>? inputFormatters,
     bool obscureText = false,
+    String? errorText,
+    ValueChanged<String>? onChanged,
+    ValueChanged<String>? onSubmitted,
     Widget? suffixIcon,
   }) {
+    final hasError = errorText != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -489,14 +589,21 @@ class _LoginPageState extends State<LoginPage>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(
+              color: hasError ? AppColors.expense : AppColors.border,
+              width: hasError ? 1.4 : 1,
+            ),
           ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
             textCapitalization: textCapitalization,
+            textInputAction: textInputAction,
+            autofillHints: autofillHints,
             inputFormatters: inputFormatters,
             obscureText: obscureText,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: hint,
@@ -504,7 +611,11 @@ class _LoginPageState extends State<LoginPage>
                 color: AppColors.textMuted,
                 fontSize: 13,
               ),
-              prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
+              prefixIcon: Icon(
+                icon,
+                color: hasError ? AppColors.expense : AppColors.textSecondary,
+                size: 20,
+              ),
               suffixIcon: suffixIcon,
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
@@ -514,6 +625,20 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
         ),
+        if (hasError) ...[
+          const SizedBox(height: 5),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              errorText,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.expense,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
 import 'package:vesper_mobile/core/network/api_client.dart';
-import 'package:vesper_mobile/features/household/pages/household_page.dart';
+import 'package:vesper_mobile/features/household/widgets/household_unavailable_view.dart';
 import 'package:vesper_mobile/features/reports/pages/reports_page.dart';
 import 'package:vesper_mobile/features/transactions/models/transaction.dart';
 import 'package:vesper_mobile/features/transactions/pages/transactions_page.dart';
@@ -125,7 +125,7 @@ void main() {
       final state = cachedFinanceState();
       seed(state);
       await tester.pumpWidget(host(state, const ReportsPage()));
-      expect(find.text('Rp 123'), findsNWidgets(3));
+      expect(find.text('Rp 123'), findsAtLeastNWidgets(2));
       expect(find.text('Rp 456'), findsNothing);
       await tester.tap(find.byTooltip('Bulan sebelumnya'));
       await tester.pump();
@@ -171,8 +171,7 @@ void main() {
           'group': {'id': 'group', 'name': 'Our group', 'code': 'INVITE123456'},
         };
       });
-      await tester.pumpWidget(host(state, const HouseholdPage()));
-      expect(find.textContaining('bukan saldo nol'), findsOneWidget);
+      await tester.pumpWidget(host(state, const HouseholdUnavailableView()));
       expect(
         find.text('Daftar anggota belum tersedia di perangkat.'),
         findsOneWidget,

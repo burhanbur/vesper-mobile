@@ -32,12 +32,12 @@ enum AccountDateFilterMode {
 /// Account ledger displayed within the shell's management navigator.
 class AccountDetailPage extends StatefulWidget {
   final String accountId;
-  final VoidCallback onSettings;
+  final VoidCallback? onSettings;
 
   const AccountDetailPage({
     super.key,
     required this.accountId,
-    required this.onSettings,
+    this.onSettings,
   });
 
   @override
@@ -193,7 +193,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          if (account != null)
+          if (account != null && widget.onSettings != null)
             IconButton(
               tooltip: 'Pengaturan & Sharing',
               icon: const Icon(Icons.settings_outlined),
@@ -421,9 +421,43 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           ],
           const SizedBox(height: 16),
           Wrap(
-            spacing: 12,
+            spacing: 10,
             runSpacing: 8,
             children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  backgroundColor: isCreditCard
+                      ? Colors.white
+                      : AppColors.primary,
+                  foregroundColor: isCreditCard
+                      ? const Color(0xFF0F3E33)
+                      : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 17),
+                label: const Text(
+                  'Catat Transaksi',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                onPressed: !mapped &&
+                        state.selectableAccounts.any(
+                          (candidate) => candidate.id == account.id,
+                        )
+                    ? () => AddTransactionModal.show(
+                        context,
+                        initialType: TransactionType.expense,
+                        initialAccountId: account.id,
+                      )
+                    : null,
+              ),
               if (!isCreditCard)
                 OutlinedButton(
                   onPressed: mapped
@@ -449,10 +483,12 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                   child: const Text('Ubah Saldo'),
                 ),
               if (isCreditCard)
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF0F3E33),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.45),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

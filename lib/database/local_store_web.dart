@@ -15,8 +15,11 @@ class LocalStore {
       throw UnsupportedError('Indexed native transactions unavailable');
   TransactionPage transactionPage(TransactionQuery query) =>
       throw UnsupportedError('Indexed native queries unavailable');
-  TransactionSummary transactionSummary(DateTime start, DateTime end) =>
-      throw UnsupportedError('Indexed native queries unavailable');
+  TransactionSummary transactionSummary(
+    DateTime start,
+    DateTime end, {
+    String? accountId,
+  }) => throw UnsupportedError('Indexed native queries unavailable');
   final String _key;
 
   LocalStore._(this._key);

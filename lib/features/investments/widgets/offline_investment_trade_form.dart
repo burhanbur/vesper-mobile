@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../models/investment.dart';
 import '../models/investment_settlement.dart';
 import 'investment_recovery_sheet.dart';
@@ -163,6 +164,18 @@ class _OfflineInvestmentTradeFormState
     );
 
     final isBuy = type == InvestmentTradeType.buy;
+    final isDividend = type == InvestmentTradeType.dividend;
+    final accentColor = isDividend
+        ? AppColors.income
+        : isBuy
+        ? const Color(0xFF0D9488)
+        : const Color(0xFFE11D48);
+    final summaryBgColor = isBuy
+        ? AppColors.expenseLight.withValues(alpha: 0.45)
+        : AppColors.incomeLight.withValues(alpha: 0.55);
+    final summaryBorderColor = isBuy
+        ? AppColors.expense.withValues(alpha: 0.25)
+        : AppColors.income.withValues(alpha: 0.25);
 
     return SafeArea(
       child: Padding(
@@ -275,15 +288,13 @@ class _OfflineInvestmentTradeFormState
               ),
               const SizedBox(height: 14),
 
-              // Segmented Button (BELI / JUAL) with no checkmark squishing text
+              // Segmented Button (DIVIDEN / BELI / JUAL) with no checkmark squishing text
               SegmentedButton<InvestmentTradeType>(
                 showSelectedIcon: false,
                 style: ButtonStyle(
                   backgroundColor: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return isBuy
-                          ? const Color(0xFF0D9488)
-                          : const Color(0xFFE11D48);
+                      return accentColor;
                     }
                     return Colors.transparent;
                   }),
@@ -516,15 +527,9 @@ class _OfflineInvestmentTradeFormState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isBuy
-                      ? const Color(0xFFF0FDF4)
-                      : const Color(0xFFFEF2F2),
+                  color: summaryBgColor,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isBuy
-                        ? AppColors.primary.withValues(alpha: 0.25)
-                        : const Color(0xFFFCA5A5),
-                  ),
+                  border: Border.all(color: summaryBorderColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,6 +540,8 @@ class _OfflineInvestmentTradeFormState
                         Text(
                           isBuy
                               ? 'Estimasi Kas Terpotong'
+                              : isDividend
+                              ? 'Estimasi Dividen Diterima'
                               : 'Estimasi Kas Diterima',
                           style: const TextStyle(
                             fontSize: 12,
@@ -549,8 +556,8 @@ class _OfflineInvestmentTradeFormState
                           ),
                           decoration: BoxDecoration(
                             color: isBuy
-                                ? AppColors.incomeLight
-                                : AppColors.expenseLight,
+                                ? AppColors.expenseLight
+                                : AppColors.incomeLight,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -559,8 +566,8 @@ class _OfflineInvestmentTradeFormState
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: isBuy
-                                  ? AppColors.income
-                                  : AppColors.expense,
+                                  ? AppColors.expense
+                                  : AppColors.income,
                             ),
                           ),
                         ),
@@ -568,7 +575,7 @@ class _OfflineInvestmentTradeFormState
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Nilai kas: ${total == null ? '—' : 'Rp $total'}',
+                      'Nilai kas: ${total == null ? '—' : CurrencyFormatter.formatCurrency(total)}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -869,9 +876,7 @@ class _OfflineInvestmentTradeFormState
                           }
                         },
                   style: FilledButton.styleFrom(
-                    backgroundColor: isBuy
-                        ? const Color(0xFF0D9488)
-                        : const Color(0xFFE11D48),
+                    backgroundColor: accentColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),

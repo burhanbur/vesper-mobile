@@ -9,7 +9,6 @@ import 'package:vesper_mobile/features/asset_allocation/pages/asset_allocation_p
 import 'package:vesper_mobile/features/auth/pages/login_page.dart';
 import 'package:vesper_mobile/features/cash_flow/pages/cash_flow_page.dart';
 import 'package:vesper_mobile/features/categories/pages/categories_page.dart';
-import 'package:vesper_mobile/features/household/pages/household_page.dart';
 import 'package:vesper_mobile/features/household/widgets/household_unavailable_view.dart';
 import 'package:vesper_mobile/features/sync/data/finance_repository.dart';
 
@@ -123,7 +122,7 @@ void main() {
       await tester.pumpWidget(
         AppStateScope(
           state: state,
-          child: const MaterialApp(home: HouseholdPage()),
+          child: const MaterialApp(home: HouseholdUnavailableView()),
         ),
       );
       await tester.pumpAndSettle();

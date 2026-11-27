@@ -125,17 +125,21 @@ class TransactionItemTile extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
             Center(
               child: Container(
                 width: 40,
@@ -303,6 +307,8 @@ class TransactionItemTile extends StatelessWidget {
               child: const Text('Tutup'),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );
@@ -515,7 +521,28 @@ class TransactionItemTile extends StatelessWidget {
         : null;
     final accountName = account?.name ?? 'Akun';
     final isShared = account?.isShared ?? false;
-    final color = _getCategoryColor();
+    final storedCategory =
+        (transaction.type == TransactionType.income ||
+                transaction.type == TransactionType.expense) &&
+            transaction.categoryName.isNotEmpty
+        ? state.getCategoryByName(transaction.categoryName)
+        : null;
+    final rawCategory = storedCategory == null
+        ? null
+        : state.repository?.row('categories', storedCategory.id);
+    final isBalanceAdjustment =
+        '${transaction.categoryName} ${transaction.note ?? ''}'
+            .toLowerCase()
+            .contains('penyesuaian saldo');
+    final color = storedCategory != null && rawCategory?['color'] != null
+        ? storedCategory.color
+        : _getCategoryColor();
+    final iconData =
+        !isBalanceAdjustment &&
+            storedCategory != null &&
+            rawCategory?['icon'] != null
+        ? storedCategory.icon
+        : _getCategoryIcon();
     final isHidden = state.isBalanceHidden;
 
     final hasNote =
@@ -581,7 +608,7 @@ class TransactionItemTile extends StatelessWidget {
                   ),
                 ),
                 child: Icon(
-                  _getCategoryIcon(),
+                  iconData,
                   color: color,
                   size: isCompact ? 19 : 22,
                 ),

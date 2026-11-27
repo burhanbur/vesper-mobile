@@ -134,6 +134,12 @@ void main() {
       await tester.tap(find.text('Siapkan Excel'));
       await tester.pumpAndSettle();
       expect(find.textContaining('1 baris'), findsOneWidget);
+      state.toggleHideBalance();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Uang masuk: ••••••'), findsOneWidget);
+      expect(find.textContaining('1.000'), findsNothing);
+      state.toggleHideBalance();
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Simpan Excel'));
       await tester.tap(find.text('Simpan Excel'));
       await tester.pumpAndSettle();
@@ -144,6 +150,9 @@ void main() {
         contains('Catatan awal'),
       );
       expect(find.textContaining('CSV'), findsNothing);
+
+      await tester.tap(find.text('Rekonsiliasi'));
+      await tester.pumpAndSettle();
 
       final cash = find.byWidgetPredicate(
         (w) =>
@@ -170,6 +179,12 @@ void main() {
       expect(repo.outbox, isEmpty);
       await tester.enterText(find.byType(TextField).first, '1200');
       await tester.tap(find.text('Bandingkan saldo'));
+      await tester.pumpAndSettle();
+      state.toggleHideBalance();
+      await tester.pumpAndSettle();
+      expect(find.text('••••••'), findsWidgets);
+      expect(find.textContaining('Rp 1.000'), findsNothing);
+      state.toggleHideBalance();
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Tinjau penyesuaian'));
       await tester.tap(find.text('Tinjau penyesuaian'));
@@ -204,6 +219,7 @@ void main() {
       );
       expect(find.textContaining('Statement ref 42'), findsNothing);
       expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

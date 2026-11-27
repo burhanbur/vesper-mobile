@@ -35,6 +35,7 @@ void main() {
         print('DIAGNOSTIC: ${d.name} -> ${d.toDescription()}');
       }
     }
+    expect(find.text('Ubah'), findsNothing);
     expect(exception, isNull);
   });
 }

@@ -93,4 +93,12 @@ class DevicesRepository {
       throw const ApiFailure('Respons perangkat tidak valid.');
     }
   }
+
+  Future<int> revoke(String deviceId) async {
+    final data = await client.request('DELETE', '/devices/$deviceId');
+    if (data is Map && data['revoked_sessions'] is int) {
+      return data['revoked_sessions'] as int;
+    }
+    return 0;
+  }
 }

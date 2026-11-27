@@ -215,4 +215,107 @@ void main() {
       expect(client.session, isNull);
     },
   );
+
+  test(
+    'ApiClient surfaces safe backend validation/conflict messages and hides internal errors',
+    () async {
+      final client = _client((options, handler) {
+        final (status, body) = switch (options.path) {
+          '/conflict' => (
+            409,
+            {'success': false, 'message': 'Email sudah terdaftar.'},
+          ),
+          '/zod' => (
+            422,
+            {
+              'success': false,
+              'message': 'Validasi gagal. Silakan periksa kembali input Anda.',
+              'errors': {
+                'body': {
+                  'formErrors': <String>[],
+                  'fieldErrors': {
+                    'new_password': ['Kata sandi minimal 8 karakter.'],
+                  },
+                },
+              },
+            },
+          ),
+          '/unsafe' => (
+            400,
+            {
+              'success': false,
+              'message': 'PrismaClientKnownRequestError: SQL syntax error',
+            },
+          ),
+          '/missing' => (
+            404,
+            {'success': false, 'message': 'Perangkat tidak ditemukan.'},
+          ),
+          _ => (500, {'success': false, 'message': 'Internal debug trace'}),
+        };
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.badResponse,
+            response: Response<dynamic>(
+              requestOptions: options,
+              statusCode: status,
+              data: body,
+            ),
+          ),
+        );
+      });
+
+      await expectLater(
+        client.request('POST', '/conflict', authenticated: false),
+        throwsA(
+          isA<ApiFailure>().having(
+            (e) => e.message,
+            'message',
+            'Email sudah terdaftar.',
+          ),
+        ),
+      );
+      await expectLater(
+        client.request('POST', '/zod', authenticated: false),
+        throwsA(
+          isA<ApiFailure>().having(
+            (e) => e.message,
+            'message',
+            'Kata sandi minimal 8 karakter.',
+          ),
+        ),
+      );
+      await expectLater(
+        client.request('POST', '/unsafe', authenticated: false),
+        throwsA(
+          isA<ApiFailure>().having(
+            (e) => e.message,
+            'message',
+            'Permintaan tidak valid. Periksa data yang Anda masukkan.',
+          ),
+        ),
+      );
+      await expectLater(
+        client.request('DELETE', '/missing', authenticated: false),
+        throwsA(
+          isA<ApiFailure>().having(
+            (e) => e.message,
+            'message',
+            'Perangkat tidak ditemukan.',
+          ),
+        ),
+      );
+      await expectLater(
+        client.request('GET', '/boom', authenticated: false),
+        throwsA(
+          isA<ApiFailure>().having(
+            (e) => e.message,
+            'message',
+            'Backend tidak dapat dihubungi. Silakan coba lagi.',
+          ),
+        ),
+      );
+    },
+  );
 }

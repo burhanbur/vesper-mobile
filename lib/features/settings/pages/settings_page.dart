@@ -6,7 +6,7 @@ import '../../../app/widgets/shell_management_scope.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../accounts/pages/accounts_page.dart';
 import '../../categories/pages/categories_page.dart';
-import '../../household/pages/household_page.dart';
+import '../../household/widgets/household_unavailable_view.dart';
 import '../../investments/pages/portfolio_page.dart';
 import '../../obligations/pages/obligations_page.dart';
 import '../../notifications/widgets/notifications_sheet.dart';
@@ -68,7 +68,7 @@ class SettingsPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Antrean Sinkronisasi (Sync Queue)',
+                  'Antrean Sinkronisasi',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -83,7 +83,7 @@ class SettingsPage extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Menampilkan mutasi lokal yang disimpan di SQLite dan menunggu sinkronisasi ke server Express & PostgreSQL saat online.',
+              'Daftar perubahan yang tersimpan di perangkat ini dan menunggu disinkronkan saat online.',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -703,7 +703,8 @@ class SettingsPage extends StatelessWidget {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (context) => const HouseholdPage(),
+                            builder: (context) =>
+                                const HouseholdUnavailableView(),
                           ),
                         );
                       },
@@ -745,7 +746,7 @@ class SettingsPage extends StatelessWidget {
                         ),
                       ),
                       subtitle: const Text(
-                        'Simulasikan transaksi tanpa koneksi (data tersimpan di database lokal SQLite Drift).',
+                        'Catat transaksi tanpa koneksi internet; data tersimpan aman di perangkat dan disinkronkan saat online.',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,

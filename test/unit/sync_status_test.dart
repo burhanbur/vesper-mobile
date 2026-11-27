@@ -216,4 +216,132 @@ void main() {
       );
     },
   );
+
+  test(
+    'discardOutboxEntry restores before snapshot & reverts balance for rejected UPDATE and refuses investment commands',
+    () {
+      final source = insightRepository();
+      addTearDown(source.store.close);
+      final state = AppState(repository: source)..currentUserId = 'user';
+      addTearDown(state.dispose);
+
+      source.atomic(() {
+        source.entities['accounts'] = {
+          'acc-1': {
+            'id': 'acc-1',
+            'user_id': 'user',
+            'type': 'CASH',
+            'name': 'Kas',
+            'balance': '80000.00',
+            'currency': 'IDR',
+            'version': '1',
+            'is_active': true,
+          },
+        };
+        source.entities['transactions'] = {
+          'tx-1': {
+            'id': 'tx-1',
+            'account_id': 'acc-1',
+            'type': 'EXPENSE',
+            'amount': '40000.00',
+            'version': '1',
+          },
+        };
+        source.outbox.addAll([
+          {
+            'id': 'outbox-upd',
+            'entity_type': 'transactions',
+            'entity_id': 'tx-1',
+            'operation': 'UPDATE',
+            'status': 'rejected',
+            'balance_delta': {'acc-1': -20000},
+            'before': {
+              'id': 'tx-1',
+              'account_id': 'acc-1',
+              'type': 'EXPENSE',
+              'amount': '20000.00',
+              'version': '1',
+            },
+          },
+          {
+            'id': 'outbox-inv',
+            'entity_type': 'investment_transactions',
+            'entity_id': 'trade-1',
+            'operation': 'CREATE',
+            'status': 'rejected',
+            'payload': {'type': 'BUY'},
+          },
+        ]);
+      });
+
+      final entries = state.syncStatus.entries;
+      final txEntry = entries.firstWhere((e) => e.id == 'outbox-upd');
+      final invEntry = entries.firstWhere((e) => e.id == 'outbox-inv');
+      expect(txEntry.canDiscard, isTrue);
+      expect(invEntry.canDiscard, isFalse);
+
+      state.discardOutboxEntry(txEntry);
+      expect(source.row('transactions', 'tx-1')!['amount'], '20000.00');
+      expect(source.row('accounts', 'acc-1')!['balance'], '100000.00');
+
+      // Investment command must NOT be discarded by discardOutboxEntry
+      state.discardOutboxEntry(invEntry);
+      expect(source.outbox, hasLength(1));
+      expect(source.outbox.single['id'], 'outbox-inv');
+    },
+  );
+
+  test(
+    'resolveConflictUseServer reverts optimistic balance_delta on conflicted transaction update',
+    () {
+      final source = insightRepository();
+      addTearDown(source.store.close);
+      final state = AppState(repository: source)..currentUserId = 'user';
+      addTearDown(state.dispose);
+
+      source.atomic(() {
+        source.entities['accounts'] = {
+          'acc-1': {
+            'id': 'acc-1',
+            'user_id': 'user',
+            'type': 'CASH',
+            'name': 'Kas',
+            'balance': '70000.00',
+            'currency': 'IDR',
+            'version': '1',
+            'is_active': true,
+          },
+        };
+        source.entities['transactions'] = {
+          'tx-1': {
+            'id': 'tx-1',
+            'account_id': 'acc-1',
+            'type': 'EXPENSE',
+            'amount': '50000.00',
+            'version': '1',
+          },
+        };
+        source.outbox.add({
+          'id': 'conflict-1',
+          'entity_type': 'transactions',
+          'entity_id': 'tx-1',
+          'operation': 'UPDATE',
+          'status': 'conflict',
+          'balance_delta': {'acc-1': -30000},
+          'server_data': {
+            'id': 'tx-1',
+            'account_id': 'acc-1',
+            'type': 'EXPENSE',
+            'amount': '20000.00',
+            'version': '2',
+          },
+        });
+      });
+
+      source.resolve('conflict-1', useMine: false);
+      expect(source.outbox, isEmpty);
+      expect(source.row('transactions', 'tx-1')!['amount'], '20000.00');
+      expect(source.row('accounts', 'acc-1')!['balance'], '100000.00');
+    },
+  );
 }

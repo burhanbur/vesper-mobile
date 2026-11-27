@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
+import '../../../app/theme/app_colors.dart';
 import 'group_list_status.dart';
 
 class GroupCategoryMappingSheet extends StatefulWidget {
@@ -82,78 +83,163 @@ class _GroupCategoryMappingSheetState extends State<GroupCategoryMappingSheet> {
         widget.groupId == state.activeHouseholdId &&
         state.groupListFresh(widget.groupId, mappings: true) &&
         !state.groupListLoading(widget.groupId, mappings: true);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        24,
-        24,
-        24 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Pemetaan: ${widget.categoryName}'),
-            const Text(
-              'Membutuhkan koneksi. Hanya transaksi akun yang dibagikan yang masuk laporan grup. Riwayat pribadi tidak diubah.',
-            ),
-            GroupListStatus(
-              state: state,
-              groupId: widget.groupId,
-              mappings: true,
-            ),
-            for (final row in rows.where(
-              (row) => row['group_category_id'] == widget.categoryId,
-            ))
-              Text(
-                'Dipetakan oleh Anda: ${categories.where((category) => category['id'] == row['user_category_id']).firstOrNull?['name'] ?? row['user_category_id']}',
-              ),
-            if (state.groupListFresh(widget.groupId, mappings: true) &&
-                !rows.any(
-                  (row) => row['group_category_id'] == widget.categoryId,
-                ))
-              const Text('Belum ada pemetaan Anda ke kategori grup ini.'),
-            if (_selected != null)
-              Text(
-                mapped
-                    ? 'Pasangan terpilih tercatat dipetakan oleh Anda.'
-                    : 'Pasangan terpilih tidak tercatat pada daftar ini.',
-              ),
-            if (categories.isEmpty)
-              const Text('Tidak ada kategori pribadi dengan tipe yang sama.')
-            else
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Kategori pribadi',
+    return Material(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                items: categories
-                    .where((row) => row['id'] != null && row['name'] != null)
-                    .map(
-                      (row) => DropdownMenuItem<String>(
-                        value: row['id'].toString(),
-                        child: Text(row['name'].toString()),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _selected = value),
               ),
-            if (_error != null) Text(_error!),
-            FilledButton(
-              onPressed: available && valid && !mapped
-                  ? () => _submit(false)
-                  : null,
-              child: Text(_busy ? 'Memproses…' : 'Hubungkan kategori'),
-            ),
-            TextButton(
-              onPressed: available && valid && mapped
-                  ? () => _submit(true)
-                  : null,
-              child: const Text('Lepas pasangan kategori terpilih'),
-            ),
-          ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Pemetaan: ${widget.categoryName}',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Membutuhkan koneksi. Hanya transaksi akun yang dibagikan yang masuk laporan grup.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 10),
+              GroupListStatus(
+                state: state,
+                groupId: widget.groupId,
+                mappings: true,
+              ),
+              for (final row in rows.where(
+                (row) => row['group_category_id'] == widget.categoryId,
+              ))
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Dipetakan oleh Anda: ${categories.where((category) => category['id'] == row['user_category_id']).firstOrNull?['name'] ?? row['user_category_id']}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.income,
+                    ),
+                  ),
+                ),
+              if (state.groupListFresh(widget.groupId, mappings: true) &&
+                  !rows.any(
+                    (row) => row['group_category_id'] == widget.categoryId,
+                  ))
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Belum ada pemetaan Anda ke kategori grup ini.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ),
+              if (_selected != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    mapped
+                        ? 'Pasangan terpilih tercatat dipetakan oleh Anda.'
+                        : 'Pasangan terpilih tidak tercatat pada daftar ini.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 14),
+              if (categories.isEmpty)
+                const Text(
+                  'Tidak ada kategori pribadi dengan tipe yang sama.',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.textMuted),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'Kategori pribadi',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: categories
+                      .where((row) => row['id'] != null && row['name'] != null)
+                      .map(
+                        (row) => DropdownMenuItem<String>(
+                          value: row['id'].toString(),
+                          child: Text(row['name'].toString()),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _busy
+                      ? null
+                      : (value) => setState(() => _selected = value),
+                ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.expense,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: available && valid && !mapped
+                    ? () => _submit(false)
+                    : null,
+                child: Text(_busy ? 'Memproses…' : 'Hubungkan kategori'),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+                onPressed: available && valid && mapped
+                    ? () => _submit(true)
+                    : null,
+                child: const Text('Lepas pasangan kategori terpilih'),
+              ),
+            ],
+          ),
         ),
       ),
     );

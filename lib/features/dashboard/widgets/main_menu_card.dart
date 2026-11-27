@@ -88,60 +88,14 @@ class MainMenuCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Header: Menu Utama & Action (outside card)
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 16,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Text(
-                  'Menu Utama',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                InkWell(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Semua 8 fitur utama aktif dan siap diakses.',
-                        ),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.settings_outlined,
-                          size: 13,
-                          color: AppColors.accentDark,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Ubah',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accentDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          // Section Header: Menu Utama
+          const Text(
+            'Menu Utama',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.2,
             ),
           ),
           const SizedBox(height: 10),

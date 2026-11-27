@@ -14,6 +14,14 @@ class SyncStatusEntry {
     this.isRejected = false,
   });
 
+  bool get canDiscard =>
+      id.isNotEmpty &&
+      entityType != 'investment_transactions' &&
+      entityType != 'obligation_commands' &&
+      entityType != 'obligation_cancellations' &&
+      entityType != 'bill_commands' &&
+      entityType != 'bill_cancellations';
+
   factory SyncStatusEntry.fromRow(Map row) {
     final status = '${row['status']}';
     final waiting =

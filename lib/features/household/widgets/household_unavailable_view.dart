@@ -1501,7 +1501,6 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                               MaterialPageRoute(
                                 builder: (_) => AccountDetailPage(
                                   accountId: acc.id,
-                                  onSettings: () {},
                                 ),
                               ),
                             ),
@@ -2273,7 +2272,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                         ),
                       ),
                       title: Text(
-                        '${member['name'] ?? ''} • ${member['role'] ?? ''}',
+                        '${member['name'] ?? ''}',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -2300,7 +2299,7 @@ class _HouseholdUnavailableViewState extends State<HouseholdUnavailableView>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
-                                '👑 OWNER',
+                                '👑 Pemilik',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,

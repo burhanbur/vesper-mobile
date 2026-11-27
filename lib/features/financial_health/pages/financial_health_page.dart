@@ -44,6 +44,7 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => Material(
@@ -136,7 +137,7 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Disimpan hanya pada perangkat dan pengguna ini. Tidak mengubah transaksi atau pengaturan Dana Darurat.',
+                                    'Disimpan hanya di perangkat ini. Tidak mengubah transaksi atau pengaturan Dana Darurat.',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.textMuted,
@@ -190,11 +191,11 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Akun untuk arus kas dan likuiditas; akun investasi, induk, non-IDR, milik orang lain dan akun pemetaan utang tidak disertakan.',
+                            'Rekening kas IDR yang dihitung:',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              height: 1.35,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -303,6 +304,7 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -310,44 +312,53 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
       builder: (ctx) {
         final current = AppStateScope.of(ctx);
         return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(ctx).height * .85,
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Tutup',
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (current.netWorthSessionKey == session &&
-                      current.isBalanceHidden == hidden)
-                    ...children
-                  else
-                    detailText(
-                      'Tampilan telah berubah. Buka kembali rincian untuk melanjutkan.',
                     ),
-                ],
-              ),
+                    IconButton(
+                      tooltip: 'Tutup',
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                const Divider(height: 16, color: AppColors.border),
+                if (current.netWorthSessionKey == session &&
+                    current.isBalanceHidden == hidden)
+                  ...children
+                else
+                  detailText(
+                    'Tampilan telah berubah. Buka kembali rincian untuk melanjutkan.',
+                  ),
+              ],
             ),
           ),
         );
@@ -355,13 +366,94 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     );
   }
 
+  Widget _detailMetricsCard(List<(String, String)> rows) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 14, color: AppColors.borderSubtle),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    rows[i].$1,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    rows[i].$2,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _detailFormulaBox(String formula) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.functions_rounded,
+            size: 16,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              formula,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget detailText(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.only(bottom: 10),
     child: Text(
       text,
       style: const TextStyle(
-        fontSize: 13,
-        height: 1.5,
+        fontSize: 12.5,
+        height: 1.45,
         color: AppColors.textSecondary,
       ),
     ),
@@ -507,6 +599,13 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
     return 'PERLU PERHATIAN';
   }
 
+  Color _getScoreColor(int score) {
+    if (score >= 80) return const Color(0xFF65A30D);
+    if (score >= 65) return AppColors.income;
+    if (score >= 50) return AppColors.warning;
+    return AppColors.expense;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context), repo = repository;
@@ -555,6 +654,17 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: state.isBalanceHidden
+                ? 'Tampilkan saldo'
+                : 'Sembunyikan saldo',
+            onPressed: () => setState(() => state.toggleHideBalance()),
+            icon: Icon(
+              state.isBalanceHidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+          ),
           IconButton(
             tooltip: 'Sinkronkan indikator',
             onPressed: state.loading
@@ -609,117 +719,123 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
             ),
             const SizedBox(height: 6),
 
-            // 1. Circular Score Gauge at Top matching Screenshot 2
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 16),
-                child: SizedBox(
-                  width: 160,
-                  height: 160,
-                  child: CustomPaint(
-                    painter: _ScoreGaugePainter(
-                      progress: (_calculateHealthScore(r) / 100.0).clamp(
-                        0.0,
-                        1.0,
-                      ),
-                    ),
-                    child: Center(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              state.isBalanceHidden
-                                  ? '•••'
-                                  : '${_calculateHealthScore(r)}',
-                              style: const TextStyle(
-                                fontSize: 44,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1.5,
-                                color: Color(0xFF65A30D),
-                                height: 1.0,
+            // 1. Circular Score Gauge at Top
+            Builder(
+              builder: (_) {
+                final score = _calculateHealthScore(r);
+                final scoreColor = _getScoreColor(score);
+                return Column(
+                  children: [
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 14),
+                        child: SizedBox(
+                          width: 156,
+                          height: 156,
+                          child: CustomPaint(
+                            painter: _ScoreGaugePainter(
+                              progress: (score / 100.0).clamp(0.0, 1.0),
+                              color: scoreColor,
+                            ),
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      state.isBalanceHidden ? '•••' : '$score',
+                                      style: TextStyle(
+                                        fontSize: 44,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -1.5,
+                                        color: scoreColor,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      '/ 100',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              '/ 100',
+                          ),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Column(
+                        children: [
+                          const Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            children: [
+                              Icon(
+                                Icons.monitor_heart_rounded,
+                                color: Color(0xFFEF4444),
+                                size: 22,
+                              ),
+                              Text(
+                                'Skor Kesehatan Finansial',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'Ringkasan tabungan, likuiditas kas, dana darurat, dan beban utang.',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textMuted,
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                height: 1.4,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scoreColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: scoreColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              _getStatusLabel(score),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: scoreColor,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-              ),
-            ),
-
-            // 2. Heart Icon + Title & Subtitle + Status Badge
-            Center(
-              child: Column(
-                children: [
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    children: [
-                      const Icon(
-                        Icons.monitor_heart_rounded,
-                        color: Color(0xFFEF4444),
-                        size: 22,
-                      ),
-                      Text(
-                        'Skor Kesehatan Finansial',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Skor hitungan berdasarkan tabungan, disiplin budget, dana darurat, dan kesehatan utang.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.45,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                    ),
-                    child: Text(
-                      _getStatusLabel(_calculateHealthScore(r)),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF16A34A),
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 20),
 
@@ -730,26 +846,26 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
               valueText: ratio(r.savingPercent, '%'),
               progressValue: (r.savingPercent?.toDouble() ?? 0) / 10000.0,
               barColor: const Color(0xFF84CC16),
-              subtitle: 'Pemasukan yang tersisa',
+              subtitle: 'Porsi pemasukan yang tersisa',
               onTap: () => showDetails('Rasio tabungan', [
                 Text(
                   ratio(r.savingPercent, '%'),
                   style: const TextStyle(
                     fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                detailText('(Pemasukan − pengeluaran) ÷ pemasukan × 100%.'),
-                detailText(
-                  'Pemasukan: ${money(r.income)}\nPengeluaran: ${money(r.expenses)}',
+                const SizedBox(height: 14),
+                _detailMetricsCard([
+                  ('Pemasukan', money(r.income)),
+                  ('Pengeluaran', money(r.expenses)),
+                ]),
+                _detailFormulaBox(
+                  '(Pemasukan − pengeluaran) ÷ pemasukan × 100%',
                 ),
                 detailText(
-                  'Transfer, pokok utang dan jual/beli investasi dikecualikan. Bunga dan biaya termasuk pengeluaran. Rasio ini bukan pertumbuhan aset.',
-                ),
-                detailText(
-                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                  'Transfer, pokok utang, dan jual/beli investasi tidak masuk hitungan. Bunga dan biaya termasuk pengeluaran.',
                 ),
               ]),
             ),
@@ -757,30 +873,29 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
 
             _buildPillarCard(
               key: const ValueKey('health_liquidity'),
-              title: 'Disiplin Anggaran',
+              title: 'Likuiditas Kas',
               valueText: ratio(r.liquidityMonths, ' bulan'),
               progressValue: (r.liquidityMonths?.toDouble() ?? 0) / 300.0,
               barColor: const Color(0xFF8B5CF6),
-              subtitle: 'Likuiditas kas bebas untuk kebutuhan rutin',
+              subtitle: 'Cakupan kas bebas untuk kebutuhan rutin',
               onTap: () => showDetails('Likuiditas kas bebas', [
                 Text(
                   ratio(r.liquidityMonths, ' bulan'),
                   style: const TextStyle(
                     fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                detailText(
-                  'Kas bebas ÷ rata-rata bulanan (pengeluaran + pokok utang dibayar).',
+                const SizedBox(height: 14),
+                _detailMetricsCard([
+                  ('Kas bebas saat ini', money(r.freeCash)),
+                ]),
+                _detailFormulaBox(
+                  'Kas bebas ÷ rata-rata bulanan (pengeluaran + pokok utang dibayar)',
                 ),
-                detailText('Kas bebas saat ini: ${money(r.freeCash)}'),
                 detailText(
-                  'Saldo positif dikurangi alokasi tujuan sekali per akun. Rata-rata mencakup bulan tanpa catatan. Ini bukan prediksi saldo bank.',
-                ),
-                detailText(
-                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                  'Saldo positif dikurangi alokasi tujuan sekali per akun.',
                 ),
               ]),
             ),
@@ -802,26 +917,27 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                   ratio(r.emergencyMonths, ' bulan'),
                   style: const TextStyle(
                     fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                detailText('Dana likuid ÷ baseline pengeluaran wajib bulanan.'),
-                detailText(
-                  'Dana likuid: ${money(r.emergency?.liquid)}\nKebutuhan bulanan: ${money(r.emergency?.baseline)}',
+                const SizedBox(height: 14),
+                _detailMetricsCard([
+                  ('Dana likuid', money(r.emergency?.liquid)),
+                  ('Kebutuhan bulanan', money(r.emergency?.baseline)),
+                  if (r.emergency case final e?)
+                    (
+                      'Sumber kebutuhan',
+                      repo.emergency.plan?['baseline_mode'] == 'MANUAL'
+                          ? 'Manual'
+                          : '${DateFormatter.formatShort(state.timeZone.at(e.historyStart))} – ${DateFormatter.formatShort(state.timeZone.at(e.historyEnd.subtract(const Duration(microseconds: 1))))}',
+                    ),
+                ]),
+                _detailFormulaBox(
+                  'Dana likuid ÷ kebutuhan pengeluaran wajib bulanan',
                 ),
                 detailText(
-                  'Mengikuti akun, kategori dan tujuan terpilih di Dana Darurat, terpisah dari asumsi arus kas halaman ini.',
-                ),
-                if (r.emergency case final e?)
-                  detailText(
-                    repo.emergency.plan?['baseline_mode'] == 'MANUAL'
-                        ? 'Kebutuhan bulanan diisi manual.'
-                        : 'Periode baseline: ${DateFormatter.formatShort(state.timeZone.at(e.historyStart))} – ${DateFormatter.formatShort(state.timeZone.at(e.historyEnd.subtract(const Duration(microseconds: 1))))}.',
-                  ),
-                detailText(
-                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                  'Mengikuti pengaturan akun dan kategori di halaman Dana Darurat.',
                 ),
               ]),
             ),
@@ -838,28 +954,26 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
                       1.0,
                     ),
               barColor: const Color(0xFFF43F5E),
-              subtitle: 'Pemasukan untuk membayar utang',
+              subtitle: 'Porsi pemasukan untuk cicilan utang',
               onTap: () => showDetails('Beban pembayaran utang', [
                 Text(
                   ratio(r.debtPercent, '%'),
                   style: const TextStyle(
                     fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 16),
-                detailText(
-                  '(Pokok + bunga + biaya pelunasan aktual) ÷ pemasukan × 100%.',
+                const SizedBox(height: 14),
+                _detailMetricsCard([
+                  ('Pembayaran aktual', money(r.debtService)),
+                  ('Pokok dibayar', money(r.debtPrincipal)),
+                ]),
+                _detailFormulaBox(
+                  '(Pokok + bunga + biaya pelunasan aktual) ÷ pemasukan × 100%',
                 ),
                 detailText(
-                  'Pembayaran aktual: ${money(r.debtService)}\nPokok dibayar: ${money(r.debtPrincipal)}',
-                ),
-                detailText(
-                  'Hanya utang yang dibayar dari akun terpilih. Piutang dan pembayaran yang dibalik dikecualikan. Nilai dapat melebihi 100%.',
-                ),
-                detailText(
-                  'Nilai ditampilkan dua desimal tanpa pembulatan naik. Nilai tidak tersedia berarti belum dapat dihitung, bukan nol.',
+                  'Hanya menghitung utang dari rekening terpilih; piutang dan koreksi dikecualikan.',
                 ),
               ]),
             ),
@@ -1065,8 +1179,9 @@ class _FinancialHealthPageState extends State<FinancialHealthPage> {
 
 class _ScoreGaugePainter extends CustomPainter {
   final double progress;
+  final Color color;
 
-  _ScoreGaugePainter({required this.progress});
+  _ScoreGaugePainter({required this.progress, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1076,7 +1191,7 @@ class _ScoreGaugePainter extends CustomPainter {
 
     // Background circle track
     final bgPaint = Paint()
-      ..color = const Color(0xFFE9F8DF)
+      ..color = color.withValues(alpha: 0.14)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
 
@@ -1085,7 +1200,7 @@ class _ScoreGaugePainter extends CustomPainter {
     // Foreground progress arc
     if (progress > 0) {
       final fgPaint = Paint()
-        ..color = const Color(0xFF84CC16)
+        ..color = color
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
@@ -1106,5 +1221,5 @@ class _ScoreGaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ScoreGaugePainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }

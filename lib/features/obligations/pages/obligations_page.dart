@@ -9,6 +9,12 @@ import '../data/obligations_controller.dart';
 import '../data/obligations_repository.dart';
 import 'obligation_amount_input.dart';
 
+class _InstallmentDraft {
+  String date;
+  final TextEditingController amount;
+  _InstallmentDraft(this.date, this.amount);
+}
+
 class ObligationsPage extends StatefulWidget {
   const ObligationsPage({super.key, this.initialLinkedAccountId});
 
@@ -22,7 +28,54 @@ class _ObligationsPageState extends State<ObligationsPage> {
   ObligationsController? controller;
   String? error;
   bool _initialFormOpened = false;
+  int _statusTab = 0; // 0 = Aktif, 1 = Lunas
   String _filter = 'ALL';
+
+  static bool _isSettled(Map<String, dynamic> debt) =>
+      obligationMinor('${debt['outstanding']}') <= BigInt.zero;
+
+  static String _obligationActionLabel(dynamic action) {
+    switch (action) {
+      case 'OPEN':
+        return 'Catat pinjaman';
+      case 'REPAY':
+        return 'Pembayaran pinjaman';
+      case 'REVERSE':
+        return 'Koreksi pembayaran';
+      case 'DELETE':
+        return 'Arsipkan / batalkan';
+      default:
+        return '$action';
+    }
+  }
+
+  static String _outboxStatusLabel(dynamic status) {
+    switch (status) {
+      case 'pending':
+        return 'Menunggu sinkron';
+      case 'failed':
+        return 'Perlu ditinjau';
+      case 'syncing':
+        return 'Menyinkronkan';
+      default:
+        return '$status';
+    }
+  }
+
+  static String _eventOperationLabel(dynamic operation) {
+    switch (operation) {
+      case 'REPAY':
+        return 'PEMBAYARAN';
+      case 'OPEN':
+        return 'PEMBUKAAN';
+      case 'REVERSE':
+        return 'KOREKSI';
+      case 'DELETE':
+        return 'ARSIP';
+      default:
+        return '$operation';
+    }
+  }
 
   Widget _filterChip({
     required String label,
@@ -101,6 +154,18 @@ class _ObligationsPageState extends State<ObligationsPage> {
     super.dispose();
   }
 
+  static String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static DateTime _addMonthsClamped(DateTime anchor, int monthOffset) {
+    final zeroMonth = (anchor.month - 1) + monthOffset;
+    final year = anchor.year + (zeroMonth ~/ 12);
+    final month = (zeroMonth % 12) + 1;
+    final lastDay = DateTime.utc(year, month + 1, 0).day;
+    final day = anchor.day > lastDay ? lastDay : anchor.day;
+    return DateTime.utc(year, month, day);
+  }
+
   Future<void> form({
     Map<String, dynamic>? debt,
     String? linkedAccountId,
@@ -126,6 +191,15 @@ class _ObligationsPageState extends State<ObligationsPage> {
     final interest = TextEditingController(text: '0');
     final fee = TextEditingController(text: '0');
     final due = TextEditingController();
+    final tenor = TextEditingController(text: '3');
+    final installments = <_InstallmentDraft>[];
+    final extraControllers = <TextEditingController>[];
+    final nowLocal = DateTime.now();
+    var firstInstallmentDate = _addMonthsClamped(
+      DateTime.utc(nowLocal.year, nowLocal.month, nowLocal.day),
+      1,
+    );
+    bool showInstallments = false;
     String kind = linkedAccount != null && !balance.isNegative
         ? 'RECEIVABLE'
         : 'PAYABLE';
@@ -143,6 +217,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, update) {
@@ -257,11 +332,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                     top: 14,
                     bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
                   ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(ctx).size.height * 0.82,
-                    ),
-                    child: Column(
+                  child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -423,6 +494,511 @@ class _ObligationsPageState extends State<ObligationsPage> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Material(
+                        color: AppColors.background,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: AppColors.border),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            InkWell(
+                              onTap: () => update(
+                                () => showInstallments = !showInstallments,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_month_rounded,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'Jadwal cicilan (opsional)',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    if (installments.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        margin: const EdgeInsets.only(right: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accentLight,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${installments.length}x',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    Icon(
+                                      showInstallments
+                                          ? Icons.expand_less_rounded
+                                          : Icons.expand_more_rounded,
+                                      size: 20,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (showInstallments)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  12,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Divider(height: 1),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 84,
+                                          child: TextField(
+                                            controller: tenor,
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                            ],
+                                            decoration: InputDecoration(
+                                              labelText: 'Tenor',
+                                              suffixText: 'bln',
+                                              isDense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 10,
+                                                  ),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 10,
+                                                  ),
+                                              side: const BorderSide(
+                                                color: AppColors.border,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            onPressed: () async {
+                                              final picked =
+                                                  await showDatePicker(
+                                                    context: ctx,
+                                                    initialDate:
+                                                        firstInstallmentDate,
+                                                    firstDate: DateTime(2000),
+                                                    lastDate: DateTime(2100),
+                                                    helpText:
+                                                        'MULAI CICILAN PERTAMA',
+                                                  );
+                                              if (picked != null) {
+                                                update(() {
+                                                  firstInstallmentDate =
+                                                      DateTime.utc(
+                                                        picked.year,
+                                                        picked.month,
+                                                        picked.day,
+                                                      );
+                                                });
+                                              }
+                                            },
+                                            icon: const Icon(
+                                              Icons.event_rounded,
+                                              size: 15,
+                                              color: AppColors.primary,
+                                            ),
+                                            label: Text(
+                                              DateFormatter.calendarDate(
+                                                _isoDate(firstInstallmentDate),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        FilledButton(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: AppColors.primary,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          onPressed: () {
+                                            final count =
+                                                int.tryParse(
+                                                  tenor.text.trim(),
+                                                ) ??
+                                                0;
+                                            final dec =
+                                                ObligationAmountInput.toDecimal(
+                                                  principal.text,
+                                                );
+                                            final majorStr = dec
+                                                .split('.')
+                                                .first;
+                                            final totalRupiah =
+                                                BigInt.tryParse(majorStr) ??
+                                                BigInt.zero;
+                                            if (count < 1 ||
+                                                count > 360 ||
+                                                totalRupiah <= BigInt.zero) {
+                                              update(() {
+                                                saveError =
+                                                    'Isi jumlah pinjaman dan tenor (1–360 bulan) terlebih dahulu.';
+                                              });
+                                              return;
+                                            }
+                                            if (totalRupiah <
+                                                BigInt.from(count)) {
+                                              update(() {
+                                                saveError =
+                                                    'Jumlah pinjaman terlalu kecil untuk dibagi $count cicilan.';
+                                              });
+                                              return;
+                                            }
+                                            update(() {
+                                              for (final old in installments) {
+                                                extraControllers.add(
+                                                  old.amount,
+                                                );
+                                              }
+                                              installments.clear();
+                                              final countBig = BigInt.from(
+                                                count,
+                                              );
+                                              final base =
+                                                  totalRupiah ~/ countBig;
+                                              final remainder =
+                                                  totalRupiah % countBig;
+                                              for (var i = 0; i < count; i++) {
+                                                final part = i == count - 1
+                                                    ? base + remainder
+                                                    : base;
+                                                final date = _isoDate(
+                                                  _addMonthsClamped(
+                                                    firstInstallmentDate,
+                                                    i,
+                                                  ),
+                                                );
+                                                final ctrl =
+                                                    TextEditingController(
+                                                      text:
+                                                          ObligationAmountInput
+                                                              .fromDecimal(
+                                                                '$part.00',
+                                                              ),
+                                                    );
+                                                installments.add(
+                                                  _InstallmentDraft(date, ctrl),
+                                                );
+                                              }
+                                              due.text = installments.last.date;
+                                              saveError = null;
+                                            });
+                                          },
+                                          child: const Text(
+                                            'Bagi rata',
+                                            style: TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (installments.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      for (
+                                        var i = 0;
+                                        i < installments.length;
+                                        i++
+                                      )
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 6,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 24,
+                                                child: Text(
+                                                  '#${i + 1}',
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: AppColors.textMuted,
+                                                  ),
+                                                ),
+                                              ),
+                                              InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                onTap: () async {
+                                                  final current =
+                                                      DateTime.tryParse(
+                                                        installments[i].date,
+                                                      ) ??
+                                                      firstInstallmentDate;
+                                                  final picked =
+                                                      await showDatePicker(
+                                                        context: ctx,
+                                                        initialDate: current,
+                                                        firstDate: DateTime(
+                                                          2000,
+                                                        ),
+                                                        lastDate: DateTime(
+                                                          2100,
+                                                        ),
+                                                        helpText:
+                                                            'TANGGAL CICILAN #${i + 1}',
+                                                      );
+                                                  if (picked != null) {
+                                                    update(() {
+                                                      installments[i].date =
+                                                          _isoDate(picked);
+                                                      if (i ==
+                                                          installments.length -
+                                                              1) {
+                                                        due.text =
+                                                            installments[i]
+                                                                .date;
+                                                      }
+                                                    });
+                                                  }
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: AppColors.border,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    DateFormatter.calendarDate(
+                                                      installments[i].date,
+                                                    ),
+                                                    style: const TextStyle(
+                                                      fontSize: 11.5,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color:
+                                                          AppColors.textPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: TextField(
+                                                  controller:
+                                                      installments[i].amount,
+                                                  inputFormatters: const [
+                                                    ObligationAmountInput(),
+                                                  ],
+                                                  keyboardType:
+                                                      const TextInputType.numberWithOptions(
+                                                        decimal: true,
+                                                      ),
+                                                  onChanged: (_) =>
+                                                      update(() {}),
+                                                  decoration: InputDecoration(
+                                                    prefixText: 'Rp ',
+                                                    isDense: true,
+                                                    filled: true,
+                                                    fillColor: Colors.white,
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 9,
+                                                        ),
+                                                    border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              IconButton(
+                                                tooltip: 'Hapus cicilan',
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minWidth: 28,
+                                                      minHeight: 28,
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.close_rounded,
+                                                  size: 16,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                                onPressed: () => update(() {
+                                                  final removed = installments
+                                                      .removeAt(i);
+                                                  extraControllers.add(
+                                                    removed.amount,
+                                                  );
+                                                  if (installments.isNotEmpty) {
+                                                    due.text =
+                                                        installments.last.date;
+                                                  }
+                                                }),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      Builder(
+                                        builder: (_) {
+                                          var scheduled = BigInt.zero;
+                                          for (final row in installments) {
+                                            final dec =
+                                                ObligationAmountInput.toDecimal(
+                                                  row.amount.text,
+                                                );
+                                            scheduled +=
+                                                BigInt.tryParse(
+                                                  dec.split('.').first,
+                                                ) ??
+                                                BigInt.zero;
+                                          }
+                                          final target =
+                                              BigInt.tryParse(
+                                                ObligationAmountInput.toDecimal(
+                                                  principal.text,
+                                                ).split('.').first,
+                                              ) ??
+                                              BigInt.zero;
+                                          final matched =
+                                              target > BigInt.zero &&
+                                              scheduled == target;
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
+                                            child: Text(
+                                              'Total cicilan: ${CurrencyFormatter.formatMinorRupiah(scheduled * BigInt.from(100))}'
+                                              '${target > BigInt.zero ? ' / ${CurrencyFormatter.formatMinorRupiah(target * BigInt.from(100))}' : ''}',
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: matched
+                                                    ? AppColors.income
+                                                    : AppColors.warning,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                    const SizedBox(height: 6),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: TextButton.icon(
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        onPressed: () => update(() {
+                                          final nextDate = installments.isEmpty
+                                              ? firstInstallmentDate
+                                              : _addMonthsClamped(
+                                                  DateTime.tryParse(
+                                                        installments.last.date,
+                                                      ) ??
+                                                      firstInstallmentDate,
+                                                  1,
+                                                );
+                                          final iso = _isoDate(nextDate);
+                                          installments.add(
+                                            _InstallmentDraft(
+                                              iso,
+                                              TextEditingController(),
+                                            ),
+                                          );
+                                          due.text = iso;
+                                        }),
+                                        icon: const Icon(
+                                          Icons.add_rounded,
+                                          size: 16,
+                                        ),
+                                        label: const Text(
+                                          'Tambah cicilan manual',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -605,6 +1181,16 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                   'Pilih akun kas pendanaan.',
                                 );
                               }
+                              final hasSchedule =
+                                  showInstallments && installments.isNotEmpty;
+                              final installmentsText = hasSchedule
+                                  ? installments
+                                        .map(
+                                          (r) =>
+                                              '${r.date}=${ObligationAmountInput.toDecimal(r.amount.text)}',
+                                        )
+                                        .join('\n')
+                                  : '';
                               repo.open(
                                 kind: kind,
                                 counterparty: counterparty.text,
@@ -612,7 +1198,10 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                     ObligationAmountInput.toDecimal(
                                       principal.text,
                                     ),
-                                dueDate: due.text,
+                                dueDate: due.text.isEmpty && hasSchedule
+                                    ? installments.last.date
+                                    : due.text,
+                                installments: installmentsText,
                                 cashAccountId: existing ? null : cashId,
                                 linkedAccountId: mappedId,
                               );
@@ -645,6 +1234,11 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             ObligationAmountInput.toDecimal(
                               principal.text,
                             ),
+                            if (debt == null && showInstallments)
+                              for (final row in installments)
+                                ObligationAmountInput.toDecimal(
+                                  row.amount.text,
+                                ),
                             if (debt != null) ...[
                               ObligationAmountInput.toDecimal(
                                 interest.text,
@@ -680,14 +1274,22 @@ class _ObligationsPageState extends State<ObligationsPage> {
           ),
         ),
       ),
-    ),
-  );
+    );
         },
       ),
     );
     } finally {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        for (final field in [counterparty, principal, interest, fee, due]) {
+        for (final field in [
+          counterparty,
+          principal,
+          interest,
+          fee,
+          due,
+          tenor,
+          ...extraControllers,
+          ...installments.map((row) => row.amount),
+        ]) {
           field.dispose();
         }
       });
@@ -725,9 +1327,10 @@ class _ObligationsPageState extends State<ObligationsPage> {
   Widget build(BuildContext context) {
     final active = controller;
     final state = AppStateScope.of(context);
-    String money(dynamic value) => state.isBalanceHidden
+    String moneyMinor(BigInt minor) => state.isBalanceHidden
         ? '••••••'
-        : CurrencyFormatter.formatMinorRupiah(obligationMinor('$value'));
+        : CurrencyFormatter.formatMinorRupiah(minor);
+    String money(dynamic value) => moneyMinor(obligationMinor('$value'));
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -743,6 +1346,18 @@ class _ObligationsPageState extends State<ObligationsPage> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: state.isBalanceHidden
+                ? 'Tampilkan saldo'
+                : 'Sembunyikan saldo',
+            icon: Icon(
+              state.isBalanceHidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () => setState(() => state.toggleHideBalance()),
+          ),
           IconButton(
             tooltip: 'Tambah utang / piutang',
             icon: const Icon(Icons.add_rounded, color: AppColors.textPrimary),
@@ -787,7 +1402,14 @@ class _ObligationsPageState extends State<ObligationsPage> {
                 final netMinor = receivableMinor - payableMinor;
                 final isNetPositive = netMinor >= BigInt.zero;
 
-                final displayedDebts = repo.records.where((debt) {
+                final activeRecords =
+                    repo.records.where((d) => !_isSettled(d)).toList();
+                final settledRecords =
+                    repo.records.where(_isSettled).toList();
+                final tabRecords =
+                    _statusTab == 0 ? activeRecords : settledRecords;
+
+                final displayedDebts = tabRecords.where((debt) {
                   if (_filter == 'RECEIVABLE') {
                     return debt['kind'] == 'RECEIVABLE';
                   }
@@ -1006,26 +1628,73 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       ),
                     ],
 
-                    // 2. Filter Bar
+                    // 2. Status Segmented Tab Bar (Aktif vs Lunas)
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          for (final tab in [
+                            (0, 'Aktif (${activeRecords.length})'),
+                            (1, 'Lunas (${settledRecords.length})'),
+                          ])
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _statusTab = tab.$1),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _statusTab == tab.$1
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    tab.$2,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: _statusTab == tab.$1
+                                          ? Colors.white
+                                          : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 3. Kind Filter Bar
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _filterChip(
-                          label: 'Semua (${repo.records.length})',
+                          label: 'Semua (${tabRecords.length})',
                           selected: _filter == 'ALL',
                           onTap: () => setState(() => _filter = 'ALL'),
                         ),
                         _filterChip(
                           label:
-                              'Piutang (${repo.records.where((d) => d['kind'] == 'RECEIVABLE').length})',
+                              'Piutang (${tabRecords.where((d) => d['kind'] == 'RECEIVABLE').length})',
                           selected: _filter == 'RECEIVABLE',
                           onTap: () => setState(() => _filter = 'RECEIVABLE'),
                         ),
                         _filterChip(
                           label:
-                              'Utang (${repo.records.where((d) => d['kind'] == 'PAYABLE').length})',
+                              'Utang (${tabRecords.where((d) => d['kind'] == 'PAYABLE').length})',
                           selected: _filter == 'PAYABLE',
                           onTap: () => setState(() => _filter = 'PAYABLE'),
                         ),
@@ -1064,7 +1733,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${queued['payload']['action']} • ${queued['status']}',
+                                '${_obligationActionLabel(queued['payload']['action'])} • ${_outboxStatusLabel(queued['status'])}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -1073,7 +1742,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                 const Padding(
                                   padding: EdgeInsets.only(top: 4),
                                   child: Text(
-                                    'Memeriksa pembatalan atomik; saldo tetap sementara sampai hasil server lengkap.',
+                                    'Memeriksa pembatalan ke server; saldo sementara hingga sinkronisasi selesai.',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.warning,
@@ -1102,12 +1771,12 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                       ),
                                     ),
                                     child: const Text(
-                                      'Coba ulang perintah asli',
+                                      'Coba ulang',
                                     ),
                                   ),
                                   TextButton(
                                     onPressed: () => confirm(
-                                      'Server akan menghentikan perintah hanya jika belum diterapkan. Jika sudah diterapkan, hasil asli direkonsiliasi. Saldo lokal tetap sementara sampai verifikasi lengkap.',
+                                      'Perintah hanya dibatalkan jika belum diproses server. Jika sudah diproses, data akan diselaraskan saat sinkron.',
                                       () => source.retryObligationCommand(
                                         queued['id'] as String,
                                         cancel: true,
@@ -1136,7 +1805,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                         ),
                       ),
                     const SizedBox(height: 8),
-                    if (repo.records.isEmpty)
+                    if (displayedDebts.isEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           vertical: 36,
@@ -1151,26 +1820,32 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                 color: AppColors.surfaceVariant,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.handshake_outlined,
+                              child: Icon(
+                                _statusTab == 0
+                                    ? Icons.handshake_outlined
+                                    : Icons.check_circle_outline_rounded,
                                 size: 36,
                                 color: AppColors.textMuted,
                               ),
                             ),
                             const SizedBox(height: 12),
-                            const Text(
-                              'Belum ada pinjaman aktif.',
-                              style: TextStyle(
+                            Text(
+                              _statusTab == 0
+                                  ? 'Belum ada pinjaman aktif.'
+                                  : 'Belum ada pinjaman yang lunas.',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Catat kepada siapa kamu berutang atau siapa yang berutang kepadamu. Kartu kredit dikelola di menu Akun.',
+                            Text(
+                              _statusTab == 0
+                                  ? 'Catat utang atau piutang di sini. Kartu kredit dikelola di menu Akun.'
+                                  : 'Pinjaman yang sudah dilunasi akan tampil di sini.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textMuted,
                               ),
@@ -1180,6 +1855,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                       ),
                     for (final debt in displayedDebts)
                       Card(
+                        key: ValueKey('debt_${debt['id']}'),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
@@ -1210,12 +1886,41 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                   : AppColors.income,
                             ),
                           ),
-                          title: Text(
-                            '${debt['kind'] == 'PAYABLE' ? 'Utang' : 'Piutang'} • ${debt['counterparty']}',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${debt['kind'] == 'PAYABLE' ? 'Utang' : 'Piutang'} • ${debt['counterparty']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (_isSettled(debt))
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.incomeLight,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'LUNAS',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.income,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           subtitle: Text(
-                            'Sisa ${money(debt['outstanding'])} • jatuh tempo ${debt['due_date'] != null ? DateFormatter.calendarDate(debt['due_date']) : 'belum ditentukan'}',
+                            _isSettled(debt)
+                                ? 'Lunas • pokok ${money(debt['principal'])}'
+                                : 'Sisa ${money(debt['outstanding'])} • jatuh tempo ${debt['due_date'] != null ? DateFormatter.calendarDate(debt['due_date']) : 'belum ditentukan'}',
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -1242,25 +1947,26 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                       final outstandingMinor = obligationMinor(
                                         '${debt['outstanding']}',
                                       );
-                                      final principalVal = principalMinor
-                                          .toDouble();
-                                      final outstandingVal = outstandingMinor
-                                          .toDouble();
-                                      final paidVal =
-                                          (principalVal - outstandingVal).clamp(
-                                            0.0,
-                                            principalVal > 0
-                                                ? principalVal
-                                                : 0.0,
-                                          );
-                                      final progress = principalVal > 0
-                                          ? (paidVal / principalVal).clamp(
-                                              0.0,
-                                              1.0,
-                                            )
+                                      final paidMinor =
+                                          principalMinor > outstandingMinor
+                                          ? principalMinor - outstandingMinor
+                                          : BigInt.zero;
+                                      final progress =
+                                          principalMinor > BigInt.zero
+                                          ? ((paidMinor * BigInt.from(10000)) ~/
+                                                        principalMinor)
+                                                    .toInt()
+                                                    .clamp(0, 10000) /
+                                                10000.0
                                           : 1.0;
-                                      final percentStr = (progress * 100)
-                                          .toStringAsFixed(0);
+                                      final percentStr =
+                                          principalMinor > BigInt.zero
+                                          ? ((paidMinor * BigInt.from(100)) ~/
+                                                    principalMinor)
+                                                .toInt()
+                                                .clamp(0, 100)
+                                                .toString()
+                                          : '100';
 
                                       return Container(
                                         padding: const EdgeInsets.all(12),
@@ -1304,9 +2010,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
-                                                      'Pokok awal: ${money(debt['principal'])}',
+                                                      money(debt['principal']),
                                                       style: const TextStyle(
-                                                        fontSize: 13,
+                                                        fontSize: 13.5,
                                                         fontWeight:
                                                             FontWeight.w700,
                                                         color: AppColors
@@ -1382,8 +2088,8 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                                 children: [
                                                   Text(
                                                     debt['kind'] == 'PAYABLE'
-                                                        ? 'Terbayar: ${money(BigInt.from(paidVal.round()))}'
-                                                        : 'Diterima: ${money(BigInt.from(paidVal.round()))}',
+                                                        ? 'Terbayar: ${moneyMinor(paidMinor)}'
+                                                        : 'Diterima: ${moneyMinor(paidMinor)}',
                                                     style: const TextStyle(
                                                       fontSize: 10.5,
                                                       color: AppColors
@@ -1413,32 +2119,36 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                   // Action Buttons
                                   Row(
                                     children: [
-                                      Expanded(
-                                        child: FilledButton.icon(
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: AppColors.primary,
-                                            foregroundColor: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
+                                      if (!_isSettled(debt)) ...[
+                                        Expanded(
+                                          child: FilledButton.icon(
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.primary,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 10,
+                                                  ),
                                             ),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 10,
+                                            onPressed: () => form(debt: debt),
+                                            icon: const Icon(
+                                              Icons.payments_rounded,
+                                              size: 16,
                                             ),
-                                          ),
-                                          onPressed: () => form(debt: debt),
-                                          icon: const Icon(
-                                            Icons.payments_rounded,
-                                            size: 16,
-                                          ),
-                                          label: Text(
-                                            debt['kind'] == 'PAYABLE'
-                                                ? 'Bayar / cicil'
-                                                : 'Terima pembayaran',
+                                            label: Text(
+                                              debt['kind'] == 'PAYABLE'
+                                                  ? 'Bayar / cicil'
+                                                  : 'Terima pembayaran',
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
+                                        const SizedBox(width: 8),
+                                      ],
                                       Expanded(
                                         child: OutlinedButton.icon(
                                           style: OutlinedButton.styleFrom(
@@ -1456,7 +2166,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                             ),
                                           ),
                                           onPressed: () => confirm(
-                                            'Pinjaman lunas akan diarsipkan. Pinjaman tanpa pembayaran aktif dapat dibatalkan beserta arus kas pembukaannya. Riwayat audit tetap disimpan.',
+                                            _isSettled(debt)
+                                                ? 'Arsipkan pinjaman lunas ini dari daftar utama? Riwayat pembayaran tetap tersimpan.'
+                                                : 'Pinjaman tanpa pembayaran aktif dapat dibatalkan sekaligus mengembalikan saldo awal. Lanjutkan?',
                                             () => repo.delete(
                                               debt['id'] as String,
                                             ),
@@ -1465,8 +2177,10 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                             Icons.archive_outlined,
                                             size: 16,
                                           ),
-                                          label: const Text(
-                                            'Arsipkan / batalkan',
+                                          label: Text(
+                                            _isSettled(debt)
+                                                ? 'Arsipkan'
+                                                : 'Arsipkan / batalkan',
                                           ),
                                         ),
                                       ),
@@ -1606,7 +2320,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                         vertical: 4,
                                       ),
                                       child: Text(
-                                        'Jadwal dialokasikan dari pembayaran pokok secara berurutan; bunga/biaya dicatat saat dibayar, tanpa pembayaran otomatis.',
+                                        'Pembayaran pokok dialokasikan berurutan; bunga/biaya dicatat terpisah saat bayar.',
                                         style: TextStyle(
                                           fontSize: 11,
                                           color: AppColors.textMuted,
@@ -1722,10 +2436,9 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                                 child: Text(
                                                   event['reversed_at'] != null
                                                       ? 'DIBALIKKAN'
-                                                      : (event['operation'] ==
-                                                                'REPAY'
-                                                            ? 'PEMBAYARAN'
-                                                            : '${event['operation']}'),
+                                                      : _eventOperationLabel(
+                                                          event['operation'],
+                                                        ),
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w700,
@@ -1868,7 +2581,7 @@ class _ObligationsPageState extends State<ObligationsPage> {
                                                     ),
                                                   ),
                                                   onPressed: () => confirm(
-                                                    'Balikkan pembayaran ini? Pokok, bunga, biaya, dan saldo terkait dikembalikan secara atomik; riwayat pembayaran tetap terlihat.',
+                                                    'Batalkan pembayaran ini? Saldo dan sisa pokok akan dikembalikan, sementara riwayat koreksi tetap tercatat.',
                                                     () => repo.reverse(
                                                       debt['id'] as String,
                                                       event['id'] as String,

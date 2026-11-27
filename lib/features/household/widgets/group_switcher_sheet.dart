@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
 import '../../../app/theme/app_colors.dart';
-import '../pages/household_page.dart';
 import 'create_group_sheet.dart';
+import 'household_unavailable_view.dart';
 
 class GroupSwitcherSheet extends StatelessWidget {
   const GroupSwitcherSheet({super.key});
@@ -12,6 +12,7 @@ class GroupSwitcherSheet extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const GroupSwitcherSheet(),
     );
@@ -23,68 +24,70 @@ class GroupSwitcherSheet extends StatelessWidget {
     final households = state.households;
     final activeId = state.activeHouseholdId;
 
-    return Container(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 32),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pilih Grup Finansial',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Pilih Grup Finansial',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Kamu tergabung dalam ${households.length} grup bersama',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
+                    const SizedBox(height: 2),
+                    Text(
+                      'Kamu tergabung dalam ${households.length} grup bersama',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // List of groups
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: households.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
+            // Scrollable list of groups
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: households.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
               final group = households[index];
               final isActive = group.id == activeId;
 
@@ -227,61 +230,69 @@ class GroupSwitcherSheet extends StatelessWidget {
                 ),
               );
             },
-          ),
+            ),
+            ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Actions Row: Kelola Grup Aktif & Tambah/Gabung
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) => const HouseholdPage(),
+            // Actions Row: Kelola Grup Aktif & Tambah/Gabung
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const HouseholdUnavailableView(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.settings_outlined, size: 16),
+                    label: const Text(
+                      'Kelola Grup',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.settings_outlined, size: 16),
-                  label: const Text(
-                    'Kelola Grup',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    CreateOrJoinGroupSheet.show(context);
-                  },
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text(
-                    'Grup Baru',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      CreateOrJoinGroupSheet.show(context);
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text(
+                      'Grup Baru',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

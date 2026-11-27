@@ -6,6 +6,7 @@ import 'package:vesper_mobile/core/network/api_client.dart';
 import 'package:vesper_mobile/database/local_store.dart';
 import 'package:vesper_mobile/features/sync/data/finance_repository.dart';
 import 'package:vesper_mobile/features/transactions/models/transaction.dart';
+import 'package:vesper_mobile/features/transactions/widgets/add_transaction_modal.dart';
 import 'package:vesper_mobile/features/transactions/widgets/transaction_item_tile.dart';
 
 class _LocalClient extends ApiClient {
@@ -240,8 +241,11 @@ void main() {
       await tester.tap(find.text('Ubah'));
       await tester.pumpAndSettle();
 
-      // Edit modal should open with title "Ubah Transaksi"
+      // Edit modal should open with title "Ubah Transaksi" and locked Transfer badge
       expect(find.text('Ubah Transaksi'), findsOneWidget);
+      expect(find.text('Edit Transfer Antar Akun'), findsOneWidget);
+      expect(find.text('Pengeluaran'), findsNothing);
+      expect(find.text('Pemasukan'), findsNothing);
       expect(find.text('Simpan Perubahan'), findsOneWidget);
 
       // Update amount
@@ -263,6 +267,99 @@ void main() {
       expect(state.getAccountById('acc_1')!.balance, 65000);
       expect(state.getAccountById('acc_2')!.balance, 85000);
       expect(state.transactions.first.amount, 35000);
+    },
+  );
+
+  testWidgets(
+    'AddTransactionModal transfer with optional admin fee records atomic expense and updates balances',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final store = LocalStore(sqlite3.openInMemory());
+      final repo = FinanceRepository(_LocalClient(), store, 'user');
+      repo.atomic(() {
+        repo.entities['accounts'] = {
+          'acc_1': {
+            'id': 'acc_1',
+            'name': 'BCA',
+            'user_id': 'user',
+            'currency': 'IDR',
+            'balance': '100000.00',
+            'version': '1',
+          },
+          'acc_2': {
+            'id': 'acc_2',
+            'name': 'GoPay',
+            'user_id': 'user',
+            'currency': 'IDR',
+            'balance': '20000.00',
+            'version': '1',
+          },
+        };
+      });
+
+      final state = AppState(repository: repo)..currentUserId = 'user';
+      state.toggleOfflineMode();
+      addTearDown(state.dispose);
+      addTearDown(store.close);
+
+      await tester.pumpWidget(
+        AppStateScope(
+          state: state,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => AddTransactionModal.show(context),
+                  child: const Text('Buka Modal'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Buka Modal'));
+      await tester.pumpAndSettle();
+
+      // Switch to Transfer tab
+      await tester.tap(find.text('Transfer'));
+      await tester.pumpAndSettle();
+
+      // Enter transfer amount 50,000
+      await tester.enterText(find.byType(TextField).first, '50000');
+      await tester.pumpAndSettle();
+
+      // Tap Rp 2.500 preset chip for admin fee
+      expect(find.byKey(const ValueKey('transfer_fee_input')), findsOneWidget);
+      await tester.tap(find.widgetWithText(ActionChip, 'Rp 2.500'));
+      await tester.pumpAndSettle();
+
+      // Save transfer
+      await tester.tap(find.byKey(const ValueKey('transaction_save_button')));
+      await tester.pumpAndSettle();
+
+      // Source balance: 100,000 - 50,000 - 2,500 = 47,500
+      // Destination balance: 20,000 + 50,000 = 70,000
+      expect(state.getAccountById('acc_1')!.balance, 47500);
+      expect(state.getAccountById('acc_2')!.balance, 70000);
+
+      // 2 transfer legs + 1 expense transaction for Biaya Admin
+      expect(state.transactions, hasLength(3));
+      final feeTx = state.transactions.singleWhere(
+        (t) => t.type == TransactionType.expense,
+      );
+      expect(feeTx.amount, 2500);
+      expect(feeTx.accountId, 'acc_1');
+      expect(feeTx.categoryName, 'Biaya Admin');
+
+      // Outbox should contain transfer + category + expense transaction
+      final outboxTypes = repo.outbox.map((e) => (e as Map)['entity_type']);
+      expect(outboxTypes, containsAll(['transfers', 'categories', 'transactions']));
+      expect(tester.takeException(), isNull);
     },
   );
 }

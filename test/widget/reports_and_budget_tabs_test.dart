@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vesper_mobile/app/app_state.dart';
@@ -49,12 +50,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 1. Initial tab: Ringkasan
+      // 1. Initial tab: Ringkasan (now shows Donut Chart too)
       expect(find.text('Surplus / Neraca Periode'), findsOneWidget);
+      expect(find.byType(PieChart), findsOneWidget);
       expect(find.text('Rp 333'), findsOneWidget);
       expect(find.text('Rp 456'), findsOneWidget);
       expect(find.text('Rp 123'), findsNWidgets(2));
       expect(find.text('Rp 999'), findsNothing);
+
+      // Drill-down on category row opens bottom sheet with matching transactions
+      await tester.tap(find.text('Food').last);
+      await tester.pumpAndSettle();
+      expect(find.text('1 transaksi • Rp 123'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
 
       // 2. Tap Pengeluaran Tab by Key
       await tester.tap(find.byKey(const ValueKey('reports_tab_1')));

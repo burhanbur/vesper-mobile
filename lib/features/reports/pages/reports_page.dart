@@ -8,6 +8,7 @@ import '../../../core/utils/transaction_period.dart';
 import '../../../core/utils/app_time_zone.dart';
 import '../../../core/widgets/month_selector.dart';
 import '../../transactions/models/transaction.dart';
+import '../../transactions/widgets/transaction_item_tile.dart';
 import 'budget_page.dart';
 
 /// Reports are derived from the same durable transaction snapshot as the ledger.
@@ -115,6 +116,123 @@ class _ReportsPageState extends State<ReportsPage> {
       Color(0xFFEC4899),
     ];
     return expenseColors[index % expenseColors.length];
+  }
+
+  void _openCategoryDrillDown(
+    BuildContext context, {
+    required String categoryName,
+    required bool isIncome,
+    required List<TransactionItem> periodTransactions,
+    required Color categoryColor,
+    required IconData categoryIcon,
+    required int totalAmount,
+    required String Function(int) money,
+  }) {
+    final targetType =
+        isIncome ? TransactionType.income : TransactionType.expense;
+    final matching = periodTransactions
+        .where((tx) => tx.type == targetType && tx.categoryName == categoryName)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final title = categoryName.isEmpty ? 'Tanpa kategori' : categoryName;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: categoryColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(categoryIcon, color: categoryColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          '${matching.length} transaksi • ${money(totalAmount)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const Divider(height: 20, color: AppColors.divider),
+              if (matching.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'Tidak ada transaksi di kategori ini.',
+                      style: TextStyle(color: AppColors.textMuted),
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: matching.length,
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, color: AppColors.divider),
+                    itemBuilder: (_, i) =>
+                        TransactionItemTile(transaction: matching[i]),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -518,18 +636,28 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
           const SizedBox(height: 12),
 
-          // Donut chart — only shown on Pengeluaran / Pemasukan tabs
-          if (_selectedTab != 0 && sorted.isNotEmpty)
+          // Donut chart — shown across Ringkasan, Pengeluaran, and Pemasukan tabs
+          if (sorted.isNotEmpty)
             _DonutChart(
               sorted: sorted,
               breakdownTotal: breakdownTotal,
               isIncome: _selectedTab == 2,
-              getCategoryColor: _getCategoryColor,
+              getCategoryColor: (index, isIncome) {
+                if (index >= 0 && index < sorted.length) {
+                  final stored = state.getCategoryByName(sorted[index].key);
+                  final raw = stored == null
+                      ? null
+                      : state.repository?.row('categories', stored.id);
+                  if (stored != null && raw?['color'] != null) {
+                    return stored.color;
+                  }
+                }
+                return _getCategoryColor(index, isIncome);
+              },
               isHidden: state.isBalanceHidden,
             ),
 
-          if (_selectedTab != 0 && sorted.isNotEmpty)
-            const SizedBox(height: 12),
+          if (sorted.isNotEmpty) const SizedBox(height: 12),
 
           // Empty state or Category Breakdown Cards
           if (sorted.isEmpty)
@@ -586,85 +714,120 @@ class _ReportsPageState extends State<ReportsPage> {
                 itemBuilder: (context, index) {
                   final entry = sorted[index];
                   final isIncome = _selectedTab == 2;
-                  final categoryColor = _getCategoryColor(index, isIncome);
+                  final storedCategory = state.getCategoryByName(entry.key);
+                  final rawCategory = storedCategory == null
+                      ? null
+                      : state.repository?.row('categories', storedCategory.id);
+                  final categoryColor =
+                      storedCategory != null && rawCategory?['color'] != null
+                      ? storedCategory.color
+                      : _getCategoryColor(index, isIncome);
+                  final categoryIcon = storedCategory != null
+                      ? storedCategory.icon
+                      : _getCategoryIcon(entry.key, isIncome);
                   final pct = breakdownTotal > 0
                       ? (entry.value / breakdownTotal)
                       : 0.0;
                   final pctString = '${(pct * 100).toStringAsFixed(0)}%';
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 4,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _openCategoryDrillDown(
+                        context,
+                        categoryName: entry.key,
+                        isIncome: isIncome,
+                        periodTransactions: transactions,
+                        categoryColor: categoryColor,
+                        categoryIcon: categoryIcon,
+                        totalAmount: entry.value,
+                        money: money,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 6,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: categoryColor.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _getCategoryIcon(entry.key, isIncome),
-                                color: categoryColor,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    entry.key.isEmpty
-                                        ? 'Tanpa kategori'
-                                        : entry.key,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textPrimary,
+                            Row(
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: categoryColor.withValues(
+                                      alpha: 0.12,
                                     ),
+                                    shape: BoxShape.circle,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    pctString,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textMuted,
-                                    ),
+                                  child: Icon(
+                                    categoryIcon,
+                                    color: categoryColor,
+                                    size: 20,
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        entry.key.isEmpty
+                                            ? 'Tanpa kategori'
+                                            : entry.key,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        pctString,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  money(entry.value),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: AppColors.textMuted,
+                                ),
+                              ],
                             ),
-                            Text(
-                              money(entry.value),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: pct,
+                                backgroundColor: AppColors.surfaceVariant,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  categoryColor,
+                                ),
+                                minHeight: 5,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: pct,
-                            backgroundColor: AppColors.surfaceVariant,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              categoryColor,
-                            ),
-                            minHeight: 5,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   );
                 },

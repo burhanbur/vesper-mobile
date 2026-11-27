@@ -145,10 +145,10 @@ void main() {
     expect(repo.outbox.single['payload']['type'], 'DIVIDEND');
     expect(repo.row('accounts', cash)!['balance'], '102.01');
     expect(find.byType(OfflineInvestmentTradeForm), findsNothing);
-    expect(find.text('Dividen bersih: IDR 2.01'), findsOneWidget);
+    expect(find.text('Dividen bersih: Rp 2,01'), findsOneWidget);
     state.toggleHideBalance();
     await tester.pumpAndSettle();
-    expect(find.textContaining('IDR 2.01'), findsNothing);
+    expect(find.textContaining('Rp 2,01'), findsNothing);
     expect(find.text('Dividen bersih: ••••••'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

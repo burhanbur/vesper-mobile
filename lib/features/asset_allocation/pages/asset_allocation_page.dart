@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_state.dart';
@@ -59,21 +60,21 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
   IconData _classIcon(String? assetClass) {
     switch (assetClass) {
       case 'CASH':
-        return Icons.account_balance_wallet_outlined;
+        return Icons.account_balance_wallet_rounded;
       case 'STOCK':
         return Icons.trending_up_rounded;
       case 'MUTUAL_FUND':
-        return Icons.pie_chart_outline_rounded;
+        return Icons.pie_chart_rounded;
       case 'CRYPTO':
         return Icons.currency_bitcoin_rounded;
       case 'BOND':
         return Icons.account_balance_rounded;
       case 'GOLD':
-        return Icons.monetization_on_outlined;
+        return Icons.monetization_on_rounded;
       case 'OTHER':
-        return Icons.category_outlined;
+        return Icons.category_rounded;
       default:
-        return Icons.help_outline_rounded;
+        return Icons.help_rounded;
     }
   }
 
@@ -164,20 +165,94 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Persen aset positif IDR, total tepat 100%. Disimpan per pengguna di perangkat ini. Target adalah pilihan sendiri, bukan saran transaksi.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                                height: 1.35,
-                              ),
+                            Builder(
+                              builder: (_) {
+                                var totalBp = BigInt.zero;
+                                var hasInvalid = false;
+                                for (final kind in allocationClasses) {
+                                  final raw = fields[kind]!.text
+                                      .trim()
+                                      .replaceAll(',', '.');
+                                  if (raw.isEmpty) continue;
+                                  final match = RegExp(
+                                    r'^(\d+)(?:\.(\d{0,2}))?$',
+                                  ).firstMatch(raw);
+                                  if (match == null) {
+                                    hasInvalid = true;
+                                  } else {
+                                    final whole = BigInt.parse(match.group(1)!);
+                                    final frac = BigInt.parse(
+                                      (match.group(2) ?? '').padRight(2, '0'),
+                                    );
+                                    totalBp += whole * BigInt.from(100) + frac;
+                                  }
+                                }
+                                final exact =
+                                    !hasInvalid &&
+                                    totalBp == BigInt.from(10000);
+                                final whole = totalBp ~/ BigInt.from(100);
+                                final frac = (totalBp % BigInt.from(100))
+                                    .toString()
+                                    .padLeft(2, '0');
+                                final tone = exact
+                                    ? AppColors.income
+                                    : (hasInvalid ||
+                                          totalBp > BigInt.from(10000))
+                                    ? AppColors.expense
+                                    : AppColors.warning;
+                                return Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  margin: const EdgeInsets.only(bottom: 14),
+                                  decoration: BoxDecoration(
+                                    color: tone.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: tone.withValues(alpha: 0.28),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        exact
+                                            ? Icons.check_circle_rounded
+                                            : Icons.pie_chart_rounded,
+                                        size: 18,
+                                        color: tone,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Total target: $whole.$frac% / 100%',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: tone,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        exact ? 'Pas' : 'Harus tepat 100%',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: tone,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
-                            const SizedBox(height: 14),
                             for (final kind in allocationClasses)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: TextField(
                                   controller: fields[kind],
+                                  onChanged: (_) => update(() {}),
                                   keyboardType: const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
@@ -498,32 +573,40 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
             ],
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Total Aset Positif',
-            style: TextStyle(
+          Text(
+            complete ? 'Total Aset Positif' : 'Subtotal Aset Tervaluasi',
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: Colors.white70,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            state.isBalanceHidden
-                ? '••••••'
-                : 'Total aset positif: ${money(data.json['total_assets'])}',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -0.5,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              state.isBalanceHidden
+                  ? '••••••'
+                  : money(
+                      complete
+                          ? data.json['total_assets']
+                          : data.json['known_assets'],
+                    ),
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Tanggal ${DateFormatter.calendarDate(data.json['snapshot_date'])}; diamati ${DateFormatter.timestamp(data.json['observed_at'], timeZone: state.timeZone)}.',
+            'Per ${DateFormatter.calendarDate(data.json['snapshot_date'])} • ${DateFormatter.timestamp(data.json['observed_at'], timeZone: state.timeZone)}',
             style: TextStyle(
               fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: Colors.white.withValues(alpha: 0.72),
             ),
           ),
           const Divider(height: 20, color: Colors.white24),
@@ -531,7 +614,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
             children: [
               Expanded(
                 child: _buildMetricTile(
-                  Icons.check_circle_outline_rounded,
+                  Icons.check_circle_rounded,
                   'Subtotal Aset',
                   money(data.json['known_assets']),
                   const Color(0xFF6EE7B7),
@@ -541,7 +624,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
               const SizedBox(width: 8),
               Expanded(
                 child: _buildMetricTile(
-                  Icons.remove_circle_outline_rounded,
+                  Icons.remove_circle_rounded,
                   'Liabilitas Luar',
                   money(data.json['excluded_liabilities']),
                   const Color(0xFFFCA5A5),
@@ -551,29 +634,14 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
               const SizedBox(width: 8),
               Expanded(
                 child: _buildMetricTile(
-                  Icons.block_outlined,
-                  'Akun Dikecualikan',
-                  '${data.json['excluded_account_count']}',
+                  Icons.visibility_off_rounded,
+                  'Dikecualikan',
+                  '${data.json['excluded_account_count']} akun',
                   Colors.white70,
                   onHero: true,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Subtotal aset diketahui: ${money(data.json['known_assets'])}',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.75),
-            ),
-          ),
-          Text(
-            'Liabilitas diketahui di luar pembagi: ${money(data.json['excluded_liabilities'])}. Akun non-inklusi/induk dikecualikan: ${data.json['excluded_account_count']}.',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.75),
-            ),
           ),
         ],
       ),
@@ -706,6 +774,31 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (!hidden && activeClasses.isNotEmpty) ...[
+                SizedBox(
+                  height: 165,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 42,
+                      sections: [
+                        for (final c in activeClasses)
+                          PieChartSectionData(
+                            value:
+                                allocationMinor(
+                                  c['weight_percent'] as String,
+                                ).toDouble() /
+                                100.0,
+                            color: _classColor(c['asset_class'] as String?),
+                            radius: 34,
+                            showTitle: false,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               _buildMultiSegmentBar(data, hidden, percent),
               const SizedBox(height: 14),
               if (activeClasses.isEmpty)
@@ -905,86 +998,95 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
   }
 
   Widget _buildMethodologyCard(AllocationSnapshot data) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: const [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 16,
-                color: AppColors.textSecondary,
+    final hasStale =
+        (data.json['warnings'] as List).contains('stale_prices_provisional') ||
+        data.instruments.any((i) => i['stale'] == true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasStale)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.warningLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.warning.withValues(alpha: 0.25),
               ),
-              SizedBox(width: 8),
-              Text(
-                'Metodologi & Ruang Lingkup',
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 16,
+                  color: AppColors.warning,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Ada harga sebelum hari penilaian (USANG); nilai bersifat sementara.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            leading: const Icon(
+              Icons.info_outline_rounded,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
+            title: const Text(
+              'Cara perhitungan alokasi aset',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            children: [
+              const Text(
+                '• Menghitung aset positif IDR dari akun aktif milik sendiri yang masuk total (termasuk kas investasi).\n'
+                '• Utang/liabilitas ditampilkan terpisah dan tidak mengurangi pembagi bobot.\n'
+                '• Deviasi = bobot aktual − target pribadi (dalam poin persentase).',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
                   color: AppColors.textSecondary,
+                  height: 1.5,
                 ),
               ),
+              if (!data.complete) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  '• Sebagian aset belum memiliki valuasi lengkap sehingga bobot & deviasi ditahan.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Aset positif IDR pada akun sendiri yang disertakan dalam total. Kas investasi dihitung sebagai kas; induk, akun yang tidak disertakan dan aset non-IDR dikecualikan. Utang tidak mengurangi pembagi alokasi.',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.textMuted,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Bobot = nilai kelas/instrumen ÷ total aset positif × 100%. Dipotong dua desimal; total tampilan dapat kurang dari 100%. Ini bukan pembagian kekayaan bersih.',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.textMuted,
-              height: 1.35,
-            ),
-          ),
-          if (!data.complete) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Ada nilai atau klasifikasi yang belum diketahui. Subtotal diketahui tidak dianggap keseluruhan aset; nilai hilang bukan nol.',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.warning,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-          if ((data.json['warnings'] as List).contains(
-                'stale_prices_provisional',
-              ) ||
-              data.instruments.any((i) => i['stale'] == true)) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Ada harga sebelum hari penilaian (USANG). Nilai, konsentrasi dan deviasi masih sementara; periksa tanggal/sumber harga.',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.warning,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-          if (data.total == BigInt.zero) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Belum ada aset positif; bobot dan konsentrasi tidak tersedia.',
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-            ),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1174,11 +1276,6 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                 ],
               ),
             ),
-            const SizedBox(height: 2),
-            const Text(
-              'Deviasi = bobot tampilan − target. Positif berarti di atas target pilihan sendiri; negatif berarti di bawah.',
-              style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
-            ),
           ],
         ],
       ),
@@ -1243,7 +1340,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
           ],
         ),
         const SizedBox(height: 12),
-        if (targets == null)
+        if (targets == null) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -1252,23 +1349,12 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
               border: Border.all(color: AppColors.borderSubtle),
             ),
             child: const Text(
-              'Belum ada target. Masukkan persentase pilihan sendiri untuk membandingkan deviasi.',
-              style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              'Deviasi = bobot tampilan − target. Positif berarti di atas target pilihan sendiri; negatif berarti di bawah.',
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+              'Belum ada target alokasi. Ketuk "Atur target alokasi" untuk menambahkan.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         for (final row in data.classes)
           _buildClassCard(row, data, repo, targets, hidden, money, percent),
       ],
@@ -1443,15 +1529,6 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
       padding: const EdgeInsets.all(16),
       children: [
         _buildConcentrationSummaryCard(data, positiveInstruments, percent),
-        const SizedBox(height: 8),
-        const Text(
-          'Instrumen yang sama digabung lintas akun. Porsi terhadap seluruh aset positif, termasuk kas dan piutang; bukan hanya portofolio investasi. Tidak ada ambang aman atau eksekusi transaksi otomatis.',
-          style: TextStyle(
-            fontSize: 11,
-            color: AppColors.textMuted,
-            height: 1.35,
-          ),
-        ),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -1722,6 +1799,16 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
         ),
         actions: [
           IconButton(
+            tooltip: hidden ? 'Tampilkan nominal' : 'Sembunyikan nominal',
+            icon: Icon(
+              hidden
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: state.toggleHideBalance,
+          ),
+          IconButton(
             tooltip: 'Atur target alokasi',
             icon: const Icon(Icons.tune_rounded, color: AppColors.textPrimary),
             onPressed: configure,
@@ -1734,7 +1821,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
             ),
             onPressed: active.loading ? null : active.refresh,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -1776,7 +1863,7 @@ class _AssetAllocationPageState extends State<AssetAllocationPage>
                   ),
                 ),
                 child: const Text(
-                  'Ada perubahan lokal yang belum tersinkron. Angka server/cache belum mencerminkan perubahan tersebut; tidak ditambah delta lokal.',
+                  'Ada perubahan lokal yang belum tersinkron; tampilan memakai data server/cache terakhir.',
                   style: TextStyle(
                     color: AppColors.warning,
                     fontSize: 12,

@@ -70,13 +70,14 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('9.007.199.254.740.993.01'), findsOneWidget);
+      expect(find.textContaining('IDR '), findsNothing);
       await tester.scrollUntilVisible(find.text('old'), 200);
       expect(find.textContaining('USANG'), findsOneWidget);
-      expect(find.text('12.34'), findsOneWidget);
+      expect(find.text('Rp 12.34'), findsOneWidget);
       state.toggleHideBalance();
       await tester.pumpAndSettle();
       expect(find.textContaining('9.007.199.254.740.993.01'), findsNothing);
-      expect(find.text('12.34'), findsNothing);
+      expect(find.text('Rp 12.34'), findsNothing);
       await tester.scrollUntilVisible(
         find.textContaining('Subtotal diketahui:'),
         -200,
@@ -196,6 +197,32 @@ void main() {
       await tester.tap(find.text('Muat penilaian'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Subtotal diketahui:'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'holdings display local instrument code and name instead of raw instrumentId',
+    (tester) async {
+      final state = await mount(tester, snapshot());
+      state.repository!.atomic(() {
+        state.repository!.entities['instruments'] = {
+          'old': {
+            'id': 'old',
+            'code': 'BBCA',
+            'name': 'Bank Central Asia',
+            'type': 'STOCK',
+            'currency': 'IDR',
+            'version': '1',
+          },
+        };
+      });
+      await tester.tap(find.text('Muat penilaian'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('BBCA'), 200);
+      expect(find.text('BBCA'), findsOneWidget);
+      expect(find.text('Bank Central Asia'), findsOneWidget);
+      expect(find.text('old'), findsNothing);
+      expect(tester.takeException(), isNull);
     },
   );
 }
